@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="DIJI">
+  <rect width="512" height="512" rx="112" fill="#101827"/>
+  <rect x="62" y="62" width="388" height="388" rx="88" fill="#14283a" stroke="#72c7cd" stroke-width="10"/>
+  <path d="M156 144h112c76 0 124 45 124 112s-48 112-124 112H156V144Zm74 61v102h31c35 0 57-20 57-51s-22-51-57-51h-31Z" fill="#e2fbff"/>
+  <path d="M154 397h204" fill="none" stroke="#72c7cd" stroke-width="12" stroke-linecap="round"/>
+</svg>

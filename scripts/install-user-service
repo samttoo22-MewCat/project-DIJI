@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+project_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+unit_dir="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
+
+command -v systemctl >/dev/null 2>&1 || {
+  echo "找不到 systemctl；請以 python3 ui_server.py 手動啟動。" >&2
+  exit 1
+}
+
+mkdir -p "$unit_dir"
+install -m 0644 "$project_root/deploy/diji-ui.service" "$unit_dir/diji-ui.service"
+systemctl --user daemon-reload
+systemctl --user enable --now diji-ui.service
+systemctl --user --no-pager --full status diji-ui.service

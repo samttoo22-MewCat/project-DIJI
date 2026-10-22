@@ -1,0 +1,32 @@
+#!/bin/sh
+set -eu
+
+base_url=${DIJI_URL:-http://127.0.0.1:8080}
+python3 - "$base_url" <<'PY'
+import json
+import sys
+import time
+from urllib.error import URLError
+from urllib.request import urlopen
+
+base_url = sys.argv[1].rstrip("/")
+def read_when_ready(path: str) -> bytes:
+    deadline = time.monotonic() + 10
+    while True:
+        try:
+            with urlopen(base_url + path, timeout=2) as response:
+                return response.read()
+        except URLError:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.5)
+
+
+for path in ("/", "/api/bootstrap", "/api/characters", "/api/jailbreaks"):
+    body = read_when_ready(path)
+    if path == "/":
+        assert b'id="model-input"' in body, "聊天模型選單不存在"
+    else:
+        json.loads(body)
+    print(f"ok {path}")
+PY

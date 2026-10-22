@@ -1,0 +1,15 @@
+[Unit]
+Description=DIJI local role-play workbench
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/project-DIJI
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=%h/project-DIJI/.env
+ExecStart=%h/project-DIJI/.venv/bin/python ui_server.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target

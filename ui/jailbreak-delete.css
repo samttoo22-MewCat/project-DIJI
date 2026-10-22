@@ -1,0 +1,1 @@
+.danger-button{min-height:38px;border:1px solid #704853;border-radius:8px;background:#2a1a22;color:#efc5c9;padding:0 12px;font-size:12px;cursor:pointer}.danger-button:hover{border-color:#a86a75;background:#3a202a}.danger-button:focus-visible{outline:0;box-shadow:0 0 0 3px rgba(219,134,146,.2)}.danger-button:disabled{cursor:not-allowed;opacity:.6}

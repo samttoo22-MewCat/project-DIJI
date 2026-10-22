@@ -1,0 +1,25 @@
+.account-access { position: fixed; z-index: 95; top: 20px; right: 24px; display: flex; min-height: 44px; gap: 8px; align-items: center; }
+.account-login, .account-logout { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; padding: 9px 14px; border: 1px solid #486b7f; border-radius: 12px; color: #e4f8fa; background: rgba(16, 31, 47, .92); box-shadow: 0 8px 24px rgba(0, 0, 0, .22); font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; backdrop-filter: blur(14px); }
+.account-login[hidden], .account-logout[hidden] { display: none; }
+.account-login svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 1.8; }
+.account-login:hover, .account-logout:hover { border-color: #8ddde1; background: #1a3b4f; }
+.account-login:focus-visible, .account-logout:focus-visible, .google-login-button:focus-visible, .google-login-close:focus-visible { outline: 3px solid #9ce5e8; outline-offset: 3px; }
+.google-login-dialog { width: min(440px, calc(100vw - 32px)); margin: auto; padding: 0; border: 1px solid #42677c; border-radius: 20px; color: #e5f2fb; background: #101d2c; box-shadow: 0 24px 72px rgba(0, 0, 0, .58); }
+.google-login-dialog::backdrop { background: rgba(2, 8, 15, .76); backdrop-filter: blur(3px); }
+.google-login-dialog > section { position: relative; padding: 30px; }
+.google-login-dialog h2 { margin: 7px 42px 12px 0; font-size: clamp(22px, 5vw, 28px); line-height: 1.25; }
+.google-login-dialog p:not(.eyebrow) { color: #c4d6e4; font-size: 16px; line-height: 1.68; }
+.google-login-button { display: flex; width: 100%; min-height: 48px; align-items: center; justify-content: center; gap: 11px; margin-top: 20px; border: 1px solid #7591a6; border-radius: 12px; color: #192839; background: #fff; font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; }
+.google-login-button:hover { background: #eff8fa; }
+.google-login-button:disabled { cursor: wait; opacity: .72; }
+.google-login-mark { display: inline-grid; width: 22px; height: 22px; place-items: center; border-radius: 50%; color: #fff; background: #4285f4; font: 700 15px/1 Arial, sans-serif; }
+.google-login-status { min-height: 27px; margin: 12px 0 0; color: #a8c8d9 !important; }
+.google-login-close { position: absolute; top: 18px; right: 18px; display: inline-grid; width: 44px; height: 44px; place-items: center; border: 1px solid #42677c; border-radius: 12px; color: #d7fbff; background: #16293a; cursor: pointer; }
+.google-login-close svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 2; }
+@media (max-width: 760px) {
+  .account-access { top: max(8px, env(safe-area-inset-top)); right: 12px; }
+  .account-login { min-height: 40px; padding: 8px 11px; font-size: 15px; }
+  .account-logout { min-height: 40px; padding: 8px 11px; font-size: 14px; }
+  .google-login-dialog > section { padding: 26px 22px calc(26px + env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: reduce) { .account-login, .account-logout { transition: none; } }

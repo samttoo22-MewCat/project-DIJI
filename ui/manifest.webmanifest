@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "DIJI — 角色互動工作台",
+  "short_name": "DIJI",
+  "description": "非商業、可自架的角色互動工作台。",
+  "lang": "zh-Hant",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#101827",
+  "theme_color": "#101827",
+  "icons": [
+    {
+      "src": "/icons/diji-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/diji-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

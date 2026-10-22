@@ -1,0 +1,42 @@
+.pwa-install {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 16px;
+  border: 1px solid #6faeb6;
+  border-radius: 12px;
+  color: #d7fbff;
+  background: #183244;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.35;
+  cursor: pointer;
+  transition: background .18s ease, border-color .18s ease, color .18s ease;
+}
+.pwa-install[hidden] { display: none; }
+.pwa-install:hover { border-color: #9ce5e8; background: #21485b; }
+.pwa-install:disabled { cursor: wait; opacity: .72; }
+.pwa-install:focus-visible, .pwa-guide-close:focus-visible { outline: 3px solid #9ce5e8; outline-offset: 3px; }
+.auth-card .pwa-install { width: 100%; margin-top: 10px; }
+.home-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.home-actions .home-start { margin: 0; }
+.home-install { background: rgba(24, 50, 68, .72); }
+.pwa-install-guide { width: min(470px, calc(100vw - 32px)); margin: auto; padding: 0; border: 1px solid #42677c; border-radius: 20px; color: #e5f2fb; background: #101d2c; box-shadow: 0 24px 72px rgba(0, 0, 0, .58); }
+.pwa-install-guide::backdrop { background: rgba(2, 8, 15, .76); backdrop-filter: blur(3px); }
+.pwa-install-guide > section { position: relative; padding: 30px; }
+.pwa-install-guide h2 { margin: 7px 40px 12px 0; font-size: clamp(22px, 5vw, 28px); line-height: 1.25; }
+.pwa-install-guide p { color: #c4d6e4; font-size: 16px; line-height: 1.68; }
+.pwa-install-guide ol { margin: 18px 0; padding-left: 24px; color: #e5f2fb; font-size: 16px; line-height: 1.75; }
+.pwa-install-guide li + li { margin-top: 7px; }
+.pwa-guide-note { padding-top: 14px; border-top: 1px solid #314b60; color: #9eb7c9 !important; }
+.pwa-guide-close { position: absolute; top: 18px; right: 18px; display: inline-grid; width: 44px; height: 44px; place-items: center; border: 1px solid #42677c; border-radius: 12px; color: #d7fbff; background: #16293a; cursor: pointer; }
+.pwa-guide-close:hover { background: #21485b; }
+.pwa-guide-close svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 2; }
+@media (max-width: 760px) {
+  .home-actions { align-items: stretch; }
+  .home-actions .home-start, .home-actions .pwa-install { width: 100%; min-height: 48px; }
+  .pwa-install-guide > section { padding: 26px 22px calc(26px + env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: reduce) { .pwa-install { transition: none; } }
