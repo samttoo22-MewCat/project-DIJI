@@ -115,3 +115,7 @@ ssh -N -L 127.0.0.1:8080:127.0.0.1:8080 user@your-host
 - [遷移地圖](docs/migration-map.md)
 - [本機資料介面](docs/local-first.md)
 - [ai-server 行為對照](docs/ai-server-parity-audit.md)
+
+## License
+
+[MIT License](LICENSE) © 2026 張芮綾（MewCat）。允許商用、修改、散布與再授權；所有副本或實質部分都必須保留此姓名標示與 MIT 授權文字。
