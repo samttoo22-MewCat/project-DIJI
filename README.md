@@ -53,18 +53,13 @@ cp .env.example .env
 
 ## 設定
 
-只在 `.env` 設定目前部署模式需要的變數。
+本機使用只需在 `.env` 設定模型 provider key。
 
 | 變數 | 用途 |
 | --- | --- |
 | `OPENROUTER_API_KEY` | 啟用模型 provider 請求 |
-| `DIJI_AUTH_REQUIRED` | 啟用公開部署的帳號驗證 |
-| `DIJI_GOOGLE_CLIENT_ID` | Google OAuth 用戶端識別 |
-| `DIJI_GOOGLE_CLIENT_SECRET` | Google OAuth 用戶端密鑰 |
-| `DIJI_GOOGLE_OAUTH_CALLBACK_URL` | Google OAuth 公開回呼網址 |
-| `DIJI_CREDENTIAL_ENCRYPTION_KEY` | 加密帳號保存的 provider 憑證 |
 
-不得提交 `.env`、`runtime/`、OAuth 憑證、provider key 或 tunnel token。
+不得提交 `.env`、`runtime/` 或 provider key。
 
 ## 本機執行
 
@@ -95,9 +90,9 @@ pytest -q
 ./scripts/diji-healthcheck
 ```
 
-## 部署
+## 本機常駐執行
 
-使用隨附的使用者層級 systemd service 讓服務持續執行：
+使用隨附的使用者層級 systemd service 讓本機 UI 持續執行：
 
 ```bash
 ./scripts/install-user-service
@@ -105,7 +100,7 @@ systemctl --user restart diji-ui.service
 ./scripts/diji-healthcheck
 ```
 
-服務應維持 loopback-only。公開存取應透過已驗證的反向代理或 tunnel。只透過 SSH 使用遠端服務時：
+服務維持 loopback-only。若服務位於另一台自己的主機，可用 SSH tunnel 在本機瀏覽器開啟 UI：
 
 ```bash
 ssh -N -L 127.0.0.1:8080:127.0.0.1:8080 user@your-host

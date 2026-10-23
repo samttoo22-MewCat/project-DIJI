@@ -131,3 +131,8 @@ python -m compileall -q src
 pytest -q
 ./scripts/diji-healthcheck
 ```
+
+## 2026-10-24 本機模式
+
+- 目前不提供公開網站。`diji-ui.service` 保持啟用且只監聽 `127.0.0.1:8080`；`diji-cloudflared.service` 必須停用並停止。未經使用者明確要求，不得重新啟用 Tunnel、公開路由或任何外網入口。
+- README 僅說明本機 UI 的安裝、啟動、SSH tunnel 與測試；Google OAuth、公開帳號、公開網域與公開部署資訊不應寫入 README。
