@@ -7,7 +7,7 @@ from typing import Protocol
 
 from ..domain import InteractionRequest, InteractionResponse
 from ..experiments import ExperimentStore, JailbreakStore, PromptExperiment
-from ..experiments.models import DEFAULT_DIALOG_STYLE, DEFAULT_STORY_STYLE
+from ..experiments.models import DEFAULT_DIALOG_STYLE, DEFAULT_NSFW_WRITING_RULES, DEFAULT_STORY_STYLE
 from ..memory_extraction import MemoryExtractor
 from ..memory_store import LocalMemoryStore, MemoryRecord
 from ..model_adapter import ModelAdapter
@@ -85,11 +85,15 @@ class InteractionService:
     def _base_prompt(self, request: InteractionRequest, experiment: PromptExperiment) -> str:
         character, persona = request.character, request.user.persona
         is_story = persona.chat_mode != "dialog"
-        style = request.style_prompt or (experiment.story_style if is_story else experiment.dialog_style) or (DEFAULT_STORY_STYLE if is_story else DEFAULT_DIALOG_STYLE)
+        default_style = DEFAULT_STORY_STYLE if is_story else DEFAULT_DIALOG_STYLE
+        custom_style = request.style_prompt or (experiment.story_style if is_story else experiment.dialog_style)
+        style = f"{default_style}\n{custom_style}" if custom_style else default_style
         jailbreak = self._jailbreak(experiment) if request.is_nsfw else ""
+        nsfw_rules = DEFAULT_NSFW_WRITING_RULES if request.is_nsfw else ""
         samples = "\n".join(f"{item.sender_type}: {item.text}" for item in character.sample_dialog)
         return f"""{jailbreak}
 {style}
+{nsfw_rules}
 <user>全程使用中文回覆。
 你是{character.name}，以下是你的資訊：
 {character.description}

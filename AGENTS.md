@@ -25,7 +25,7 @@
 - `memory_extraction`：互動回合後以 ai-server 相容的抽取提示、OpenRouter adapter、`deepseek/deepseek-v4.1-flash` 與 JSON 輸出設定產生事件記憶；若供應商未回傳可解析 JSON，互動層必須保存同一回合的結構相容回退事件，不能讓成功對話留下空記憶。
 - `model_adapter`：保留 ai-server 的 OpenRouter/Skylark、DIGI vLLM、ORPO `/api/generate` 三種路由，未設定金鑰時須在發送前失敗。
 - `relationship` 與 `favorability_judge`：保存 ai-server 的五階段好感度門檻、四維分數、深度乘數、致命失誤扣分、關鍵事件晉級規則與 OpenRouter 零分回退。
-- `interaction` 的 story 與 dialog 不可共用預設 style：story 必須有小說體、換行與預設 300～700 字規則；dialog 必須有短訊息藝術家與約 50 字規則。兩者都先套用共通格式規則。
+- `interaction` 的 story 與 dialog 不可共用預設 style：story 必須有小說體、換行與預設 300～700 字規則；dialog 必須有短訊息藝術家與約 50 字規則。兩者都先套用共通格式規則；成人互動再同時注入 `DEFAULT_NSFW_WRITING_RULES` 與模型對應、已核准越獄，任何一層都不得以另一層取代。自訂 `style_prompt` 與實驗風格只能追加，不得覆蓋必要規則層。
 - `relationship` 的 prompt 注入不是原始 JSON dump：必須保存角色專屬階段設定、輸出當前階段的語氣／邊界／情緒／profile，並在低好感成人互動時加入防禦層。
 - `InteractionRequest.enable_favorability` 預設為 `true`；UI 的「啟用好感度系統」關閉時，不得注入 `<FAVORABILITY>`／`<DEFENSE>`、呼叫 judge、更新關係狀態或 profile。
 - `runtime`：本機產生的記憶、關係狀態、實驗設定、日誌與輸出；不得提交。
@@ -136,3 +136,8 @@ pytest -q
 
 - 目前不提供公開網站。`diji-ui.service` 保持啟用且只監聽 `127.0.0.1:8080`；`diji-cloudflared.service` 必須停用並停止。未經使用者明確要求，不得重新啟用 Tunnel、公開路由或任何外網入口。
 - README 僅說明本機 UI 的安裝、啟動、SSH tunnel 與測試；Google OAuth、公開帳號、公開網域與公開部署資訊不應寫入 README。
+
+## 公開政策文件
+
+- `docs/privacy-policy.md` 與 `docs/usage-notice.md` 是公開服務前的繁中草案。變更帳號、保存位置、資料類型、模型供應商、資料用途或公開營運方式時，必須一併更新；不可把尚未實作的刪除、加密、備份、審核或資料不蒐集承諾寫成既有事實。
+- BazaarLink 與 OpenRouter 的 OAuth 連結是預計的「使用者自備額度」功能，不是 DIJI 登入。實作時使用 PKCE、只在伺服器端受保護地保存供應商憑證、不得以共用 provider key 靜默回退、不得將憑證回傳前端或寫入日誌；中斷連結、撤銷授權與帳號刪除時必須清除保存的憑證。上線前同步把實作狀態與資料流更新到兩份政策文件。

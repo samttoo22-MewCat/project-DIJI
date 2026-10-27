@@ -7,7 +7,7 @@
 | 原始層 | DIJI 實作 | 驗證 |
 | --- | --- | --- |
 | story / dialog 分流 | `interaction/service.py` 依 `chat_mode` 選 `DEFAULT_STORY_STYLE` 或 `DEFAULT_DIALOG_STYLE` | `test_story_and_dialog_keep_separate_ai_server_format_rules` |
-| 共通格式、小說體／短訊息規則 | `experiments/models.py` 的 `DEFAULT_COMMON_WRITING_RULES`、`DEFAULT_STORY_STYLE`、`DEFAULT_DIALOG_STYLE` | 同上 |
+| 共通格式、小說體／短訊息與成人寫作規則 | `experiments/models.py` 的 `DEFAULT_COMMON_WRITING_RULES`、`DEFAULT_STORY_STYLE`、`DEFAULT_DIALOG_STYLE`、`DEFAULT_NSFW_WRITING_RULES`；成人請求同時注入選定模式與成人規則 | `test_story_and_dialog_keep_separate_ai_server_format_rules`、`test_adult_turn_injects_nsfw_rules_alongside_the_selected_chat_mode` |
 | OC 建立、風格指南、完整角色 prompt | `character_generation/service.py` 的四段生成流程 | `test_character_pipeline_keeps_the_ai_server_creator_stages` |
 | 角色、使用者、場景、範例對話組裝 | `interaction/service.py::_base_prompt` | `test_interaction_turn_matches_the_architecture_and_persists_outputs` |
 | 好感度啟用、階段狀態、角色專屬設定、profile、低分防禦 | `relationship.py`、`user_profile.py`、`interaction/service.py::_favorability_guidance` | `test_favorability_keeps_stage_config_and_low_score_defense` |

@@ -170,6 +170,30 @@ def test_story_and_dialog_keep_separate_ai_server_format_rules(tmp_path):
     assert "<COMMON_RULES>" in story and "<COMMON_RULES>" in dialog
 
 
+def test_adult_turn_injects_nsfw_rules_alongside_the_selected_chat_mode(tmp_path):
+    service = InteractionService(
+        FakeAdapter(), LocalMemoryStore(tmp_path / "memories"), FakeExtractor(), RelationshipStore(tmp_path / "relationships"), ExperimentStore(tmp_path / "experiments.json")
+    )
+
+    story = service.build_messages(request(is_nsfw=True), datetime(2026, 1, 2, tzinfo=timezone.utc))[0]["content"]
+    dialog_request = request(is_nsfw=True, user=InteractionUser(id="test-user", persona=UserPersona(name="使用者", description="使用者描述", chat_mode="dialog")))
+    dialog = service.build_messages(dialog_request, datetime(2026, 1, 2, tzinfo=timezone.utc))[0]["content"]
+
+    assert "<NSFW_RULES>" in story and "<STORY_MODE>" in story
+    assert "<NSFW_RULES>" in dialog and "<DIALOG_MODE>" in dialog
+
+
+def test_custom_style_supplements_instead_of_replacing_required_writing_rules(tmp_path):
+    service = InteractionService(
+        FakeAdapter(), LocalMemoryStore(tmp_path / "memories"), FakeExtractor(), RelationshipStore(tmp_path / "relationships"), ExperimentStore(tmp_path / "experiments.json")
+    )
+
+    prompt = service.build_messages(request(style_prompt="<CUSTOM_STYLE>角色特別規則</CUSTOM_STYLE>"), datetime(2026, 1, 2, tzinfo=timezone.utc))[0]["content"]
+
+    assert "<COMMON_RULES>" in prompt and "<STORY_MODE>" in prompt
+    assert "<CUSTOM_STYLE>角色特別規則</CUSTOM_STYLE>" in prompt
+
+
 def test_favorability_keeps_stage_config_and_low_score_defense(tmp_path):
     character = InteractionCharacter(
         id="test-character", name="測試", description="角色描述",
