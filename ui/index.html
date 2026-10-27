@@ -32,6 +32,7 @@
     <link rel="stylesheet" href="responsive.css?v=20261021-memory-backfill-1" />
     <link rel="stylesheet" href="pwa.css?v=20261021-pwa-2" />
     <link rel="stylesheet" href="account-access.css?v=20261021-google-login-2" />
+    <link rel="stylesheet" href="age-confirmation.css?v=20261028-age-gate-1" />
   </head>
   <body>
     <header class="account-access" aria-label="帳號操作">
@@ -575,7 +576,25 @@
         <p class="pwa-guide-note">對話、記憶與帳號資料仍保存在伺服器；離線時只能開啟介面，不能登入或傳送對話。</p>
       </section>
     </dialog>
+    <dialog class="age-confirmation" id="age-confirmation" aria-labelledby="age-confirmation-title" aria-describedby="age-confirmation-description">
+      <section>
+        <p class="eyebrow">內容分級</p>
+        <h2 id="age-confirmation-title">確認你的年齡</h2>
+        <p id="age-confirmation-description">DIJI 可包含成人虛構角色互動。請先確認你已年滿 18 歲，再繼續使用。</p>
+        <label class="age-confirmation-check">
+          <input id="age-confirmation-accepted" type="checkbox" />
+          <span>我確認已滿 18 歲</span>
+        </label>
+        <label class="age-confirmation-check age-confirmation-remember">
+          <input id="age-confirmation-remember" type="checkbox" />
+          <span>在此裝置記住一年</span>
+        </label>
+        <button class="primary-button age-confirmation-submit" id="age-confirmation-submit" type="button" disabled>繼續使用 DIJI</button>
+        <p class="age-confirmation-note">未勾選記住設定時，本次頁面結束後會再次詢問。</p>
+      </section>
+    </dialog>
     <div class="toast" id="toast" role="status"></div>
+    <script src="age-confirmation.js?v=20261028-age-gate-1"></script>
     <script src="app.js?v=20261027-google-login-redirect-1"></script>
     <script src="jailbreak-studio.js?v=20261011-model-jailbreak-1"></script>
     <script src="character-creator.js?v=20261020-hide-import-labels-1"></script>

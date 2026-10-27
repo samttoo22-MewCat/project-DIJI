@@ -143,6 +143,10 @@ pytest -q
 - AWS 主機上的 `diji-ui.service` 維持只綁定 `127.0.0.1:8080`。公開 HTTPS 由使用者層 `diji-cloudflared.service` 提供，unit 來源為 `deploy/diji-cloudflared.service`；它使用 `~/.local/bin/cloudflared` 與 `~/.config/diji/cloudflared.token`。token 檔必須維持 `0600`、父目錄 `0700`，不得輸出、提交或複製到本機。
 - `diji.mewcat.me` 經 Cloudflare Tunnel 轉送到 loopback；每次修改公開部署後，先驗證 user service 為 `active`，再以 `https://diji.mewcat.me/api/auth/session` 回傳 DIJI JSON 作為公開讀回。Google OAuth 的 callback 必須維持相同公開 HTTPS 網域，並確認 `/api/auth/google/start` 導向 Google 而不是回 `503`。
 
+## 年齡確認
+
+- 公開頁面在載入後先以 `ui/age-confirmation.js` 顯示原生 18+ 確認視窗；使用者必須勾選「我確認已滿 18 歲」才能關閉。只有自行勾選「在此裝置記住一年」時，才可寫入 `diji_age_confirmed=1` Cookie（`Path=/`、`SameSite=Lax`，HTTPS 時另加 `Secure`）。不得儲存生日、帳號識別碼或任何年齡以外資料；未勾記住時重新載入必須再次確認。
+
 ## 公開政策文件
 
 - `docs/privacy-policy.md` 與 `docs/usage-notice.md` 是公開服務前的繁中草案。變更帳號、保存位置、資料類型、模型供應商、資料用途或公開營運方式時，必須一併更新；不可把尚未實作的刪除、加密、備份、審核或資料不蒐集承諾寫成既有事實。

@@ -6,7 +6,7 @@ ROOT = Path(__file__).parents[1]
 
 
 def test_local_ui_has_the_required_assets() -> None:
-    for path in ("ui/index.html", "ui/styles.css", "ui/responsive.css", "ui/home.css", "ui/pwa.css", "ui/pwa.js", "ui/service-worker.js", "ui/manifest.webmanifest", "ui/icons/diji-icon.svg", "ui/icons/diji-180.png", "ui/icons/diji-192.png", "ui/icons/diji-512.png", "ui/live-interaction.css", "ui/role-picker.css", "ui/conversation-history.css", "ui/settings.css", "ui/account-access.css", "ui/jailbreak-catalog.css", "ui/jailbreak-studio.css", "ui/jailbreak-studio-overrides.css", "ui/jailbreak-delete.css", "ui/character-import.css", "ui/jailbreak-studio.js", "ui/app.js", "ui_server.py", "deploy/diji-ui.service", "scripts/install-user-service", "scripts/diji-healthcheck"):
+    for path in ("ui/index.html", "ui/styles.css", "ui/responsive.css", "ui/home.css", "ui/pwa.css", "ui/pwa.js", "ui/service-worker.js", "ui/manifest.webmanifest", "ui/icons/diji-icon.svg", "ui/icons/diji-180.png", "ui/icons/diji-192.png", "ui/icons/diji-512.png", "ui/live-interaction.css", "ui/role-picker.css", "ui/conversation-history.css", "ui/settings.css", "ui/account-access.css", "ui/age-confirmation.css", "ui/age-confirmation.js", "ui/jailbreak-catalog.css", "ui/jailbreak-studio.css", "ui/jailbreak-studio-overrides.css", "ui/jailbreak-delete.css", "ui/character-import.css", "ui/jailbreak-studio.js", "ui/app.js", "ui_server.py", "deploy/diji-ui.service", "scripts/install-user-service", "scripts/diji-healthcheck"):
         assert (ROOT / path).is_file()
 
 
@@ -83,6 +83,54 @@ def test_ui_is_explicitly_local_only() -> None:
     source = (ROOT / "ui_server.py").read_text()
     assert "127.0.0.1" in source
     assert "openai" not in source.lower()
+
+
+def test_age_confirmation_uses_an_optional_secure_cookie_and_requires_acceptance() -> None:
+    markup = (ROOT / "ui/index.html").read_text()
+    stylesheet = (ROOT / "ui/age-confirmation.css").read_text()
+    script = (ROOT / "ui/age-confirmation.js").read_text()
+
+    assert 'id="age-confirmation"' in markup
+    assert 'id="age-confirmation-accepted"' in markup
+    assert 'id="age-confirmation-remember"' in markup
+    assert 'id="age-confirmation-submit"' in markup
+    assert 'age-confirmation.js?v=20261028-age-gate-1' in markup
+    assert "AGE_COOKIE_NAME = \"diji_age_confirmed\"" in script
+    assert "Max-Age=${AGE_COOKIE_MAX_AGE}; Path=/; SameSite=Lax${secure}" in script
+    assert 'window.location.protocol === "https:"' in script
+    assert "ageSubmit.disabled = !ageAccepted.checked" in script
+    assert "ageDialog.showModal()" in script
+    assert 'ageDialog.addEventListener("cancel"' in script
+    assert "age-confirmation::backdrop" in stylesheet
+    assert "min-height: 48px" in stylesheet
+
+    harness = r'''
+const fs = require("fs");
+const vm = require("vm");
+const listeners = {};
+const dialog = { open: false, showModal() { this.open = true; }, close() { this.open = false; }, addEventListener(name, callback) { listeners.cancel = callback; } };
+const accepted = { checked: false, addEventListener(name, callback) { listeners.accept = callback; } };
+const remember = { checked: true };
+const submit = { disabled: true, addEventListener(name, callback) { listeners.submit = callback; } };
+let cookie = "";
+const document = {
+  get cookie() { return cookie; },
+  set cookie(value) { cookie = value; },
+  querySelector(selector) {
+    return { "#age-confirmation": dialog, "#age-confirmation-accepted": accepted, "#age-confirmation-remember": remember, "#age-confirmation-submit": submit }[selector] || null;
+  },
+};
+const window = { location: { protocol: "https:" } };
+vm.runInNewContext(fs.readFileSync("ui/age-confirmation.js", "utf8"), { document, window });
+if (!dialog.open || !submit.disabled) throw new Error("age gate should block until acceptance");
+accepted.checked = true;
+listeners.accept();
+if (submit.disabled) throw new Error("accepted age should enable submit");
+listeners.submit();
+if (dialog.open || !cookie.includes("diji_age_confirmed=1") || !cookie.includes("Secure")) throw new Error("remembered confirmation was not persisted safely");
+'''
+    result = subprocess.run(["node", "-e", harness], cwd=ROOT, text=True, capture_output=True)
+    assert result.returncode == 0, result.stderr
 
 
 def test_mobile_forms_keep_a_touch_safe_font_size() -> None:

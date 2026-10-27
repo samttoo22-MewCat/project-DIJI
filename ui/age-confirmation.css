@@ -1,0 +1,28 @@
+.age-confirmation {
+  width: min(440px, calc(100vw - 32px));
+  border: 1px solid #426272;
+  border-radius: 16px;
+  background: #111d2b;
+  color: var(--ink);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.52);
+  padding: 0;
+}
+
+.age-confirmation::backdrop { background: rgba(5, 11, 20, 0.76); backdrop-filter: blur(4px); }
+.age-confirmation section { padding: clamp(24px, 6vw, 34px); }
+.age-confirmation h2 { margin: 0; font-size: clamp(25px, 6vw, 31px); letter-spacing: -0.03em; }
+.age-confirmation p { color: #c2d0dc; font-size: 16px; line-height: 1.72; }
+.age-confirmation .eyebrow { margin: 0 0 8px; }
+.age-confirmation-check { display: flex; align-items: center; gap: 12px; min-height: 48px; margin-top: 17px; color: #e7f0f5; font-size: 17px; font-weight: 600; cursor: pointer; }
+.age-confirmation-check input { width: 22px; height: 22px; accent-color: #87c8ce; }
+.age-confirmation-remember { margin-top: 5px; color: #c2d0dc; font-size: 16px; font-weight: 400; }
+.age-confirmation-submit { width: 100%; min-height: 48px; margin-top: 23px; font-size: 16px; }
+.age-confirmation-submit:disabled { cursor: not-allowed; opacity: 0.52; }
+.age-confirmation-note { margin: 14px 0 0; color: var(--muted); font-size: 14px; }
+
+@media (max-width: 420px) {
+  .age-confirmation { width: calc(100vw - 24px); }
+  .age-confirmation section { padding: 24px 20px calc(24px + env(safe-area-inset-bottom)); }
+}
+
+@media (prefers-reduced-motion: reduce) { .age-confirmation::backdrop { backdrop-filter: none; } }
