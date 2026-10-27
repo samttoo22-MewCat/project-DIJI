@@ -66,6 +66,7 @@
 - 公開 `diji.mewcat.me` 使用獨立 `diji-kali` Cloudflare Tunnel；connector 是 Kali 使用者層的 `diji-cloudflared.service`，執行 `~/.local/bin/cloudflared tunnel run --token-file ~/.config/diji/cloudflared.token`。token 檔必須是 0600、不得進入 repository、unit 或日誌；Tunnel 的公開主機名稱以 Cloudflare managed route 指向 `http://127.0.0.1:8080`，不得將 Tailscale `100.x` 位址放入公開 DNS。
 - 公開入口是 PWA：`ui/manifest.webmanifest`、`ui/service-worker.js` 與 `ui/icons/` 必須可由根目錄靜態路由提供。Service Worker 只能快取靜態介面外殼，必須排除 `/api/`、登入、對話、記憶與任何使用者資料；離線時只保證能開啟既有介面，不得宣稱可離線對話。變更 Service Worker 的快取策略時遞增 `CACHE_NAME`。Android/Chromium 以 `beforeinstallprompt` 顯示安裝入口；iPhone/iPad 只能呈現 Safari「分享 → 加入主畫面 → 以 Web App 開啟」指引。安裝按鈕維持至少 44px 觸控目標，已在 standalone 顯示模式時不得顯示。不得以 `userChoice` 的 accepted 結果隱藏入口；收到 accepted 後，按鈕必須顯示「Web App 安裝中…」且停用，只有瀏覽器實際發出 `appinstalled` 後才能隱藏。取消、錯誤或等待 2.5 秒仍未完成時要保留入口並顯示瀏覽器選單的手動安裝指引。
 - Google 登入回呼與 `/api/auth/session` 必須回傳 `Cache-Control: no-store`，前端讀取 session 也必須使用 `cache: "no-store"`；每次變更 `ui/app.js` 都要遞增 `index.html` 的 query version，避免 OAuth 回跳重用登入前的未登入快取。
+- Google 登入啟動必須以瀏覽器頂層導向 `/api/auth/google/start`，讓伺服器 303 直接前往 Google；不得用 `fetch(..., redirect: "manual")` 讀取 `Location`。`runtime/` 內的帳號、session、對話、記憶與 provider 憑證一律保持 Git 忽略；推送前以 `git ls-files runtime` 確認只存在 `runtime/.gitkeep`。
 - 驗證登入 UI 時，必須確認初始首頁沒有登入遮罩或已開啟對話框、右上角有登入入口，且只有使用者點擊登入／私有動作後才打開 Google 對話框。
 - 帳號按鈕使用自訂 `display` 時，`ui/account-access.css` 必須保留 `.account-login[hidden], .account-logout[hidden] { display: none; }`；否則 HTML `hidden` 屬性會被樣式蓋掉，使未登入首頁錯誤顯示登出。
 - `file:///.../ui/index.html` 只是靜態原始檔預覽，不能呼叫登入 API；UI 必須偵測 `file:` 協定並在登入對話框清楚提示改用已部署的 DIJI 網站。每次登入問題先同時確認瀏覽器目前 URL、本機 session HTTP 回應與 Kali healthcheck。
@@ -136,6 +137,11 @@ pytest -q
 
 - 目前不提供公開網站。`diji-ui.service` 保持啟用且只監聽 `127.0.0.1:8080`；`diji-cloudflared.service` 必須停用並停止。未經使用者明確要求，不得重新啟用 Tunnel、公開路由或任何外網入口。
 - README 僅說明本機 UI 的安裝、啟動、SSH tunnel 與測試；Google OAuth、公開帳號、公開網域與公開部署資訊不應寫入 README。
+
+## 2026-10-27 AWS 公開入口（目前）
+
+- AWS 主機上的 `diji-ui.service` 維持只綁定 `127.0.0.1:8080`。公開 HTTPS 由使用者層 `diji-cloudflared.service` 提供，unit 來源為 `deploy/diji-cloudflared.service`；它使用 `~/.local/bin/cloudflared` 與 `~/.config/diji/cloudflared.token`。token 檔必須維持 `0600`、父目錄 `0700`，不得輸出、提交或複製到本機。
+- `diji.mewcat.me` 經 Cloudflare Tunnel 轉送到 loopback；每次修改公開部署後，先驗證 user service 為 `active`，再以 `https://diji.mewcat.me/api/auth/session` 回傳 DIJI JSON 作為公開讀回。Google OAuth 的 callback 必須維持相同公開 HTTPS 網域，並確認 `/api/auth/google/start` 導向 Google 而不是回 `503`。
 
 ## 公開政策文件
 

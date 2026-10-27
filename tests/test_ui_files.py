@@ -125,7 +125,7 @@ def test_compact_layout_has_an_accessible_left_list_drawer_and_readable_copy() -
     assert "flex-direction: column" in responsive
     assert "mobileNavBackdrop.addEventListener" in script
     assert "responsive.css?v=20261021-memory-backfill-1" in markup
-    assert "app.js?v=20261021-google-login-2" in markup
+    assert "app.js?v=20261027-google-login-redirect-1" in markup
     assert ".app.chat-list-visible" in responsive
     assert 'name !== "chat"' in script
     assert 'app.classList.toggle("chat-list-visible"' in script
@@ -140,7 +140,7 @@ def test_conversation_settings_labels_are_large_and_the_logo_returns_home() -> N
 
     assert ".live-switch { min-height: 44px; gap: 12px; font-size: 18px;" in responsive
     assert ".live-switch input { width: 20px; height: 20px; }" in responsive
-    assert "app.js?v=20261021-google-login-2" in markup
+    assert "app.js?v=20261027-google-login-redirect-1" in markup
 
 
 def test_studio_subpage_secondary_copy_is_readable() -> None:
@@ -259,10 +259,11 @@ def test_ui_uses_a_user_requested_google_login_without_browser_key_storage() -> 
     assert 'id="google-login-dialog"' in markup
     assert 'id="google-login"' in markup
     assert "OpenRouter 登入" not in markup
-    assert "app.js?v=20261021-google-login-2" in markup
+    assert "app.js?v=20261027-google-login-redirect-1" in markup
     assert 'fetch("/api/auth/session", { cache: "no-store" })' in script
     assert 'window.location.protocol === "file:"' in script
-    assert 'fetch("/api/auth/google/start", { cache: "no-store", redirect: "manual" })' in script
+    assert 'window.location.assign("/api/auth/google/start")' in script
+    assert 'fetch("/api/auth/google/start"' not in script
     assert 'fetch("/api/auth/logout"' in script
     assert "function requireLogin()" in script
     assert "localStorage" not in script
@@ -329,7 +330,7 @@ def test_character_cards_do_not_expose_ai_server_import_labels() -> None:
     assert "ai-server 匯入角色" not in app
     assert 'character.source?.generated_file ? "ai-server 匯入" : "本機角色"' not in library
     assert '<em></em>' not in library
-    assert "app.js?v=20261021-google-login-2" in markup
+    assert "app.js?v=20261027-google-login-redirect-1" in markup
     assert "character-creator.js?v=20261020-hide-import-labels-1" in markup
 
 
@@ -387,7 +388,15 @@ def test_ui_defers_google_sign_in_until_the_user_requests_it() -> None:
     assert "account-access.css?v=20261021-google-login-2" in markup
     assert ".account-logout[hidden] { display: none; }" in (ROOT / "ui/account-access.css").read_text()
     assert 'fetch("/api/auth/session", { cache: "no-store" })' in script
-    assert 'fetch("/api/auth/google/start", { cache: "no-store", redirect: "manual" })' in script
+    assert 'window.location.assign("/api/auth/google/start")' in script
+    assert 'fetch("/api/auth/google/start"' not in script
     assert 'fetch("/api/auth/logout"' in script
     assert "function requireLogin()" in script
     assert "authGate" not in script
+
+
+def test_runtime_private_data_is_ignored_by_git() -> None:
+    ignored = (ROOT / ".gitignore").read_text()
+
+    assert "runtime/*" in ignored
+    assert "!runtime/.gitkeep" in ignored

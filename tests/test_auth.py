@@ -115,6 +115,9 @@ def test_google_login_creates_a_diji_account_without_an_openrouter_key(tmp_path:
     state = start.headers["location"].split("state=", 1)[1].split("&", 1)[0]
     callback = client.get(f"/api/auth/google/callback?code=google-code&state={state}", follow_redirects=False)
     assert callback.status_code == 303
+    assert callback.headers["cache-control"] == "no-store"
+    cookie = callback.headers["set-cookie"].lower()
+    assert "httponly" in cookie and "secure" in cookie and "samesite=lax" in cookie
 
     session = client.get("/api/auth/session")
     assert session.json()["authenticated"] is True
@@ -131,3 +134,28 @@ def test_google_login_is_unavailable_until_google_oauth_is_configured(tmp_path: 
     response = client.get("/api/auth/google/start", follow_redirects=False)
     assert response.status_code == 503
     assert "Google" in response.json()["detail"]
+
+
+def test_google_callback_rejects_a_replayed_state(tmp_path: Path) -> None:
+    settings = AuthSettings(
+        required=True,
+        callback_url="http://testserver/api/auth/openrouter/callback",
+        encryption_key=Fernet.generate_key().decode(),
+        google_callback_url="https://diji.example/api/auth/google/callback",
+        google_client_id="google-client-id",
+        google_client_secret="google-client-secret",
+    )
+    client = TestClient(
+        create_app(
+            LocalCatalog(tmp_path / "catalog.json"),
+            account_store=AccountStore(tmp_path / "accounts.sqlite3", settings.encryption_key),
+            auth_settings=settings,
+            google_oauth_client=FakeGoogleOAuthClient(),
+        ),
+        base_url="https://testserver",
+    )
+    start = client.get("/api/auth/google/start", follow_redirects=False)
+    state = start.headers["location"].split("state=", 1)[1].split("&", 1)[0]
+
+    assert client.get(f"/api/auth/google/callback?code=google-code&state={state}", follow_redirects=False).status_code == 303
+    assert client.get(f"/api/auth/google/callback?code=google-code&state={state}", follow_redirects=False).status_code == 400

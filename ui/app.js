@@ -507,27 +507,13 @@ async function loadAuthentication() {
 accountLogin.addEventListener("click", () => openLoginDialog());
 document.querySelectorAll("[data-google-login-close]").forEach((button) => button.addEventListener("click", () => loginDialog.close()));
 loginDialog.addEventListener("click", (event) => { if (event.target === loginDialog) loginDialog.close(); });
-document.querySelector("#google-login").addEventListener("click", async (event) => {
+document.querySelector("#google-login").addEventListener("click", () => {
   if (window.location.protocol === "file:") {
     loginStatus.textContent = "原始檔預覽不能登入；請改用已部署的 DIJI 網站。";
     return;
   }
-  const button = event.currentTarget;
-  button.disabled = true;
   loginStatus.textContent = "正在前往 Google…";
-  try {
-    const response = await fetch("/api/auth/google/start", { cache: "no-store", redirect: "manual" });
-    if (response.status === 303) {
-      window.location.assign(response.headers.get("location"));
-      return;
-    }
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.detail || "無法開始 Google 登入");
-  } catch (error) {
-    loginStatus.textContent = error.message;
-  } finally {
-    button.disabled = false;
-  }
+  window.location.assign("/api/auth/google/start");
 });
 document.querySelectorAll("[data-auth-logout]").forEach((button) => button.addEventListener("click", async () => {
   await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
