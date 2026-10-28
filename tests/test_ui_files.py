@@ -95,7 +95,7 @@ def test_age_confirmation_uses_an_optional_secure_cookie_and_requires_acceptance
     assert 'id="age-confirmation-remember"' in markup
     assert 'id="age-confirmation-submit"' in markup
     assert 'id="reset-age-confirmation"' in markup
-    assert 'age-confirmation.js?v=20261028-age-gate-1' in markup
+    assert 'age-confirmation.js?v=20261028-age-gate-2' in markup
     assert "AGE_COOKIE_NAME = \"diji_age_confirmed\"" in script
     assert "Max-Age=${AGE_COOKIE_MAX_AGE}; Path=/; SameSite=Lax${secure}" in script
     assert 'window.location.protocol === "https:"' in script
