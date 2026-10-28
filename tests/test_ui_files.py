@@ -94,6 +94,7 @@ def test_age_confirmation_uses_an_optional_secure_cookie_and_requires_acceptance
     assert 'id="age-confirmation-accepted"' in markup
     assert 'id="age-confirmation-remember"' in markup
     assert 'id="age-confirmation-submit"' in markup
+    assert 'id="reset-age-confirmation"' in markup
     assert 'age-confirmation.js?v=20261028-age-gate-1' in markup
     assert "AGE_COOKIE_NAME = \"diji_age_confirmed\"" in script
     assert "Max-Age=${AGE_COOKIE_MAX_AGE}; Path=/; SameSite=Lax${secure}" in script
@@ -101,6 +102,7 @@ def test_age_confirmation_uses_an_optional_secure_cookie_and_requires_acceptance
     assert "ageSubmit.disabled = !ageAccepted.checked" in script
     assert "ageDialog.showModal()" in script
     assert 'ageDialog.addEventListener("cancel"' in script
+    assert "clearAgeConfirmation" in script
     assert "age-confirmation::backdrop" in stylesheet
     assert "min-height: 48px" in stylesheet
 
@@ -112,12 +114,13 @@ const dialog = { open: false, showModal() { this.open = true; }, close() { this.
 const accepted = { checked: false, addEventListener(name, callback) { listeners.accept = callback; } };
 const remember = { checked: true };
 const submit = { disabled: true, addEventListener(name, callback) { listeners.submit = callback; } };
+const reset = { addEventListener(name, callback) { listeners.reset = callback; } };
 let cookie = "";
 const document = {
   get cookie() { return cookie; },
   set cookie(value) { cookie = value; },
   querySelector(selector) {
-    return { "#age-confirmation": dialog, "#age-confirmation-accepted": accepted, "#age-confirmation-remember": remember, "#age-confirmation-submit": submit }[selector] || null;
+    return { "#age-confirmation": dialog, "#age-confirmation-accepted": accepted, "#age-confirmation-remember": remember, "#age-confirmation-submit": submit, "#reset-age-confirmation": reset }[selector] || null;
   },
 };
 const window = { location: { protocol: "https:" } };
@@ -126,8 +129,11 @@ if (!dialog.open || !submit.disabled) throw new Error("age gate should block unt
 accepted.checked = true;
 listeners.accept();
 if (submit.disabled) throw new Error("accepted age should enable submit");
+remember.checked = true;
 listeners.submit();
 if (dialog.open || !cookie.includes("diji_age_confirmed=1") || !cookie.includes("Secure")) throw new Error("remembered confirmation was not persisted safely");
+listeners.reset();
+if (!dialog.open || !submit.disabled || !cookie.includes("Max-Age=0")) throw new Error("reset should clear the remembered confirmation and reopen the gate");
 '''
     result = subprocess.run(["node", "-e", harness], cwd=ROOT, text=True, capture_output=True)
     assert result.returncode == 0, result.stderr

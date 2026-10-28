@@ -10,13 +10,25 @@ function rememberAgeConfirmation() {
   document.cookie = `${AGE_COOKIE_NAME}=1; Max-Age=${AGE_COOKIE_MAX_AGE}; Path=/; SameSite=Lax${secure}`;
 }
 
+function clearAgeConfirmation() {
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${AGE_COOKIE_NAME}=; Max-Age=0; Path=/; SameSite=Lax${secure}`;
+}
+
 const ageDialog = document.querySelector("#age-confirmation");
 const ageAccepted = document.querySelector("#age-confirmation-accepted");
 const ageRemember = document.querySelector("#age-confirmation-remember");
 const ageSubmit = document.querySelector("#age-confirmation-submit");
+const ageReset = document.querySelector("#reset-age-confirmation");
 
-if (ageDialog && ageAccepted && ageRemember && ageSubmit && !hasAgeConfirmationCookie()) {
-  ageDialog.showModal();
+if (ageDialog && ageAccepted && ageRemember && ageSubmit) {
+  const showAgeConfirmation = () => {
+    ageAccepted.checked = false;
+    ageRemember.checked = false;
+    ageSubmit.disabled = true;
+    if (!ageDialog.open) ageDialog.showModal();
+  };
+
   ageDialog.addEventListener("cancel", (event) => event.preventDefault());
   ageAccepted.addEventListener("change", () => { ageSubmit.disabled = !ageAccepted.checked; });
   ageSubmit.addEventListener("click", () => {
@@ -24,4 +36,9 @@ if (ageDialog && ageAccepted && ageRemember && ageSubmit && !hasAgeConfirmationC
     if (ageRemember.checked) rememberAgeConfirmation();
     ageDialog.close();
   });
+  if (ageReset) ageReset.addEventListener("click", () => {
+    clearAgeConfirmation();
+    showAgeConfirmation();
+  });
+  if (!hasAgeConfirmationCookie()) showAgeConfirmation();
 }
