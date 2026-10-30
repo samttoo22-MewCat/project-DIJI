@@ -7,6 +7,8 @@ html, body { overflow-x: hidden; }
 .list-actions { display: flex; gap: 6px; }
 
 .role-picker-card.role-picker-create { min-height: 144px; margin-top: 0; border-style: dashed; }
+.character-create-card { border-style: dashed; border-color: #4e7180; }
+[data-screen="create-character"] .creator-panel { margin-top: 0; padding-top: 0; border-top: 0; }
 .personal-character { background: #252437; border-color: #68617f; }
 .personal-character:hover { background: #302d43; border-color: #9a8faf; }
 .personal-character .initial, .personal-character .character-library-initial { background: #393249; border-color: #8a7c9f; color: #eee5f6; }

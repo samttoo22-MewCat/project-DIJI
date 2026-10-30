@@ -29,7 +29,7 @@
     <link rel="stylesheet" href="settings.css?v=20261018-auth-gate-hidden-1" />
     <link rel="stylesheet" href="character-creator.css" />
     <link rel="stylesheet" href="home.css?v=20261020-project-home-1" />
-    <link rel="stylesheet" href="responsive.css?v=20261030-private-roles-1" />
+    <link rel="stylesheet" href="responsive.css?v=20261030-creator-page-1" />
     <link rel="stylesheet" href="pwa.css?v=20261021-pwa-2" />
     <link rel="stylesheet" href="account-access.css?v=20261030-google-login-3" />
     <link rel="stylesheet" href="age-confirmation.css?v=20261028-age-gate-1" />
@@ -93,6 +93,7 @@
               <path d="M6 5.5h12v13H6zM9 9h6M9 12h6M9 15h3" />
             </svg>
           </button>
+          <button class="rail-button" data-view="create-character" aria-label="建立角色" title="建立角色"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="3"/><path d="M3.5 19c.7-3 2.9-4.5 6.5-4.5M18 12v8M14 16h8"/></svg></button>
         </nav>
         <div class="rail-footer">
           <button class="rail-button" data-view="settings" aria-label="設定" title="設定">
@@ -447,6 +448,7 @@
             </aside>
           </div>
         </section>
+        <section class="screen studio-screen" data-screen="create-character" aria-label="建立角色"></section>
         <section class="screen studio-screen" data-screen="memory">
           <header class="page-header">
             <div>
@@ -602,9 +604,9 @@
     </dialog>
     <div class="toast" id="toast" role="status"></div>
     <script src="age-confirmation.js?v=20261028-age-gate-2"></script>
-    <script src="app.js?v=20261030-private-roles-1"></script>
+    <script src="app.js?v=20261030-creator-page-1"></script>
     <script src="jailbreak-studio.js?v=20261011-model-jailbreak-1"></script>
-    <script src="character-creator.js?v=20261030-private-roles-1"></script>
+    <script src="character-creator.js?v=20261030-creator-page-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>
   </body>
 </html>

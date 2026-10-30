@@ -2,14 +2,22 @@
   const target = document.querySelector('[data-screen="characters"]');
   if (!target) return;
   target.replaceChildren(document.querySelector("#character-creator").content.cloneNode(true));
+  const creationPage = document.querySelector('[data-screen="create-character"]');
+  const creationPanel = target.querySelector("#character-creator-panel");
+  creationPanel.hidden = false;
+  creationPanel.classList.add("creator");
+  creationPage.append(creationPanel);
+  const createCard = target.querySelector("#open-character-creator");
+  createCard.className = "character-library-card character-create-card";
+  createCard.innerHTML = '<span class="character-library-initial" aria-hidden="true">＋</span><span class="character-library-copy"><strong>建立角色</strong><small>創造屬於你的角色</small></span><span class="character-library-arrow" aria-hidden="true">→</span>';
   const grid = target.querySelector("#character-library-grid");
   const status = target.querySelector("#character-library-status");
   const search = target.querySelector("#character-library-search");
-  const panel = target.querySelector("#character-creator-panel");
-  const form = target.querySelector("#creator-brief");
-  const creatorStatus = target.querySelector("#creator-status");
-  const result = target.querySelector("#creator-result");
-  const model = target.querySelector("#creator-model");
+  const panel = creationPanel;
+  const form = panel.querySelector("#creator-brief");
+  const creatorStatus = panel.querySelector("#creator-status");
+  const result = panel.querySelector("#creator-result");
+  const model = panel.querySelector("#creator-model");
   let draft = null;
 
   function filteredCharacters() {
@@ -35,12 +43,13 @@
       card.addEventListener("click", () => window.dijiSelectCharacter(character));
       return card;
     }));
+    grid.append(createCard);
     status.textContent = characters.length ? `${characters.length} 位可選角色` : "沒有符合搜尋的角色。";
   };
   search.addEventListener("input", window.dijiRenderCharacterLibrary);
-  target.querySelector("#open-character-creator").addEventListener("click", () => {
-    panel.hidden = !panel.hidden;
-    if (!panel.hidden) panel.querySelector("#creator-keywords").focus();
+  createCard.addEventListener("click", () => {
+    document.querySelector('[data-view="create-character"]').click();
+    panel.querySelector("#creator-keywords").focus();
   });
 
   async function loadModels() {
@@ -56,12 +65,12 @@
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const button = form.querySelector("button");
-    const keywords = target.querySelector("#creator-keywords").value.trim();
+    const keywords = panel.querySelector("#creator-keywords").value.trim();
     if (!keywords || model.disabled) return;
     button.disabled = true; button.textContent = "生成中…";
     creatorStatus.textContent = `正以 ${model.value} 與對應越獄生成草稿…`;
     try {
-      const response = await fetch("/api/characters/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keywords, model: model.value, enable_search: target.querySelector("#creator-search").checked, is_nsfw: target.querySelector("#creator-adult").checked }) });
+      const response = await fetch("/api/characters/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keywords, model: model.value, enable_search: panel.querySelector("#creator-search").checked, is_nsfw: panel.querySelector("#creator-adult").checked }) });
       draft = await response.json();
       if (!response.ok) throw new Error(draft.detail || "生成失敗");
       renderDraft(); creatorStatus.textContent = "草稿已完成。請審核後再儲存。";

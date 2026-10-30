@@ -458,7 +458,7 @@ document.querySelector("#new-session").addEventListener("click", () => { const c
 document.querySelector("#clear-chat").addEventListener("click", () => { const character = selectedCharacter(); if (character) startConversation(character).catch((error) => showToast(`無法建立對話：${error.message}`)); });
 document.querySelector("#search-input").addEventListener("input", (event) => { renderConversationHistory(event.target.value); renderRolePicker(event.target.value); });
 document.querySelector("#role-picker-search").addEventListener("input", (event) => renderRolePicker(event.target.value));
-document.querySelector("#role-picker-create").addEventListener("click", () => showScreen("characters"));
+document.querySelector("#role-picker-create").addEventListener("click", () => showScreen("create-character"));
 const loginDialog = document.querySelector("#google-login-dialog");
 const loginStatus = document.querySelector("#google-login-status");
 const accountLogin = document.querySelector("#account-login");

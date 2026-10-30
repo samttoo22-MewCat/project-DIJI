@@ -145,6 +145,8 @@ pytest -q
 
 ## 年齡確認
 
+- 建立角色為獨立 `create-character` 頁面與側欄入口；選角與角色庫皆以最後一張同尺寸卡片開啟。部署必須另行搬移 `runtime/jailbreaks.json`，並核對可用 prompt 與模型選單，Git checkout 不含這份執行資料。
+
 - 帳號角色：公開模式新增角色寫入 `runtime/users/<account>/catalog.json`，公開角色保留於共用目錄。角色列表、bootstrap、單筆讀取、預覽與對話入口均依當前 session 取得角色；回應禁止快取。個人角色使用「我的角色 · 僅自己可見」標示與低彩度紫色卡片。建立角色卡需在選角網格最後一格。
 
 - 選角捲動：`role-picker` 必須受可視高度限制（`min-height:0`、`height:100%`），手機版 awaiting-character 使用扣除導覽列的視窗高度。角色數量增加後，用實際捲動驗證最後一張卡可見；只檢查 `overflow:auto` 不足以驗證。
