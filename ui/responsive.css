@@ -7,6 +7,12 @@ html, body { overflow-x: hidden; }
 .list-actions { display: flex; gap: 6px; }
 
 .role-picker-card.role-picker-create { min-height: 144px; margin-top: 0; border-style: dashed; }
+.openrouter-connection { margin: 16px 0; }
+.openrouter-connection > button { width: 100%; min-height: 44px; }
+.openrouter-connection > button:disabled { color: #b4ddd0; border-color: #517c73; cursor: default; }
+.openrouter-spend { display: grid; gap: 8px; padding: 16px; border: 1px solid #3b586b; border-radius: 12px; background: #132334; }
+.openrouter-spend span, .openrouter-spend small { color: #c2d0dc; font-size: 14px; }
+.openrouter-spend strong { color: #dbf1f0; font-size: 26px; }
 .character-create-card { border-style: dashed; border-color: #4e7180; }
 [data-screen="create-character"] .creator-panel { margin-top: 0; padding-top: 0; border-top: 0; }
 .personal-character { background: #252437; border-color: #68617f; }

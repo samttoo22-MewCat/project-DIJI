@@ -79,7 +79,8 @@ class OpenRouterOAuthClient:
         response.raise_for_status()
         raw = response.json()
         payload = raw.get("data", raw) if isinstance(raw, dict) else {}
-        key, user_id = payload.get("key"), payload.get("user_id")
+        key = payload.get("key")
+        user_id = payload.get("user_id") or (sha256(key.encode()).hexdigest() if isinstance(key, str) else None)
         if not isinstance(key, str) or not isinstance(user_id, str) or not key or not user_id:
             raise ValueError("OpenRouter 授權回應缺少 key 或 user_id")
         return user_id, key
@@ -171,6 +172,14 @@ class AccountStore:
                 CREATE TABLE IF NOT EXISTS google_oauth_states (
                     state_hash TEXT PRIMARY KEY,
                     expires_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS provider_connections (
+                    user_id TEXT PRIMARY KEY,
+                    encrypted_key BLOB NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS provider_link_states (
+                    state_hash TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL
                 );
                 """
             )
@@ -296,10 +305,33 @@ class AccountStore:
         if not self.cipher:
             raise RuntimeError("伺服器尚未設定 DIJI_CREDENTIAL_ENCRYPTION_KEY")
         with self._connection() as connection:
+            linked = connection.execute("SELECT encrypted_key FROM provider_connections WHERE user_id = ?", (user_id,)).fetchone()
+            if linked:
+                return self.cipher.decrypt(bytes(linked["encrypted_key"])).decode("utf-8")
             row = connection.execute("SELECT encrypted_openrouter_key FROM users WHERE id = ?", (user_id,)).fetchone()
         if not row:
             return None
         return self.cipher.decrypt(bytes(row["encrypted_openrouter_key"])).decode("utf-8")
+
+    def begin_provider_link(self, user_id: str) -> tuple[str, str]:
+        state, _verifier, challenge = self.begin_oauth()
+        with self._connection() as connection:
+            connection.execute("INSERT INTO provider_link_states VALUES (?, ?)", (self._hash(state), user_id))
+        return state, challenge
+
+    def consume_provider_link(self, state: str, user_id: str) -> str | None:
+        with self._connection() as connection:
+            row = connection.execute("SELECT user_id FROM provider_link_states WHERE state_hash = ?", (self._hash(state),)).fetchone()
+            if not row or row["user_id"] != user_id:
+                return None
+            connection.execute("DELETE FROM provider_link_states WHERE state_hash = ?", (self._hash(state),))
+        return self.consume_oauth_verifier(state)
+
+    def save_provider_key(self, user_id: str, key: str) -> None:
+        if not self.cipher:
+            raise RuntimeError("伺服器尚未設定憑證加密")
+        with self._connection() as connection:
+            connection.execute("INSERT OR REPLACE INTO provider_connections VALUES (?, ?)", (user_id, self.cipher.encrypt(key.encode())))
 
 
 def authorization_url(callback_url: str, state: str, challenge: str) -> str:

@@ -29,7 +29,7 @@
     <link rel="stylesheet" href="settings.css?v=20261018-auth-gate-hidden-1" />
     <link rel="stylesheet" href="character-creator.css" />
     <link rel="stylesheet" href="home.css?v=20261020-project-home-1" />
-    <link rel="stylesheet" href="responsive.css?v=20261030-creator-page-1" />
+    <link rel="stylesheet" href="responsive.css?v=20261030-openrouter-1" />
     <link rel="stylesheet" href="pwa.css?v=20261021-pwa-2" />
     <link rel="stylesheet" href="account-access.css?v=20261030-google-login-3" />
     <link rel="stylesheet" href="age-confirmation.css?v=20261028-age-gate-1" />
@@ -371,7 +371,7 @@
               ><p class="connection-note" id="model-jailbreak-status" aria-live="polite">
                 只顯示有已核准越獄的模型。
               </p>
-              ><label class="live-switch"
+              ><div class="openrouter-connection"><button class="ghost-button" id="connect-openrouter" type="button">連接您的 OpenRouter</button><p class="connection-note" id="openrouter-connection-status" aria-live="polite"></p><div class="openrouter-spend"><span>此連接累計使用 · USD</span><strong id="openrouter-total">—</strong><small id="openrouter-daily">連接後顯示用量</small><button class="ghost-button" id="refresh-openrouter" type="button">更新用量</button></div></div><label class="live-switch"
                 ><input id="live-mode" type="checkbox" /><span
                 >啟用實際模型請求</span
                 ></label
@@ -604,9 +604,10 @@
     </dialog>
     <div class="toast" id="toast" role="status"></div>
     <script src="age-confirmation.js?v=20261028-age-gate-2"></script>
-    <script src="app.js?v=20261030-creator-page-1"></script>
+    <script src="app.js?v=20261030-openrouter-1"></script>
     <script src="jailbreak-studio.js?v=20261011-model-jailbreak-1"></script>
-    <script src="character-creator.js?v=20261030-creator-page-1"></script>
+    <script src="character-creator.js?v=20261030-openrouter-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>
+    <script src="openrouter-connection.js?v=20261030-1"></script>
   </body>
 </html>

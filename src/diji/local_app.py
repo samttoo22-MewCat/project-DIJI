@@ -250,6 +250,47 @@ def create_app(
         )
         return response
 
+    @app.get("/api/connections/openrouter/start")
+    def connect_openrouter(http_request: Request) -> RedirectResponse:
+        user = current_user(http_request)
+        state, challenge = accounts.begin_provider_link(user.id)
+        base = (auth.google_callback_url or auth.callback_url).split("/api/", 1)[0]
+        callback = f"{base}/api/connections/openrouter/callback?state={state}"
+        response = RedirectResponse(authorization_url(callback, state, challenge), status_code=303)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.get("/api/connections/openrouter/callback")
+    async def connected_openrouter(code: str, state: str, http_request: Request) -> RedirectResponse:
+        user = current_user(http_request)
+        verifier = accounts.consume_provider_link(state, user.id)
+        if not verifier:
+            raise HTTPException(status_code=400, detail="連接已過期，請重新連接 OpenRouter")
+        try:
+            _provider_id, key = await oauth.exchange(code, verifier)
+            accounts.save_provider_key(user.id, key)
+        except (httpx.HTTPError, ValueError, RuntimeError):
+            raise HTTPException(status_code=400, detail="OpenRouter 連接失敗，請重新授權")
+        return RedirectResponse("/?openrouter=connected#chat", status_code=303, headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/connections/openrouter")
+    async def openrouter_connection(http_request: Request, response: Response) -> dict:
+        response.headers["Cache-Control"] = "private, no-store"
+        user = accounts.user_for_session(http_request.cookies.get(SESSION_COOKIE))
+        if not user:
+            return {"connected": False, "usage": None}
+        key = accounts.openrouter_key_for(user.id)
+        if not key:
+            return {"connected": False, "usage": None}
+        try:
+            async with httpx.AsyncClient(timeout=12) as client:
+                result = await client.get("https://openrouter.ai/api/v1/key", headers={"Authorization": f"Bearer {key}"})
+                result.raise_for_status()
+                data = result.json()["data"]
+            return {"connected": True, "usage": data.get("usage"), "usage_daily": data.get("usage_daily"), "currency": "USD"}
+        except (httpx.HTTPError, ValueError, KeyError):
+            return {"connected": True, "usage": None, "error": "暫時無法取得用量，請稍後更新"}
+
     @app.post("/api/auth/logout", status_code=204, response_model=None)
     def logout(request: Request, response: Response) -> None:
         response.headers["Cache-Control"] = "no-store"
