@@ -145,6 +145,8 @@ pytest -q
 
 ## 年齡確認
 
+- 登入按鈕於 2026-10-30 調整為深藍與低彩度青色，圖示使用 Simple Icons Google SVG。更新 `ui/account-access.css` 時同步更換 HTML 的資源版本，並檢查手機登入視窗不溢出。
+
 - 公開頁面在載入後先以 `ui/age-confirmation.js` 顯示原生 18+ 確認視窗；使用者必須勾選「我確認已滿 18 歲」才能關閉。只有自行勾選「在此裝置記住一年」時，才可寫入 `diji_age_confirmed=1` Cookie（`Path=/`、`SameSite=Lax`，HTTPS 時另加 `Secure`）。不得儲存生日、帳號識別碼或任何年齡以外資料；未勾記住時重新載入必須再次確認。
 - 在設定頁的「重新確認 18+ 年齡」按鈕是唯一清除該 Cookie 並重新顯示確認視窗的使用者入口；不可由其他前端流程自動清除或改寫使用者選擇。
 - 每次更動 `ui/age-confirmation.js` 的行為時，必須同步更新 `ui/index.html` 的版本查詢字串，避免既有瀏覽器保留舊版年齡確認邏輯。
