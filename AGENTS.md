@@ -145,6 +145,10 @@ pytest -q
 
 ## 年齡確認
 
+- 選角捲動：`role-picker` 必須受可視高度限制（`min-height:0`、`height:100%`），手機版 awaiting-character 使用扣除導覽列的視窗高度。角色數量增加後，用實際捲動驗證最後一張卡可見；只檢查 `overflow:auto` 不足以驗證。
+
+- 角色部署：2026-10-30 已將 Kali 的 20 位角色恢復至 AWS `runtime/catalog.json`。此檔不在 Git；搬機時須另外備份與複製，先以 `CatalogSnapshot` 驗證，再比對公開 `/api/characters` 數量，不能用兩位內建示範角色當成遷移完成。角色資料與備份維持在 Git 之外。
+
 - 登入按鈕於 2026-10-30 調整為深藍與低彩度青色，圖示使用 Simple Icons Google SVG。更新 `ui/account-access.css` 時同步更換 HTML 的資源版本，並檢查手機登入視窗不溢出。
 
 - 公開頁面在載入後先以 `ui/age-confirmation.js` 顯示原生 18+ 確認視窗；使用者必須勾選「我確認已滿 18 歲」才能關閉。只有自行勾選「在此裝置記住一年」時，才可寫入 `diji_age_confirmed=1` Cookie（`Path=/`、`SameSite=Lax`，HTTPS 時另加 `Secure`）。不得儲存生日、帳號識別碼或任何年齡以外資料；未勾記住時重新載入必須再次確認。

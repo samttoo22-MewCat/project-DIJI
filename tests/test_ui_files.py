@@ -178,7 +178,7 @@ def test_compact_layout_has_an_accessible_left_list_drawer_and_readable_copy() -
     assert ".app.mobile-nav-open .rail" in responsive
     assert "flex-direction: column" in responsive
     assert "mobileNavBackdrop.addEventListener" in script
-    assert "responsive.css?v=20261021-memory-backfill-1" in markup
+    assert "responsive.css?v=20261030-role-scroll-1" in markup
     assert "app.js?v=20261027-google-login-redirect-1" in markup
     assert ".app.chat-list-visible" in responsive
     assert 'name !== "chat"' in script
@@ -255,7 +255,7 @@ def test_chat_mode_is_a_visible_per_conversation_long_or_short_choice() -> None:
     assert "@media (min-width: 761px)" in responsive
     assert ".chat-mode-grid { grid-template-columns: 1fr; }" in responsive
     assert ".chat-mode-card small { font-size: 14px; line-height: 1.55; }" in responsive
-    assert "responsive.css?v=20261021-memory-backfill-1" in markup
+    assert "responsive.css?v=20261030-role-scroll-1" in markup
 
 
 def test_chat_has_distinct_left_list_and_right_settings_controls() -> None:

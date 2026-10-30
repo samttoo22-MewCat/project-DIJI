@@ -6,6 +6,10 @@ html, body { overflow-x: hidden; }
 .close-chat-list, .chat-list-toggle { display: none; }
 .list-actions { display: flex; gap: 6px; }
 
+/* Keep the role picker inside its viewport so overflow creates a scroll area. */
+.screen[data-screen="chat"].awaiting-character { min-height: 0; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+.screen.awaiting-character .role-picker { min-height: 0; height: 100%; max-height: 100%; margin: 0 auto; overscroll-behavior-y: contain; }
+
 /* Chat uses two distinct edge controls: conversations on the left, settings on the right. */
 .chat-header { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; align-items: center; gap: 12px; }
 .chat-header .active-character { min-width: 0; }
@@ -274,7 +278,7 @@ body { font-size: 15px; line-height: 1.65; }
   .chat-mode-grid { grid-template-columns: 1fr; }
   .chat-mode-card { min-height: 68px; }
 
-  .screen.awaiting-character { display: block; height: auto; min-height: calc(100dvh - var(--mobile-bar)); }
+  .screen[data-screen="chat"].awaiting-character { display: block; height: calc(100dvh - var(--mobile-bar)); min-height: 0; }
   .role-picker { padding: 24px 14px calc(28px + env(safe-area-inset-bottom)); }
   .role-picker-header { margin-bottom: 18px; }
   .role-picker-header h1 { font-size: clamp(28px, 9vw, 36px); line-height: 1.18; }
