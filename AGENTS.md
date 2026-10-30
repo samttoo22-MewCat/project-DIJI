@@ -145,6 +145,8 @@ pytest -q
 
 ## 年齡確認
 
+- 帳號區使用獨立頂列佔據實際版面；工作區高度取剩餘空間。避免用 fixed 帳號按鈕覆蓋聊天操作，手機版亦須扣除帳號列與導覽列高度。
+
 - OpenRouter 綁定入口在對話設定的實際模型請求旁，使用 `/api/connections/openrouter/*` 將 PKCE 授權綁定既有 session，保留 DIJI 帳號。金鑰加密於帳號資料庫；金額為授權金鑰的累計與今日用量（USD），不是帳號總額。
 
 - 建立角色為獨立 `create-character` 頁面與側欄入口；選角與角色庫皆以最後一張同尺寸卡片開啟。部署必須另行搬移 `runtime/jailbreaks.json`，並核對可用 prompt 與模型選單，Git checkout 不含這份執行資料。
