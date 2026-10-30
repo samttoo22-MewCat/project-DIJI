@@ -6,6 +6,13 @@ html, body { overflow-x: hidden; }
 .close-chat-list, .chat-list-toggle { display: none; }
 .list-actions { display: flex; gap: 6px; }
 
+.role-picker-card.role-picker-create { min-height: 144px; margin-top: 0; border-style: dashed; }
+.personal-character { background: #252437; border-color: #68617f; }
+.personal-character:hover { background: #302d43; border-color: #9a8faf; }
+.personal-character .initial, .personal-character .character-library-initial { background: #393249; border-color: #8a7c9f; color: #eee5f6; }
+.personal-character em { color: #d2bddf; }
+@media (max-width: 760px) { .role-picker-card.role-picker-create { min-height: 104px; } }
+
 /* Keep the role picker inside its viewport so overflow creates a scroll area. */
 .screen[data-screen="chat"].awaiting-character { min-height: 0; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
 .screen.awaiting-character .role-picker { min-height: 0; height: 100%; max-height: 100%; margin: 0 auto; overscroll-behavior-y: contain; }
@@ -289,7 +296,7 @@ body { font-size: 15px; line-height: 1.65; }
   .role-picker-card { min-height: 104px; padding: 15px; border-radius: 16px; border-color: #30465f; background: #142135; }
   .role-picker-card:active { background: #1d3348; border-color: #76abb1; }
   .role-picker-copy small { -webkit-line-clamp: 3; }
-  .role-picker-create { width: 100%; min-height: 48px; margin-top: 16px; border-radius: 14px; }
+  .role-picker-create { width: 100%; min-height: 104px; margin-top: 0; border-radius: 16px; }
 
   .studio-screen { padding: 24px 14px calc(30px + env(safe-area-inset-bottom)); }
   .page-header h1 { font-size: clamp(27px, 8vw, 34px); line-height: 1.18; }

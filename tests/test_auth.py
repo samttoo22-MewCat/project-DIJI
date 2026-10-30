@@ -69,7 +69,7 @@ def test_openrouter_login_creates_a_session_and_isolates_conversations(tmp_path:
     assert session.json()["authenticated"] is True
     assert session.headers["cache-control"] == "no-store"
 
-    created = client.post("/api/conversations", json={"chat_id": "private-chat", "character_id": "character", "character_name": "角色"})
+    created = client.post("/api/conversations", json={"chat_id": "private-chat", "character_id": "yelan", "character_name": "夜蘭"})
     assert created.status_code == 200
     assert accounts.openrouter_key_for(session.json()["user"]["id"]) == "sk-or-v1-user-owned-key"
     assert (tmp_path / "accounts.sqlite3").stat().st_mode & 0o777 == 0o600
@@ -123,7 +123,7 @@ def test_google_login_creates_a_diji_account_without_an_openrouter_key(tmp_path:
     assert session.json()["authenticated"] is True
     assert session.json()["user"]["login_provider"] == "google"
     assert session.json()["user"]["display_name"] == "玩家"
-    assert client.post("/api/conversations", json={"chat_id": "google-chat", "character_id": "character", "character_name": "角色"}).status_code == 200
+    assert client.post("/api/conversations", json={"chat_id": "google-chat", "character_id": "yelan", "character_name": "夜蘭"}).status_code == 200
     assert accounts.openrouter_key_for(session.json()["user"]["id"]) is None
 
 

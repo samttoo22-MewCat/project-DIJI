@@ -145,6 +145,8 @@ pytest -q
 
 ## 年齡確認
 
+- 帳號角色：公開模式新增角色寫入 `runtime/users/<account>/catalog.json`，公開角色保留於共用目錄。角色列表、bootstrap、單筆讀取、預覽與對話入口均依當前 session 取得角色；回應禁止快取。個人角色使用「我的角色 · 僅自己可見」標示與低彩度紫色卡片。建立角色卡需在選角網格最後一格。
+
 - 選角捲動：`role-picker` 必須受可視高度限制（`min-height:0`、`height:100%`），手機版 awaiting-character 使用扣除導覽列的視窗高度。角色數量增加後，用實際捲動驗證最後一張卡可見；只檢查 `overflow:auto` 不足以驗證。
 
 - 角色部署：2026-10-30 已將 Kali 的 20 位角色恢復至 AWS `runtime/catalog.json`。此檔不在 Git；搬機時須另外備份與複製，先以 `CatalogSnapshot` 驗證，再比對公開 `/api/characters` 數量，不能用兩位內建示範角色當成遷移完成。角色資料與備份維持在 Git 之外。

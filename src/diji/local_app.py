@@ -266,34 +266,68 @@ def create_app(
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 
+    def private_catalog(request: Request) -> LocalCatalog:
+        user = current_user(request)
+        if not auth.required:
+            return local_catalog
+        path = _user_directory(user.id) / "catalog.json"
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            path.write_text(CatalogSnapshot(characters=[], flows=[]).model_dump_json())
+            path.chmod(0o600)
+        return LocalCatalog(path)
+
+    def visible_catalog(request: Request) -> CatalogSnapshot:
+        snapshot = local_catalog.snapshot()
+        user = accounts.user_for_session(request.cookies.get(SESSION_COOKIE))
+        if auth.required and user:
+            snapshot.characters += private_catalog(request).snapshot().characters
+        return snapshot
+
+    def visible_character(request: Request, character_id: str) -> CharacterSpec:
+        character = next((item for item in visible_catalog(request).characters if item.id == character_id), None)
+        if character is None:
+            raise HTTPException(status_code=404, detail="Character not found")
+        return character
+
     @app.get("/api/bootstrap", response_model=CatalogSnapshot)
-    def bootstrap() -> CatalogSnapshot:
-        return local_catalog.snapshot()
+    def bootstrap(http_request: Request, response: Response) -> CatalogSnapshot:
+        response.headers["Cache-Control"] = "private, no-store"
+        return visible_catalog(http_request)
 
     @app.get("/api/characters", response_model=list[CharacterSpec])
-    def list_characters() -> list[CharacterSpec]:
-        return local_catalog.snapshot().characters
+    def list_characters(http_request: Request, response: Response) -> list[CharacterSpec]:
+        response.headers["Cache-Control"] = "private, no-store"
+        return visible_catalog(http_request).characters
 
     @app.get("/api/characters/{character_id}", response_model=CharacterSpec)
-    def get_character(character_id: str) -> CharacterSpec:
-        try:
-            return local_catalog.character(character_id)
-        except StopIteration as error:
-            raise HTTPException(status_code=404, detail="Character not found") from error
+    def get_character(character_id: str, http_request: Request, response: Response) -> CharacterSpec:
+        response.headers["Cache-Control"] = "private, no-store"
+        return visible_character(http_request, character_id)
 
     @app.put("/api/characters/{character_id}", response_model=CharacterSpec)
-    def save_character(character_id: str, character: CharacterSpec) -> CharacterSpec:
+    def save_character(character_id: str, character: CharacterSpec, http_request: Request) -> CharacterSpec:
         if character_id != character.id:
             raise HTTPException(status_code=400, detail="Character id must match the URL")
-        return local_catalog.save_character(character)
+        target = private_catalog(http_request)
+        if auth.required:
+            if any(item.id == character_id for item in local_catalog.snapshot().characters):
+                raise HTTPException(status_code=409, detail="請使用新的角色識別碼建立個人角色")
+            character = character.model_copy(update={"source": {**character.source, "visibility": "private"}})
+        return target.save_character(character)
 
     @app.get("/api/character-imports/preview", response_model=CharacterImportPreview)
     def preview_character_imports() -> CharacterImportPreview:
         return importer.preview()
 
     @app.post("/api/character-imports", response_model=CharacterImportResult)
-    def import_characters(request: CharacterImportRequest) -> CharacterImportResult:
-        return importer.import_selected(local_catalog, request.ids)
+    def import_characters(request: CharacterImportRequest, http_request: Request) -> CharacterImportResult:
+        target = private_catalog(http_request)
+        result = importer.import_selected(target, request.ids)
+        if auth.required:
+            for character in target.snapshot().characters:
+                target.save_character(character.model_copy(update={"source": {**character.source, "visibility": "private"}}))
+        return result
 
     @app.get("/api/flows", response_model=list[FlowSpec])
     def list_flows() -> list[FlowSpec]:
@@ -309,7 +343,7 @@ def create_app(
     def prompt_preview(request: PromptPreviewRequest, http_request: Request) -> PromptBundle:
         user_memories, _conversations, _relationships, _profiles, _interactions, _generator = stores_for(current_user(http_request))
         try:
-            character = local_catalog.character(request.character_id)
+            character = visible_character(http_request, request.character_id)
             flow = local_catalog.flow(request.flow_id)
         except StopIteration as error:
             raise HTTPException(status_code=404, detail="Character or flow not found") from error
@@ -330,6 +364,8 @@ def create_app(
 
     @app.post("/api/conversations", response_model=ConversationRecord)
     def start_conversation(request: ConversationStart, http_request: Request) -> ConversationRecord:
+        if auth.required:
+            visible_character(http_request, request.character_id)
         _memories, user_conversations, _relationships, _profiles, _interactions, _generator = stores_for(current_user(http_request))
         try:
             return user_conversations.start(request.chat_id, request.character_id, request.character_name, request.chat_mode)
@@ -457,6 +493,8 @@ def create_app(
     @app.post("/api/interactions", response_model=InteractionResponse)
     async def interact(request: InteractionRequest, http_request: Request) -> InteractionResponse:
         user = current_user(http_request)
+        if auth.required:
+            visible_character(http_request, request.character.id)
         if auth.required and not accounts.openrouter_key_for(user.id):
             raise HTTPException(status_code=409, detail="此帳號尚未設定模型連線")
         user_memories, user_conversations, user_relationships, _profiles, user_interactions, _generator = stores_for(user)

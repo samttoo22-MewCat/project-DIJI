@@ -22,10 +22,16 @@
       const card = document.createElement("button");
       card.type = "button";
       card.className = "character-library-card";
+      if (character.source?.visibility === "private") card.classList.add("personal-character");
       card.innerHTML = '<span class="character-library-initial"></span><span class="character-library-copy"><strong></strong><small></small></span><span class="character-library-arrow" aria-hidden="true">→</span>';
       card.querySelector(".character-library-initial").textContent = character.name.slice(0, 1);
       card.querySelector("strong").textContent = character.name;
       card.querySelector("small").textContent = character.premise;
+      if (character.source?.visibility === "private") {
+        const badge = document.createElement("em");
+        badge.textContent = "我的角色 · 僅自己可見";
+        card.querySelector(".character-library-copy").append(badge);
+      }
       card.addEventListener("click", () => window.dijiSelectCharacter(character));
       return card;
     }));

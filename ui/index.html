@@ -29,7 +29,7 @@
     <link rel="stylesheet" href="settings.css?v=20261018-auth-gate-hidden-1" />
     <link rel="stylesheet" href="character-creator.css" />
     <link rel="stylesheet" href="home.css?v=20261020-project-home-1" />
-    <link rel="stylesheet" href="responsive.css?v=20261030-role-scroll-1" />
+    <link rel="stylesheet" href="responsive.css?v=20261030-private-roles-1" />
     <link rel="stylesheet" href="pwa.css?v=20261021-pwa-2" />
     <link rel="stylesheet" href="account-access.css?v=20261030-google-login-3" />
     <link rel="stylesheet" href="age-confirmation.css?v=20261028-age-gate-1" />
@@ -196,7 +196,7 @@
             <p class="role-picker-status" id="role-picker-status" aria-live="polite">正在讀取角色庫…</p>
             <div class="role-picker-grid" id="role-picker-grid" aria-live="polite"></div>
             <p class="role-picker-empty" id="role-picker-empty" hidden>找不到相符角色。請換個關鍵字，或先建立新角色。</p>
-            <button class="ghost-button role-picker-create" id="role-picker-create" type="button">建立角色</button>
+            <button class="role-picker-card role-picker-create" id="role-picker-create" type="button"><span class="initial avatar-a" aria-hidden="true">＋</span><span class="role-picker-copy"><strong>建立角色</strong><small>創造屬於你的角色</small><em>開始創作</em></span><span class="role-picker-arrow" aria-hidden="true">›</span></button>
           </section>
           <header class="chat-header">
             <button class="chat-side-control chat-list-toggle" id="toggle-chat-list" aria-expanded="false" aria-controls="chat-list" aria-label="開啟角色與對話列表">
@@ -602,9 +602,9 @@
     </dialog>
     <div class="toast" id="toast" role="status"></div>
     <script src="age-confirmation.js?v=20261028-age-gate-2"></script>
-    <script src="app.js?v=20261027-google-login-redirect-1"></script>
+    <script src="app.js?v=20261030-private-roles-1"></script>
     <script src="jailbreak-studio.js?v=20261011-model-jailbreak-1"></script>
-    <script src="character-creator.js?v=20261020-hide-import-labels-1"></script>
+    <script src="character-creator.js?v=20261030-private-roles-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>
   </body>
 </html>

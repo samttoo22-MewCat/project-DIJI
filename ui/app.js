@@ -237,18 +237,22 @@ function renderRolePicker(query = "") {
   const status = document.querySelector("#role-picker-status");
   const empty = document.querySelector("#role-picker-empty");
   if (!grid || !status || !empty) return;
+  const createCard = document.querySelector("#role-picker-create");
   const needle = query.trim().toLocaleLowerCase();
   const characters = state.characters.filter((character) => `${character.name} ${character.premise}`.toLocaleLowerCase().includes(needle));
   grid.replaceChildren(...characters.map((character) => {
     const card = document.createElement("button");
     card.type = "button"; card.className = "role-picker-card";
+    if (character.source?.visibility === "private") card.classList.add("personal-character");
     card.innerHTML = '<span class="initial avatar-a"></span><span class="role-picker-copy"><strong></strong><small></small><em>開始對話</em></span><span class="role-picker-arrow" aria-hidden="true">›</span>';
     card.querySelector(".initial").textContent = character.name.slice(0, 1);
     card.querySelector("strong").textContent = character.name;
     card.querySelector("small").textContent = character.premise;
+    if (character.source?.visibility === "private") card.querySelector("em").textContent = "我的角色 · 僅自己可見";
     card.addEventListener("click", () => window.dijiSelectCharacter(character));
     return card;
   }));
+  if (createCard) grid.append(createCard);
   status.textContent = `共 ${characters.length} 位可選角色`;
   empty.hidden = characters.length > 0;
 }
@@ -519,6 +523,9 @@ document.querySelectorAll("[data-auth-logout]").forEach((button) => button.addEv
   await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
   authenticatedUser = null;
   updateAccountAccess();
+  state.characters = [];
+  await loadLocalCatalog();
+  setChatReady(false);
   showToast("你已登出此裝置。");
 }));
 document.querySelector("#chat-form").addEventListener("submit", async (event) => {
