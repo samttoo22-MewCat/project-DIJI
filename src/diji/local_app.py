@@ -7,7 +7,7 @@ import os
 from typing import Literal
 
 import httpx
-from fastapi import Body, FastAPI, HTTPException, Request, Response
+from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, SecretStr
@@ -461,10 +461,10 @@ def create_app(
         return assemble_prompt(character, flow, request, user_memories.recent(request.chat_id))
 
     @app.get("/api/memories/{chat_id}", response_model=list[MemoryRecord])
-    def list_memories(chat_id: str, http_request: Request) -> list[MemoryRecord]:
+    def list_memories(chat_id: str, http_request: Request, limit: int = Query(default=10, ge=1, le=500)) -> list[MemoryRecord]:
         user_memories, _conversations, _relationships, _profiles, _interactions, _generator = stores_for(current_user(http_request))
         try:
-            return user_memories.recent(chat_id)
+            return user_memories.recent(chat_id, limit=limit)
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 

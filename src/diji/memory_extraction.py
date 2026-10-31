@@ -79,6 +79,7 @@ class MemoryExtractor:
             if not match:
                 return []
             event = json.loads(match.group(0))
+            event["extraction_status"] = "extracted"
             event["timestamp"] = datetime.now(TZ_TAIPEI).strftime("%Y-%m-%d %H:%M")
             if event.get("type") not in {"事實", "偏好", "事件", "標記"}:
                 event["type"] = "event"

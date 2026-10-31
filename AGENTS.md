@@ -7,8 +7,9 @@
 ## 架構原則
 
 - 2026-11-01 Edge 實測：記憶抽取的 DeepSeek V4.1 Flash 預設推理可耗盡 1000 token，導致空正文與回退記憶。抽取請求固定 `reasoning.enabled=false`，保留模型、1000-token 上限、JSON schema、提示與 ai-server 查詢語義。`tests/test_memory_reasoning.py` 重現空正文並防止回歸。
-- 記憶頁只在 sessionStorage 保存所查看對話的帳號 ID、chat_id 與角色名稱；重新載入時可恢復該記憶頁的範圍，不自動打開聊天。帳號不符時忽略，登出清除；實際記憶與對話仍在伺服器。
-- 記憶驗證結果見 `docs/memory-verification.md`：Edge 實際抽取、顯示與重整保存，以及無逐字歷史的真實模型回憶通過；84 項測試通過。保留原回退事件、不改 ai-server 關鍵字字串比對；不可宣稱短詞能命中多值關鍵字或已有語意搜尋。
+- 記憶工作區：記憶入口先顯示角色卡片，僅列 `message_count>0` 的對話並依 character_id 分組。角色內切換對話、查看最近 100 筆記憶及搜尋／篩選；重新整理回角色網格，不自動選取角色。右側「開啟完整記憶資料」直接打開該對話。UI 位於 `memory-workspace.js/css`，不在瀏覽器保存記憶正文。
+- 多值關鍵字限制已依使用者明確指示修正，使用分隔符拆值；仍不做語意檢索，不將短片段反向命中整個人名。`extraction_status` 只新增來源 metadata，舊未標記紀錄顯示「待整理」，不得冒稱已確認為模型抽取或回退。
+- 本輪驗證：87 項 pytest 通過；Edge 驗證只有已聊角色可進記憶、搜索／篩選／原文展開與四種寬度。新 `tests/test_memory_keywords.py` 保護多值拆分、詞組、時間順序及 API limit；記憶頁 `limit=100`，側欄預設 10 不變。
 
 - `character_generation`：以 ai-server 邏輯執行「概念 → JSON 人設 → 對話風格 → App 摘要／分類 → 嗜好 → 完整 prompt」。角色生成只產生可審核草稿；只有 UI 明確儲存時才寫入角色庫。`OpenRouterGenerationClient` 只在 `POST /api/characters/generate` 時發送請求。
 - `interaction`：組裝互動上下文、依 ai-server 路由模型、清理輸出、保存記憶並更新關係狀態。

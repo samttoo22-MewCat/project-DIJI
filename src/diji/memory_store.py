@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import json
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -50,10 +51,10 @@ class LocalMemoryStore:
             path.unlink()
 
     def search_by_text(self, chat_id: str, query: str, count: int = 5) -> list[MemoryRecord]:
-        """Match keyword values in a query, newest first, as ai-server does."""
+        """Match full keyword phrases or delimited values, retaining newest-first order."""
         matched = [
             record for record in self._read(chat_id)
-            if any(value and value in query for value in record.keywords.values())
+            if any(value and (value in query or any(term.strip() and term.strip() in query for term in re.split(r"[、,，;；\n]+", value))) for value in record.keywords.values())
         ]
         return sorted(matched, key=lambda record: self._timestamp(record.timestamp), reverse=True)[:count]
 
@@ -73,8 +74,8 @@ class LocalMemoryStore:
     def relevant_for_message(self, chat_id: str, message: str, count: int = 5) -> list[MemoryRecord]:
         """Return keyword-relevant memories in ai-server's newest-first order.
 
-        The legacy server searches values in the extracted ``keywords`` object;
-        it does not add embeddings or a semantic ranking layer here.
+        Values in the extracted ``keywords`` object also match individual
+        delimited phrases; this adds no embeddings or semantic ranking layer.
         """
         return self.search_by_text(chat_id, message, count=count)
 

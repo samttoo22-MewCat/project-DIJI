@@ -36,6 +36,7 @@
     <link rel="stylesheet" href="onboarding.css?v=20261101-google-first-1&amp;type=20261101-larger-1" />
     <link rel="stylesheet" href="home.css?v=20261101-story-home-1&amp;type=20261101-larger-1" />
     <link rel="stylesheet" href="ui-polish.css?v=20261101-2" />
+    <link rel="stylesheet" href="memory-workspace.css?v=20261101-2" />
   </head>
   <body class="guest-mode">
     <header class="account-access" aria-label="帳號操作">
@@ -471,30 +472,25 @@
           </div>
         </section>
         <section class="screen studio-screen" data-screen="create-character" aria-label="建立角色"><div class="creation-connection-hint"><span>角色生成需要先連接模型服務。</span><button class="ghost-button" data-view="connections" type="button">設定模型連線</button></div><div class="chat-provider-gate" id="creator-provider-gate" role="region" aria-labelledby="creator-provider-gate-title" hidden><div><h2 id="creator-provider-gate-title">尚未連接模型商</h2><p>角色生成與回覆需要由模型商提供 AI 模型。連接後才能建立角色及聊天，費用會使用你自己的額度。請前往左側「模型連線」完成設定。</p></div></div></section>
-        <section class="screen studio-screen" data-screen="memory">
-          <header class="page-header">
-            <div>
-              <p class="eyebrow">記憶資料</p>
-              <h1>回看你們的重要片刻。</h1>
-              <p>查看目前對話留下的事件記憶，讓每段關係都有脈絡可循。</p>
-              <p id="memory-context" aria-live="polite">請先開啟一段角色對話，再查看記憶。</p>
-            </div>
-          </header>
-          <div class="empty-state" id="memory-empty">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M7 4.5h10a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2Z"
-              />
-              <path d="M8.5 9h7M8.5 13h5" />
-            </svg>
-            <h2>尚未有可顯示的記憶</h2>
-            <p>先開啟一段角色對話。有記憶紀錄後，便會顯示在這裡。</p>
+        <section class="screen studio-screen memory-screen" data-screen="memory">
+          <div class="memory-shell">
+            <header class="page-header"><div><p class="eyebrow">對話記憶</p><h1>每個角色，都有你們的故事。</h1><p>只收錄實際聊過的角色。選擇角色，回看每段對話留下的記憶。</p></div></header>
+            <p id="memory-status" role="status" aria-live="polite"></p>
+            <section id="memory-hub" aria-label="聊過的角色">
+              <div class="memory-hub-tools"><label class="memory-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5"/><path d="m15 15 5 5"/></svg><input id="memory-role-search" type="search" aria-label="搜尋聊過的角色" placeholder="搜尋聊過的角色" /></label><p id="memory-role-count"></p></div>
+              <div id="memory-role-grid" class="character-library-grid memory-role-grid"></div>
+              <div id="memory-hub-empty" class="empty-state" hidden><h2>故事還沒開始</h2><p>與角色聊過後，就能在這裡查看記憶；空白對話不會列入。</p><button class="primary-button" id="memory-choose-role" type="button">前往角色頁面</button></div>
+            </section>
+            <section id="memory-detail" aria-label="角色的對話記憶" hidden>
+              <button id="memory-back" class="ghost-button" type="button">← 返回已聊角色</button>
+              <div class="memory-detail-heading"><div><p class="eyebrow">你們的記憶</p><h1 id="memory-character-title"></h1><p id="memory-context"></p></div><label class="memory-conversation-label" for="memory-conversation">選擇對話<select id="memory-conversation"></select></label></div>
+              <div class="memory-stats" aria-label="本次載入記憶統計"><div><strong id="memory-total">0</strong><span>筆記憶</span></div><div><strong id="memory-organized">0</strong><span>已整理</span></div><div><strong id="memory-pending">0</strong><span>待整理</span></div></div>
+              <div class="memory-tools"><label class="memory-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5"/><path d="m15 15 5 5"/></svg><input id="memory-search" type="search" aria-label="搜尋記憶" placeholder="搜尋摘要、人名或關鍵字" /></label><div id="memory-filters" class="memory-filters" aria-label="記憶篩選"><button type="button" data-memory-filter="all" aria-pressed="true">全部</button><button type="button" data-memory-filter="organized" aria-pressed="false">已整理</button><button type="button" data-memory-filter="pending" aria-pressed="false">待整理</button><button type="button" data-memory-filter="error" aria-pressed="false">抽取異常</button></div></div>
+              <p class="memory-list-note" id="memory-results" aria-live="polite"></p>
+              <div class="empty-state" id="memory-empty" hidden><h3>這裡暫時沒有記憶</h3><p>可切換其他對話，或清除搜尋與篩選條件。</p><button class="ghost-button" id="memory-clear-search" type="button">清除篩選</button></div>
+              <section class="memory-list" id="memory-list" aria-label="記憶紀錄"></section>
+            </section>
           </div>
-          <section
-            class="memory-list"
-            id="memory-list"
-            aria-live="polite"
-          ></section>
         </section>
         <section class="screen studio-screen settings-screen" data-screen="settings">
           <header class="page-header">
@@ -627,11 +623,12 @@
     </dialog>
     <div class="toast" id="toast" role="status"></div>
     <script src="age-confirmation.js?v=20261028-age-gate-2"></script>
-    <script src="app.js?v=20261101-memory-test-1"></script>
+    <script src="app.js?v=20261101-memory-hub-1"></script>
     <script src="jailbreak-studio.js?v=20261101-google-first-1"></script>
     <script src="character-creator.js?v=20261101-polish-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>
     <script src="openrouter-connection.js?v=20261101-polish-1"></script>
     <script src="ui-polish.js?v=20261101-2"></script>
+    <script src="memory-workspace.js?v=20261101-2"></script>
   </body>
 </html>

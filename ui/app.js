@@ -16,7 +16,7 @@ function showToast(message) {
   toast.classList.add("show");
   window.setTimeout(() => toast.classList.remove("show"), 2200);
 }
-function showScreen(name) {
+function showScreen(name, memoryChatId = null) {
   if (!workspaceAvailable && name !== 'home') name = 'home';
   const previous = document.querySelector('.screen.active')?.dataset.screen;
   if (name === 'connections' && ['chat', 'create-character'].includes(previous)) rememberPendingTask(previous);
@@ -25,7 +25,7 @@ function showScreen(name) {
   document.querySelectorAll(".rail-button[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === name));
   if (name !== "chat") setChatList(false);
   else if (!compactChatList.matches) setChatList(isChatListAvailable());
-  if (name === "memory" && requireLogin()) loadMemories();
+  if (name === "memory" && requireLogin()) loadMemories(memoryChatId);
   if (name === "chat" || name === "create-character") refreshChatProviderState();
   window.dispatchEvent(new CustomEvent('diji-screen-changed', {detail: {name}}));
 }
@@ -353,32 +353,8 @@ async function loadInteractionModels() {
     status.textContent = "尚無可用模型；請在越獄工作台完成文字編輯與核准。";
   }
 }
-async function loadMemories() {
-  const list = document.querySelector("#memory-list"), empty = document.querySelector("#memory-empty");
-  let context = null;
-  try {
-    if (state.chatId !== 'preview') {
-      context = {userId: authenticatedUser?.id, chatId: state.chatId, character: state.character};
-      sessionStorage.setItem('diji-memory-context', JSON.stringify(context));
-    } else {
-      const saved = JSON.parse(sessionStorage.getItem('diji-memory-context') || 'null');
-      if (saved?.userId === authenticatedUser?.id && authenticatedUser) context = saved;
-    }
-  } catch {}
-  document.querySelector('#memory-context').textContent = context ? `記憶所屬對話：${context.character}` : '請先開啟一段角色對話，再查看記憶。';
-  try {
-    const response = await fetch(`/api/memories/${context?.chatId || state.chatId}`);
-    if (!response.ok) throw new Error("memory unavailable");
-    const memories = await response.json();
-    list.replaceChildren(...memories.map((memory) => {
-      const item = document.createElement("article"); item.className = "memory-card";
-      item.innerHTML = `<p>${memory.type} · ${memory.timestamp}</p><h2></h2><small></small>`;
-      item.querySelector("h2").textContent = memory.summary;
-      item.querySelector("small").textContent = Object.entries(memory.keywords).map(([key, value]) => `${key}：${value}`).join(" · ");
-      return item;
-    }));
-    empty.hidden = memories.length > 0;
-  } catch { list.replaceChildren(); empty.hidden = false; }
+async function loadMemories(chatId = null) {
+  return window.dijiMemory?.open(chatId);
 }
 function renderChatMemories(memories) {
   const list = document.querySelector("#chat-memory-list");
@@ -410,7 +386,7 @@ async function loadChatMemories() {
   }
 }
 
-document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => { showScreen(button.dataset.view); if (compactMobileNav.matches) setMobileNav(false); }));
+document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => { showScreen(button.dataset.view, button.classList.contains("chat-memory-link") ? state.chatId : null); if (compactMobileNav.matches) setMobileNav(false); }));
 document.querySelector("#home-start").addEventListener("click", () => {
   const next = document.querySelector('#home-start').dataset.next;
   if (!authenticatedUser) { rememberPendingTask('chat'); openLoginDialog(); }
@@ -608,7 +584,6 @@ document.querySelectorAll("[data-auth-logout]").forEach((button) => button.addEv
   authenticatedUser = null;
   workspaceAvailable = false;
   updateAccountAccess();
-  try { sessionStorage.removeItem('diji-memory-context'); } catch {}
   state.characters = [];
   state.conversations = [];
   state.history = [];

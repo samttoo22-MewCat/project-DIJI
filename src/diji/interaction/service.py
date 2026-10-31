@@ -59,6 +59,7 @@ class InteractionService:
             summary=(request.message.text.strip() or "本回合互動")[:60],
             user_message=request.message.text,
             character_response_summary=text[:50] or None,
+            extraction_status="fallback",
         )
 
     def build_messages(self, request: InteractionRequest, current_time: datetime) -> list[dict[str, str]]:
