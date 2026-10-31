@@ -21,20 +21,22 @@ function showScreen(name) {
   if (name !== "chat") setChatList(false);
   else if (!compactChatList.matches) setChatList(isChatListAvailable());
   if (name === "memory" && requireLogin()) loadMemories();
-  if (name === "chat") refreshChatProviderState();
+  if (name === "chat" || name === "create-character") refreshChatProviderState();
 }
 
 function setChatProviderLocked(locked, title = '尚未連接模型商') {
-  const screen = document.querySelector('[data-screen="chat"]');
-  const gate = document.querySelector('#chat-provider-gate');
-  screen.classList.toggle('provider-locked', locked);
-  gate.hidden = !locked;
-  document.querySelector('#chat-provider-gate-title').textContent = title;
-  for (const child of screen.children) {
-    if (child === gate) continue;
-    child.inert = locked;
-    if (locked) child.setAttribute('aria-hidden', 'true');
-    else child.removeAttribute('aria-hidden');
+  for (const name of ['chat', 'create-character']) {
+    const screen = document.querySelector(`[data-screen="${name}"]`);
+    const gate = screen.querySelector('.chat-provider-gate');
+    screen.classList.toggle('provider-locked', locked);
+    gate.hidden = !locked;
+    gate.querySelector('h2').textContent = title;
+    for (const child of screen.children) {
+      if (child === gate) continue;
+      child.inert = locked;
+      if (locked) child.setAttribute('aria-hidden', 'true');
+      else child.removeAttribute('aria-hidden');
+    }
   }
   if (locked) { setDetails(false); setChatList(false); }
 }
@@ -43,7 +45,7 @@ async function refreshChatProviderState() {
   const status = document.querySelector('#chat-provider-status');
   const config = document.querySelector('#chat-provider-config');
   const controls = document.querySelector('#chat-provider-controls');
-  const explain = '角色回覆需要由模型商提供 AI 模型。連接後才能開始聊天，費用會使用你自己的額度。請前往左側「模型連線」完成設定。';
+  const explain = '角色生成與回覆需要由模型商提供 AI 模型。連接後才能建立角色及聊天，費用會使用你自己的額度。請前往左側「模型連線」完成設定。';
   const names = {openrouter: 'OpenRouter', bazaarlink: 'BazaarLink'};
   try {
     const response = await fetch('/api/connections/priority', {cache:'no-store'});

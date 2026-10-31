@@ -31,7 +31,7 @@
     <link rel="stylesheet" href="home.css?v=20261020-project-home-1" />
     <link rel="stylesheet" href="responsive.css?v=20261030-openrouter-1" />
     <link rel="stylesheet" href="pwa.css?v=20261021-pwa-2" />
-    <link rel="stylesheet" href="account-access.css?v=20261101-chat-lock-1" />
+    <link rel="stylesheet" href="account-access.css?v=20261101-creator-lock-1" />
     <link rel="stylesheet" href="age-confirmation.css?v=20261028-age-gate-1" />
     <link rel="stylesheet" href="connection-layout.css?v=20261101-disconnect-1" />
   </head>
@@ -401,7 +401,7 @@
               </button>
             </section>
           </aside>
-          <div class="chat-provider-gate" id="chat-provider-gate" role="region" aria-labelledby="chat-provider-gate-title" hidden><div><h2 id="chat-provider-gate-title">尚未連接模型商</h2><p id="chat-provider-gate-description">角色回覆需要由模型商提供 AI 模型。連接後才能開始聊天，費用會使用你自己的額度。請前往左側「模型連線」完成設定。</p></div></div>
+          <div class="chat-provider-gate" id="chat-provider-gate" role="region" aria-labelledby="chat-provider-gate-title" hidden><div><h2 id="chat-provider-gate-title">尚未連接模型商</h2><p id="chat-provider-gate-description">角色生成與回覆需要由模型商提供 AI 模型。連接後才能建立角色及聊天，費用會使用你自己的額度。請前往左側「模型連線」完成設定。</p></div></div>
         </section>
         <section class="screen studio-screen" data-screen="characters">
           <header class="page-header">
@@ -459,7 +459,7 @@
             <section class="settings-card priority-card"><div><p class="eyebrow">額度偏好</p><h2>先使用哪個服務？</h2><p>依順序使用已連接的服務。第一順位額度不足時，再切換下一個。</p></div><div class="priority-controls"><label for="provider-priority">額度使用順序</label><div class="priority-select"><select id="provider-priority"><option value="openrouter">OpenRouter → BazaarLink</option><option value="bazaarlink">BazaarLink → OpenRouter</option></select><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></div><button class="ghost-button" id="save-provider-priority" type="button">儲存使用順序</button><p id="provider-priority-status" aria-live="polite"></p></div></section>
           </div>
         </section>
-        <section class="screen studio-screen" data-screen="create-character" aria-label="建立角色"><div class="creation-connection-hint"><span>角色生成需要先連接模型服務。</span><button class="ghost-button" data-view="connections" type="button">設定模型連線</button></div></section>
+        <section class="screen studio-screen" data-screen="create-character" aria-label="建立角色"><div class="creation-connection-hint"><span>角色生成需要先連接模型服務。</span><button class="ghost-button" data-view="connections" type="button">設定模型連線</button></div><div class="chat-provider-gate" id="creator-provider-gate" role="region" aria-labelledby="creator-provider-gate-title" hidden><div><h2 id="creator-provider-gate-title">尚未連接模型商</h2><p>角色生成與回覆需要由模型商提供 AI 模型。連接後才能建立角色及聊天，費用會使用你自己的額度。請前往左側「模型連線」完成設定。</p></div></div></section>
         <section class="screen studio-screen" data-screen="memory">
           <header class="page-header">
             <div>
@@ -615,7 +615,7 @@
     </dialog>
     <div class="toast" id="toast" role="status"></div>
     <script src="age-confirmation.js?v=20261028-age-gate-2"></script>
-    <script src="app.js?v=20261101-chat-lock-1"></script>
+    <script src="app.js?v=20261101-creator-lock-1"></script>
     <script src="jailbreak-studio.js?v=20261011-model-jailbreak-1"></script>
     <script src="character-creator.js?v=20261030-openrouter-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>
