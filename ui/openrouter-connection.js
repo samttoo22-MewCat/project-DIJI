@@ -60,6 +60,28 @@
     } catch { priorityStatus.textContent = '儲存失敗，請稍後再試。'; }
   });
   loadPriority();
+  let usageLoading = false;
+  async function loadBazaarUsage() {
+    if (usageLoading) return;
+    usageLoading = true;
+    try {
+      const response = await fetch('/api/connections/bazaarlink/usage', {cache:'no-store'});
+      if (!response.ok) throw new Error();
+      const data = await response.json();
+      const amount = value => value === null ? '—' : `$${Number(value).toFixed(6)}`;
+      document.querySelector('#bazaarlink-total').textContent = amount(data.total);
+      document.querySelector('#bazaarlink-last').textContent = `最近一次模型請求：${amount(data.last)} USD`;
+      document.querySelector('#bazaarlink-usage-note').textContent = data.requests ? `已記錄 ${data.requests} 次請求；從啟用紀錄後累計，不含其他應用程式。` : '尚無費用紀錄；從啟用紀錄後開始累計，不含其他應用程式。';
+    } catch {
+      document.querySelector('#bazaarlink-usage-note').textContent = '無法讀取費用紀錄，請登入或稍後更新。';
+    } finally { usageLoading = false; }
+  }
+  document.querySelector('#refresh-bazaarlink-usage').addEventListener('click', loadBazaarUsage);
+  setInterval(() => {
+    if (!document.hidden && document.querySelector('[data-screen="connections"]').classList.contains('active')) loadBazaarUsage();
+  }, 3000);
+  document.querySelectorAll('[data-view="connections"]').forEach(button => button.addEventListener('click', loadBazaarUsage));
+  loadBazaarUsage();
   if (new URLSearchParams(window.location.search).get('openrouter') === 'connected') {
     document.querySelector('.rail-button[data-view="connections"]').click();
   }

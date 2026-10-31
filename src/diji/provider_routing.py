@@ -1,8 +1,15 @@
 """Route each model call using the account's ordered, encrypted credentials."""
 import httpx
+import json
 from openai import AsyncOpenAI
 
 BASES = {"openrouter": "https://openrouter.ai/api/v1", "bazaarlink": "https://api.bazaarlink.ai/v1"}
+
+
+class ProviderCredentials(list):
+    def __init__(self, items, record_usage):
+        super().__init__(items)
+        self.record_usage = record_usage
 
 
 class CreditRoutingTransport(httpx.AsyncBaseTransport):
@@ -23,6 +30,16 @@ class CreditRoutingTransport(httpx.AsyncBaseTransport):
             if response.status_code == 402 and index + 1 < len(self.credentials):
                 await response.aclose()
                 continue
+            recorder = getattr(self.credentials, "record_usage", None)
+            if recorder and response.is_success and "text/event-stream" not in response.headers.get("content-type", ""):
+                raw = await response.aread()
+                try:
+                    payload = json.loads(raw, parse_float=str)
+                    cost = payload.get("usage", {}).get("cost")
+                    if cost is not None:
+                        recorder(provider, payload.get("id"), cost)
+                except (ValueError, TypeError, AttributeError):
+                    pass
             return response
 
     async def aclose(self):

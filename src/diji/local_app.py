@@ -324,6 +324,12 @@ def create_app(
         response.headers["Cache-Control"] = "private, no-store"
         return {"priority": accounts.provider_priority(user.id), "connected": [p for p, _ in accounts.provider_credentials(user.id)]}
 
+    @app.get("/api/connections/bazaarlink/usage")
+    def bazaarlink_usage(http_request: Request, response: Response) -> dict:
+        user = current_user(http_request)
+        response.headers["Cache-Control"] = "private, no-store"
+        return accounts.provider_usage(user.id, "bazaarlink")
+
     @app.put("/api/connections/priority")
     def save_priority(http_request: Request, priority: list[str] = Body(...)) -> dict:
         user = current_user(http_request)

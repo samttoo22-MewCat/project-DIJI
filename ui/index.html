@@ -454,7 +454,7 @@
           <div class="connections-layout">
             <header class="connections-heading"><p class="eyebrow">模型連線</p><h1>讓你的角色，連上模型。</h1><p>連接自己的額度，再決定優先使用哪個服務。</p></header>
             <div class="provider-cards">
-              <section class="settings-card provider-card"><div class="provider-card-heading"><span class="provider-symbol" aria-hidden="true">B</span><div><h2>BazaarLink</h2><p>繁體中文服務介面</p></div></div><p class="provider-description">使用自己的 BazaarLink 額度，進行角色生成、聊天與記憶整理。</p><button class="ghost-button" id="connect-bazaarlink" type="button">連接您的 BazaarLink</button><p class="provider-status" id="bazaarlink-status" aria-live="polite"></p></section>
+              <section class="settings-card provider-card"><div class="provider-card-heading"><span class="provider-symbol" aria-hidden="true">B</span><div><h2>BazaarLink</h2><p>繁體中文服務介面</p></div></div><p class="provider-description">使用自己的 BazaarLink 額度，進行角色生成、聊天與記憶整理。</p><button class="ghost-button" id="connect-bazaarlink" type="button">連接您的 BazaarLink</button><p class="provider-status" id="bazaarlink-status" aria-live="polite"></p><div class="openrouter-spend" aria-live="polite"><div class="spend-heading"><span>透過 DIJI 累計使用 · USD</span><button class="ghost-button" id="refresh-bazaarlink-usage" type="button">更新用量</button></div><strong id="bazaarlink-total">—</strong><small id="bazaarlink-last">最近一次費用：—</small><small id="bazaarlink-usage-note">從啟用費用紀錄後開始累計，不含其他應用程式。</small></div></section>
               <section class="settings-card provider-card openrouter-connection"><div class="provider-card-heading"><span class="provider-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6M4 6h5M4 18h5"/></svg></span><div><h2>OpenRouter</h2><p>使用自己的模型額度</p></div></div><p class="provider-description">連接 OpenRouter 帳號，使用授權給 DIJI 的額度。</p><button class="ghost-button" id="connect-openrouter" type="button">連接您的 OpenRouter</button><p class="provider-status" id="openrouter-connection-status" aria-live="polite"></p><div class="openrouter-spend"><div class="spend-heading"><span>此連接累計使用 · USD</span><button class="ghost-button" id="refresh-openrouter" type="button">更新用量</button></div><strong id="openrouter-total">—</strong><small id="openrouter-daily">連接後顯示用量</small></div></section>
             </div>
             <section class="settings-card priority-card"><div><p class="eyebrow">額度偏好</p><h2>先使用哪個服務？</h2><p>依順序使用已連接的服務。第一順位額度不足時，再切換下一個。</p></div><div class="priority-controls"><label for="provider-priority">額度使用順序</label><div class="priority-select"><select id="provider-priority"><option value="openrouter">OpenRouter → BazaarLink</option><option value="bazaarlink">BazaarLink → OpenRouter</option></select><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></div><button class="ghost-button" id="save-provider-priority" type="button">儲存使用順序</button><p id="provider-priority-status" aria-live="polite"></p></div></section>
@@ -620,6 +620,6 @@
     <script src="jailbreak-studio.js?v=20261011-model-jailbreak-1"></script>
     <script src="character-creator.js?v=20261030-openrouter-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>
-    <script src="openrouter-connection.js?v=20261031-bazaar-1"></script>
+    <script src="openrouter-connection.js?v=20261101-usage-1"></script>
   </body>
 </html>

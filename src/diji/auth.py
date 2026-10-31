@@ -8,6 +8,8 @@ from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 import os
 import json
+from decimal import Decimal, InvalidOperation
+from .provider_routing import ProviderCredentials
 from pathlib import Path
 import secrets
 import sqlite3
@@ -185,6 +187,11 @@ class AccountStore:
                 CREATE TABLE IF NOT EXISTS provider_preferences (
                     user_id TEXT PRIMARY KEY, priority TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS provider_usage (
+                    user_id TEXT NOT NULL, provider TEXT NOT NULL, request_id TEXT NOT NULL,
+                    cost TEXT NOT NULL, recorded_at TEXT NOT NULL,
+                    PRIMARY KEY(user_id, provider, request_id)
+                );
                 CREATE TABLE IF NOT EXISTS provider_link_states (
                     state_hash TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL
@@ -361,7 +368,27 @@ class AccountStore:
             row = connection.execute("SELECT encrypted_key FROM additional_provider_keys WHERE user_id = ? AND provider = ?", (user_id, "bazaarlink")).fetchone()
         if row and self.cipher:
             keys["bazaarlink"] = self.cipher.decrypt(bytes(row["encrypted_key"])).decode()
-        return [(provider, keys[provider]) for provider in self.provider_priority(user_id) if keys.get(provider)]
+        return ProviderCredentials([(provider, keys[provider]) for provider in self.provider_priority(user_id) if keys.get(provider)],
+                                   lambda provider, request_id, cost: self.record_provider_usage(user_id, provider, request_id, cost))
+
+    def record_provider_usage(self, user_id, provider, request_id, cost):
+        try:
+            amount = Decimal(str(cost))
+        except InvalidOperation:
+            return
+        if not amount.is_finite() or amount < 0:
+            return
+        with self._connection() as connection:
+            connection.execute("INSERT OR IGNORE INTO provider_usage VALUES (?, ?, ?, ?, ?)",
+                               (user_id, provider, request_id or secrets.token_hex(16), str(amount), self._now().isoformat()))
+
+    def provider_usage(self, user_id, provider):
+        with self._connection() as connection:
+            rows = connection.execute("SELECT cost, recorded_at FROM provider_usage WHERE user_id = ? AND provider = ? ORDER BY recorded_at DESC, rowid DESC", (user_id, provider)).fetchall()
+        return {"total": str(sum((Decimal(row["cost"]) for row in rows), Decimal(0))) if rows else None,
+                "last": rows[0]["cost"] if rows else None,
+                "updated_at": rows[0]["recorded_at"] if rows else None,
+                "requests": len(rows), "currency": "USD"}
 
 
 def authorization_url(callback_url: str, state: str, challenge: str) -> str:

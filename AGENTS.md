@@ -145,6 +145,8 @@ pytest -q
 
 ## 年齡確認
 
+- BazaarLink 費用從模型 JSON 回應 `usage.cost` 按帳號記錄於 SQLite `provider_usage`，以請求 ID 去重、Decimal 累計。記憶／好感度／角色生成子請求皆納入，最近一次代表單次模型請求，並非整個多階段流程。介面顯示啟用紀錄後的 DIJI 累計，進入模型連線頁後每 3 秒刷新；缺失費用不可當作 0。
+
 - 模型連線頁由 `ui/connection-layout.css` 管理：頁首、兩張服務卡、獨立順序卡；手機堆疊。優先順序保留原生 select 的鍵盤與手機選擇器，外觀以深藍底、自訂箭頭及青色聚焦環統一。
 
 - BazaarLink 使用 S256 PKCE 與帳號綁定，加密存於 `additional_provider_keys`；供應商順序按帳號保存。聊天、角色生成、記憶及好感度統一經 `provider_routing`，只在 HTTP 402 明確額度不足時切換，逾時及其他錯誤不跨供應商重試。真實授權需使用者在供應商頁完成。
