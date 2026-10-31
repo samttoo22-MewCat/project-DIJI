@@ -613,7 +613,14 @@ document.querySelector("#chat-form").addEventListener("submit", async (event) =>
     loadChatMemories();
   } catch (error) { typingIndicator.remove(); showToast(`模型回覆未完成：${error.message}；你的訊息已保存在本機。`); } finally { setComposerBusy(false); loadConversations(); }
 });
-document.querySelector("#chat-input").addEventListener("keydown", (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); document.querySelector("#chat-form").requestSubmit(); } });
+document.querySelector("#chat-input").addEventListener("keydown", (event) => {
+  // IME confirmation belongs to the input method, including Safari's 229 event.
+  if (event.isComposing || event.keyCode === 229) return;
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    document.querySelector("#chat-form").requestSubmit();
+  }
+});
 document.querySelector("#chat-input").addEventListener("input", (event) => { event.target.style.height = "auto"; event.target.style.height = `${Math.min(event.target.scrollHeight, 160)}px`; });
 document.querySelectorAll("[data-chat-mode]").forEach((button) => button.addEventListener("click", () => saveChatMode(button.dataset.chatMode)));
 setChatProviderLocked(true, '正在確認模型商連接狀態…');

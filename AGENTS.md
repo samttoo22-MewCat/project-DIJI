@@ -47,6 +47,8 @@
 
 ## UI 設計約束
 
+- 聊天 Enter 送出必須先略過 `event.isComposing` 與 `event.keyCode===229`，避免中文選字確認誤送（含 Safari 的 compositionend／keydown 順序）。選字完成後下一次普通 Enter 才送出，Shift+Enter 保持換行。`tests/chat-ime.test.cjs` 載入真實 app 事件監聽器驗證此行為；可用 `NODE_PATH=/tmp/diji-onboarding/dom-check/node_modules node tests/chat-ime.test.cjs` 執行，缺少依賴時先 `npm install --prefix /tmp/diji-onboarding/dom-check jsdom`。此修正不修改 prompt、草稿或對話保存。
+
 - 草稿每次成功同步都在同一個 SQLite transaction 追加 `draft_versions` 完整快照，包含首次生成、手動、AI 修改、確認儲存與回滾；版本不可覆寫或自動清除。`save_draft` 必須同時驗證當前 revision 並更新最新指標。回滾另存新版本，保留被回滾的內容；已存成角色的紀錄改為 fork 新 generation，原角色與原版本保持不變。不得把未成功的 AI 提案列為已保存版本。
 - 版本 API 按帳號隔離、no-store；歷史以 100 筆分頁載入，可持續載入更早版本。UI「版本歷史與回滾」先查看再明確還原；還原前完成待同步修改，版本衝突回 409 並保留本機內容。已保存角色可從草稿列表／保存完成畫面進版本歷史，只讀檢視並還原成新草稿。
 - 舊資料首次讀取版本歷史時，只從四階段完整輸出、既有 AI 修改前／完成快照及現存完整草稿補入；缺少的中間版本不造假補齊。新版本從成功同步起保存，700ms 防抖期間尚未同步的逐字輸入不算已存版本。測試見 `tests/test_draft_versions.py`：重開、並行、跨帳號、分頁、回滾再回復、已保存角色 fork 與真實快照回填。
