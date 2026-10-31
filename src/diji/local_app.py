@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, SecretStr
 
 from .local_catalog import CatalogSnapshot, CharacterSpec, FlowSpec, LocalCatalog
 from .character_generation.service import GeneratedCharacter
+from .character_generation.revision import DraftRevisionRequest, revision_prompt, apply_proposal
 from .conversation_store import ConversationMessage, ConversationRecord, ConversationStore, ConversationSummary
 from .character_import import CharacterImporter, CharacterImportPreview, CharacterImportRequest, CharacterImportResult
 from .memory_store import LocalMemoryStore, MemoryRecord
@@ -704,6 +705,46 @@ def create_app(
             raise HTTPException(status_code=404, detail='草稿不存在') from error
         except ValueError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
+
+    @app.post('/api/character-generations/{run_id}/revise')
+    async def revise_draft(run_id: str, request: DraftRevisionRequest, http_request: Request):
+        user = current_user(http_request)
+        activity = activity_for(user)
+        try:
+            run = activity.get(run_id)
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail='草稿不存在') from error
+        if run['kind'] != 'generation' or run['status'] != 'completed' or run['data'].get('saved_character_id') or run['revision'] != request.revision:
+            raise HTTPException(status_code=409, detail='草稿已變更或已儲存為角色，請重新讀取')
+        if auth.required and not accounts.provider_credentials(user.id):
+            raise HTTPException(status_code=409, detail='此帳號尚未設定模型連線')
+        preset = next((p for p in jailbreaks.list() if p.review_status == 'approved' and p.prompt and request.model.removesuffix(':online') in p.openrouter_models),None)
+        if preset is None:
+            raise HTTPException(status_code=400, detail='請選擇有已核准越獄的模型')
+        before = CharacterGenerationResult.model_validate(run['data']['draft'])
+        prompt = revision_prompt(before,request.instruction,preset.prompt,request.is_nsfw)
+        revision_id = activity.begin('draft_revision',{'generation_id':run_id,'base_revision':request.revision,'model':request.model,'instruction':request.instruction,'before':before.model_dump(),'jailbreak_id':preset.id,'jailbreak_updated':preset.last_updated})
+        activity.event(revision_id,'revise','started',{'prompt':prompt})
+        try:
+            *_, user_generator = stores_for(user)
+            raw = await user_generator.client.complete(model=request.model,temperature=0.5,prompt=prompt,json_mode=True)
+            activity.event(revision_id,'revise','completed',{'output':raw})
+            proposed, summary, paths = apply_proposal(before,raw)
+            activity.finish(revision_id,'running',{'proposed':proposed.model_dump(),'summary':summary,'changed_fields':paths})
+            try:
+                saved = activity.save_draft(run_id,request.revision,proposed.model_dump())
+            except ValueError as error:
+                raise HTTPException(status_code=409, detail='修改期間草稿已變更，這次結果未覆蓋新版本，請重新讀取') from error
+            activity.finish(revision_id,'completed',{'result_revision':saved['revision']})
+            return {'draft':saved,'summary':summary,'changed_fields':paths}
+        except HTTPException:
+            activity.finish(revision_id,'failed',{'error_type':'RevisionConflict'})
+            raise
+        except BaseException as error:
+            activity.finish(revision_id,'failed',{'error_type':type(error).__name__})
+            if isinstance(error,Exception):
+                raise HTTPException(status_code=502,detail='AI 修改未完成，原草稿仍保留，請稍後重試') from error
+            raise
 
     @app.post("/api/interactions", response_model=InteractionResponse)
     async def interact(request: InteractionRequest, http_request: Request) -> InteractionResponse:

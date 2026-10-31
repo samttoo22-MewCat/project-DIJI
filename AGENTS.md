@@ -14,7 +14,7 @@
 - 多值關鍵字限制已依使用者明確指示修正，使用分隔符拆值；仍不做語意檢索，不將短片段反向命中整個人名。`extraction_status` 只新增來源 metadata，舊未標記紀錄顯示「待整理」，不得冒稱已確認為模型抽取或回退。
 - 本輪驗證：87 項 pytest 通過；Edge 驗證只有已聊角色可進記憶、搜索／篩選／原文展開與四種寬度。新 `tests/test_memory_keywords.py` 保護多值拆分、詞組、時間順序及 API limit；記憶頁 `limit=100`，側欄預設 10 不變。
 
-- `character_generation`：以 ai-server 邏輯執行「概念 → JSON 人設 → 對話風格 → App 摘要／分類 → 嗜好 → 完整 prompt」。角色生成只產生可審核草稿；只有 UI 明確儲存時才寫入角色庫。`OpenRouterGenerationClient` 只在 `POST /api/characters/generate` 時發送請求。
+- `character_generation`：以 ai-server 邏輯執行「概念 → JSON 人設 → 對話風格 → App 摘要／分類 → 嗜好 → 完整 prompt」。角色生成只產生可審核草稿；只有 UI 明確儲存時才寫入角色庫。`OpenRouterGenerationClient` 只在明確的生成／草稿修改 POST 中發送請求。
 - `interaction`：組裝互動上下文、依 ai-server 路由模型、清理輸出、保存記憶並更新關係狀態。
 - `experiments`：可重現的內部組裝設定與越獄參照；成人虛構請求才可使用其中的越獄欄位，不能內嵌在核心模組。
 - `experiments` 的外部越獄匯入只保存可審核中繼資料；每筆須同時有指南路徑與 OpenRouter 現存模型 ID。共用指南應合併為模型範圍名稱（例如 `Opus 4.5–4.8`），不得按同一提示詞重複建立。只有人工核准為 `approved` 的本機內容可以被互動層注入。
@@ -46,6 +46,10 @@
 - 每次改動互動層前，先對照 `docs/architecture.md` 的資料流與 `docs/migration-map.md`；這兩份文件定義可開源範圍與 ai-server 行為不變量。
 
 ## UI 設計約束
+
+- 審核頁的 AI 修改助手：`character_generation/revision.py` 要求模型回傳既有末端欄位的 path/value，驗證欄位範圍、型態與可保存大小，保留未修改資料並沿用 `_full_prompt` 重建。`POST /api/character-generations/{id}/revise` 從當前帳號草稿讀取、驗證 revision 與已核准模型越獄；原子保存時再檢查版本，舊結果不可覆蓋新草稿。要求、修改前快照、模型 prompt／輸出、提案與結果版本記錄為 `draft_revision`，不記錄憑證或原始例外訊息。
+- 修改助手固定在畫面右下方，只在已有草稿的審核頁出現；1100px 起預設展開並保留右側空間，小視窗／手機預設為可點開的小浮鈕。切換頁面、試聊、保存完成與登出時隱藏。AI 修改期間鎖住審核輸入，浮窗仍可收起；成功刷新欄位並保留展開與捲動狀態，失敗保留原草稿。修改立即同步至伺服器，仍須明確保存才加入角色庫。修改紀錄浮窗顯示本次頁面最近五筆，完整紀錄保存在伺服器。
+- 修改助手的右側預留樣式必須高於 `.screen.studio-screen.active` 的 padding 優先級，避免浮窗遮住表單。手機修改紀錄預設收合，輸入與送出按鈕應在展開後可視區內。2026-11-01：110 項 pytest 通過；Edge 真實模型只在指定背景追加測試文字，伺服器比對其餘人設與風格指南未變，重載後修改仍在。1440px 表單右界 1036、浮窗左界 1080；375px 小浮鈕及展開輸入／送出可見，375／768／1024／1440px 無橫向溢位。
 
 - 角色創建成人選項使用白話「角色設定是否包含色情內容」，輔助說明明確區分生成提示與聊天開關；保留 `creator-adult` 識別碼、預設值與原 `is_nsfw` 行為。
 - 審核草稿底部提供「測試對話」與明確保存兩個入口。試聊前同步草稿、核對 revision；後端只從當前帳號的生成紀錄重建角色 prompt，共用正式 `execute_interaction`，不接受前端角色正文。試聊的 conversations／memories／relationships／user_profiles 位於帳號 `creator_trials/`，不加入正式角色／聊天／記憶清單；玩家紀錄以 `purpose=draft_trial` 保存版本與角色快照。預設短對話，可切換長對話，好感度關閉；色情設定沿用此次創建選項。測試 API 拒絕他人、舊版本、已保存角色與跨草稿的 chat_id，見 `tests/test_draft_trial.py`。

@@ -29,6 +29,68 @@
   let draftDirty = false;
   let editVersion = 0;
   let creatorEpoch = 0;
+  let revising = false;
+  const assistantMedia = window.matchMedia?.('(min-width:1100px)');
+  let assistantOpen = assistantMedia?.matches || false;
+  let assistantDraftId = null;
+  const assistant = document.createElement('aside'); assistant.className='creator-ai-assistant'; assistant.hidden=true; assistant.setAttribute('aria-label','AI 角色修改助手');
+  assistant.innerHTML='<button type="button" class="creator-ai-launcher" aria-controls="creator-ai-panel" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v11H9l-4 4V5Z"/><path d="M9 9h6M9 12h4"/></svg><span>AI 修改</span></button><section id="creator-ai-panel" class="creator-ai-panel" aria-labelledby="creator-ai-title"><header><h2 id="creator-ai-title">AI 修改助手</h2><button type="button" class="creator-ai-close" aria-label="收起 AI 修改助手">×</button></header><p>直接說想改哪裡，AI 會更新草稿並保存至伺服器；確認儲存角色後才會加入角色庫。</p><div class="creator-ai-log" role="log" aria-label="角色修改紀錄"></div><form><label for="creator-ai-instruction">想怎麼修改角色？</label><textarea id="creator-ai-instruction" rows="4" maxlength="4000" required placeholder="例如：個性更幽默，保留背景，說話不要太正式。"></textarea><p class="creator-ai-model"></p><button type="submit" class="primary-button">交給 AI 修改</button></form><p class="creator-ai-status" role="status">使用你選擇的模型及自備額度。</p></section>';
+  document.body.append(assistant);
+  const assistantLauncher=assistant.querySelector('.creator-ai-launcher'), assistantPanel=assistant.querySelector('.creator-ai-panel'), assistantInput=assistant.querySelector('textarea'), assistantLog=assistant.querySelector('.creator-ai-log'), assistantStatus=assistant.querySelector('.creator-ai-status');
+  assistantPanel.querySelector('header + p').textContent='AI 會更新並保存草稿；儲存角色後才加入角色庫。';
+  const assistantHistory=document.createElement('details'); assistantHistory.className='creator-ai-history'; assistantHistory.open=assistantMedia?.matches || false;
+  const historyTitle=document.createElement('summary'); historyTitle.textContent='本次修改紀錄'; assistantLog.replaceWith(assistantHistory); assistantHistory.append(historyTitle,assistantLog);
+  function updateAssistant() {
+    const visible=Boolean(draft?.generation_id && !savedCharacter && !generating && workspaceAvailable && creationPage.classList.contains('active') && !creationPage.classList.contains('provider-locked') && result.querySelector('.character-review') && !result.querySelector('.character-review').hidden);
+    assistant.hidden=!visible; assistantPanel.hidden=!assistantOpen; assistantLauncher.hidden=assistantOpen;
+    assistantLauncher.setAttribute('aria-expanded',String(assistantOpen));
+    creationPage.classList.toggle('creator-ai-visible',visible && assistantOpen);
+    creationPage.classList.toggle('creator-ai-available',visible);
+    assistant.querySelector('.creator-ai-model').textContent=`修改模型：${model.value || '尚未選擇模型'}`;
+    assistant.querySelector('.creator-ai-model').title=model.value;
+    assistantLauncher.querySelector('span').textContent=revising ? '修改中…' : 'AI 修改';
+    if (draft?.generation_id !== assistantDraftId) {
+      assistantDraftId=draft?.generation_id; assistantLog.replaceChildren(); assistantInput.value=''; assistantStatus.textContent='使用你選擇的模型及自備額度。';
+    }
+    assistantHistory.hidden=assistantLog.children.length===0;
+  }
+  assistantLauncher.addEventListener('click',()=>{assistantOpen=true;updateAssistant();assistantInput.focus();});
+  assistant.querySelector('.creator-ai-close').addEventListener('click',()=>{assistantOpen=false;updateAssistant();assistantLauncher.focus();});
+  assistant.addEventListener('keydown',event=>{if(event.key==='Escape'){assistantOpen=false;updateAssistant();assistantLauncher.focus();}});
+  assistantMedia?.addEventListener('change',event=>{assistantOpen=event.matches;assistantHistory.open=event.matches;updateAssistant();});
+  new MutationObserver(updateAssistant).observe(creationPage,{attributes:true,attributeFilter:['class']});
+  model.addEventListener('change',updateAssistant);
+  assistant.querySelector('form').addEventListener('submit',async event=>{
+    event.preventDefault();
+    const instruction=assistantInput.value.trim();
+    if (!instruction || revising || saving || generating || !draft?.generation_id) return;
+    if (!result.querySelector('.character-review')?.reportValidity()) return;
+    const current=draft, epoch=creatorEpoch;
+    const submit=assistant.querySelector('button[type="submit"]');
+    const locked=[...panel.querySelectorAll('input,textarea,select,button')].filter(el=>!el.disabled);
+    revising=true; locked.forEach(el=>el.disabled=true); submit.disabled=true; assistantInput.disabled=true; submit.textContent='正在修改…'; updateAssistant();
+    assistantStatus.textContent='正在依照要求修改。可收起視窗，已開始的請求仍可能計費。';
+    try {
+      await syncDraft();
+      if (draftDirty) throw new Error('原有修改尚未同步，請稍後再試');
+      const openDetails=[...result.querySelectorAll('details[open]')].map(el=>el.querySelector('summary')?.textContent);
+      const scroll=creationPage.scrollTop;
+      const response=await fetch(`/api/character-generations/${current.generation_id}/revise`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision:current.revision,model:model.value,instruction,is_nsfw:panel.querySelector('#creator-adult').checked})});
+      const data=await response.json();
+      if (!response.ok) throw new Error(typeof data.detail==='string' ? data.detail : `修改未完成（HTTP ${response.status}）`);
+      if (epoch!==creatorEpoch || draft!==current) return;
+      draft=data.draft; draftDirty=false; renderDraft(); setStep(1);
+      result.querySelectorAll('details').forEach(el=>{el.open=openDetails.includes(el.querySelector('summary')?.textContent);}); creationPage.scrollTop=scroll;
+      const entry=document.createElement('article'); const asked=document.createElement('strong'); asked.textContent=instruction;
+      const summary=document.createElement('p'); summary.textContent=data.summary; entry.append(asked,summary); assistantLog.append(entry);
+      while(assistantLog.children.length>5) assistantLog.firstElementChild.remove();
+      assistantInput.value=''; assistantStatus.textContent=`已更新 ${data.changed_fields.length} 個欄位並保存草稿。可繼續審核或測試對話。`; loadDraftHistory();
+    } catch(error) {
+      if (epoch===creatorEpoch && draft===current) assistantStatus.textContent=`修改失敗：${error.message}。原草稿仍保留。`;
+    } finally {
+      locked.forEach(el=>el.disabled=false); revising=false; submit.disabled=false; assistantInput.disabled=false; submit.textContent='交給 AI 修改'; updateAssistant();
+    }
+  });
   const historyPanel = document.createElement('div');
   historyPanel.className = 'creator-draft-history'; historyPanel.hidden = true;
   form.before(historyPanel);
@@ -74,7 +136,7 @@
       label.append(select);
       const restore = document.createElement('button'); restore.type='button'; restore.className='ghost-button'; restore.textContent='繼續審核草稿';
       restore.addEventListener('click', async () => {
-        if (generating || saving) return;
+        if (generating || saving || revising) return;
         await syncDraft();
         if (draftDirty && !window.confirm('目前修改尚未同步，仍要切換草稿嗎？')) return;
         restore.disabled=true;
@@ -121,7 +183,7 @@
   form.addEventListener('change', persistBrief);
   window.addEventListener('beforeunload', event => {
     persistBrief();
-    if (generating || draftDirty || (draft && !draft.generation_id && !savedCharacter)) { event.preventDefault(); event.returnValue = ''; }
+    if (generating || revising || draftDirty || (draft && !draft.generation_id && !savedCharacter)) { event.preventDefault(); event.returnValue = ''; }
   });
   function setStep(index) {
     panel.querySelectorAll('.creator-steps li').forEach((step,i) => {
@@ -178,12 +240,13 @@
   }
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (generating) return;
+    if (generating || revising) return;
     const button = form.querySelector("button");
     const keywords = panel.querySelector("#creator-keywords").value.trim();
     if (!keywords || model.disabled) return;
     if (draft && !savedCharacter && !window.confirm('重新生成會取代尚未儲存的草稿，確定繼續嗎？')) return;
     generating = true;
+    updateAssistant();
     button.disabled = true; button.textContent = "生成中…";
     await syncDraft();
     form.setAttribute('aria-busy', 'true');
@@ -204,7 +267,7 @@
       renderDraft(); setStep(1); creatorStatus.textContent = "草稿已完成。你可以修改人設與說話風格，再儲存。";
       result.scrollIntoView({block:'start', behavior:'auto'});
     } catch (error) { creatorStatus.textContent = `生成失敗：${error.message}`; }
-    finally { window.clearInterval(waiting); generating = false; button.disabled = false; button.textContent = "生成角色草稿"; form.setAttribute('aria-busy', 'false'); }
+    finally { window.clearInterval(waiting); generating = false; button.disabled = false; button.textContent = "生成角色草稿"; form.setAttribute('aria-busy', 'false'); updateAssistant(); }
   });
   function renderDraft() {
     panel.classList.remove('creator-trial-active');
@@ -248,7 +311,7 @@
     const test = document.createElement('button'); test.type='button'; test.className='ghost-button creator-test-button'; test.textContent='測試對話';
     const actions = document.createElement('div'); actions.className='creator-review-actions'; actions.append(test,save);
     test.addEventListener('click', async () => {
-      if (saving || generating || test.disabled || !review.reportValidity()) return;
+      if (saving || generating || revising || test.disabled || !review.reportValidity()) return;
       test.disabled=true; test.textContent='準備測試對話…';
       try {
         await syncDraft();
@@ -259,6 +322,7 @@
     });
     review.addEventListener('submit', event => { event.preventDefault(); saveDraft(save); });
     review.append(presentation,advanced,actions); result.append(title,draftWarning,review);
+    updateAssistant();
   }
   function openTrial(review, testButton, title, warning) {
     result.querySelector('.draft-trial')?.remove();
@@ -305,15 +369,17 @@
     back.addEventListener('click',()=>{
       panel.classList.remove('creator-trial-active');
       trial.hidden=true; review.hidden=false; form.hidden=false; warning.hidden=false; title.hidden=false; historyPanel.hidden=previousHistoryHidden;
+      updateAssistant();
       testButton.focus(); testButton.scrollIntoView({block:'center'});
     });
     header.append(back,name); composer.append(inputLabel,send); trial.append(header,note,modelNote,modeLabel,log,composer,status); result.append(trial);
     review.hidden=true; form.hidden=true; warning.hidden=true; title.hidden=true; historyPanel.hidden=true;
     panel.classList.add('creator-trial-active');
+    updateAssistant();
     trial.scrollIntoView({block:'start'}); back.focus();
   }
   async function saveDraft(button) {
-    if (saving) return;
+    if (saving || revising) return;
     saving = true; button.disabled = true; button.textContent = '正在儲存…';
     await syncDraft();
     const id = draftId;
@@ -323,6 +389,7 @@
       const saved = await response.json();
       if (!response.ok) throw new Error(typeof saved.detail === 'string' ? saved.detail : '請檢查人設欄位內容後重試');
       savedCharacter = saved;
+      updateAssistant();
       draftDirty=false; loadDraftHistory();
       window.dijiState.characters = window.dijiState.characters.filter(item => item.id !== saved.id).concat(saved);
       window.dijiRenderCharacterLibrary(); setStep(2);
@@ -354,5 +421,5 @@
   function initializeCreator() { creatorEpoch++; restoreBrief(); loadModels(); refreshCharacterLibrary(); loadDraftHistory(); }
   window.addEventListener('diji-workspace-ready', initializeCreator);
   if (workspaceAvailable) initializeCreator();
-  document.querySelectorAll('[data-auth-logout]').forEach(button=>button.addEventListener('click',()=>{creatorEpoch++;panel.classList.remove('creator-trial-active');clearTimeout(syncTimer);draftDirty=false;historyPanel.hidden=true;historyPanel.replaceChildren();briefKey=null;draft=null;savedCharacter=null;form.reset();form.hidden=false;result.replaceChildren();result.hidden=true;setStep(0);}));
+  document.querySelectorAll('[data-auth-logout]').forEach(button=>button.addEventListener('click',()=>{creatorEpoch++;panel.classList.remove('creator-trial-active');clearTimeout(syncTimer);draftDirty=false;historyPanel.hidden=true;historyPanel.replaceChildren();briefKey=null;draft=null;savedCharacter=null;form.reset();form.hidden=false;result.replaceChildren();result.hidden=true;setStep(0);updateAssistant();}));
 })();
