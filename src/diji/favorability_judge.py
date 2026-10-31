@@ -7,6 +7,7 @@ import os
 import re
 
 from openai import AsyncOpenAI
+from .provider_routing import provider_client
 
 from .domain import InteractionRequest
 from .relationship import JudgeResult, RelationshipState, STAGES
@@ -33,7 +34,7 @@ class OpenRouterFavorabilityJudge:
         prompt = self._build_prompt(conversation, request, state)
         try:
             if self.client is None:
-                self.client = AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=self.api_key)
+                self.client = provider_client(api_key=self.api_key)
             response = await self.client.chat.completions.create(model="google/gemini-2.5-flash", temperature=0.2, max_tokens=700, top_p=0.5, messages=[{"role": "user", "content": prompt}], response_format={"type": "json_object"})
             match = re.search(r"\{.*\}", response.choices[0].message.content or "", re.DOTALL)
             if not match:

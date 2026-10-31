@@ -5,6 +5,7 @@ body { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100dvh; o
 .screen.studio-screen.active { max-height: 100%; overflow-y: auto; }
 .screen:not(.active) { display: none !important; }
 .creation-connection-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 24px; color: #c2d0dc; }
+#provider-priority { width: 100%; min-height: 48px; margin: 10px 0; padding: 10px 12px; border: 1px solid #486b7f; border-radius: 10px; background: #112234; color: #e4f0f4; font: inherit; }
 [data-screen="connections"] .settings-card { max-width: 640px; }
 .account-login, .account-logout { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; padding: 9px 14px; border: 1px solid #486b7f; border-radius: 12px; color: #e4f8fa; background: rgba(16, 31, 47, .92); box-shadow: 0 8px 24px rgba(0, 0, 0, .22); font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; backdrop-filter: blur(14px); }
 .account-login[hidden], .account-logout[hidden] { display: none; }

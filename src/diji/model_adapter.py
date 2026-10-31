@@ -7,6 +7,7 @@ from typing import Protocol
 
 import httpx
 from openai import AsyncOpenAI
+from .provider_routing import provider_client
 
 from .domain import ModelConfiguration
 
@@ -44,7 +45,7 @@ class AiServerCompatibleAdapter:
             base_url, api_key = config.url or "https://openrouter.ai/api/v1", self.openrouter_api_key or os.getenv("OPENROUTER_API_KEY", "")
         if not api_key:
             raise RuntimeError("A configured provider key is required before a model request can be sent")
-        client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+        client = provider_client(base_url=base_url, api_key=api_key)
         response = await client.chat.completions.create(
             model=model,
             messages=messages,

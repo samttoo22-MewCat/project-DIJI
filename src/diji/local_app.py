@@ -155,7 +155,7 @@ def create_app(
         user_memories = LocalMemoryStore(root / "memories")
         user_relationships = RelationshipStore(root / "relationships")
         user_profiles = UserProfileStore(root / "user_profiles")
-        api_key = accounts.openrouter_key_for(user.id)
+        api_key = accounts.provider_credentials(user.id)
         user_interactions = InteractionService(
             AiServerCompatibleAdapter(api_key),
             user_memories,
@@ -290,6 +290,48 @@ def create_app(
             return {"connected": True, "usage": data.get("usage"), "usage_daily": data.get("usage_daily"), "currency": "USD"}
         except (httpx.HTTPError, ValueError, KeyError):
             return {"connected": True, "usage": None, "error": "暫時無法取得用量，請稍後更新"}
+
+    @app.get("/api/connections/bazaarlink/start")
+    def connect_bazaarlink(http_request: Request) -> RedirectResponse:
+        user = current_user(http_request)
+        state, challenge = accounts.begin_provider_link(f"bazaarlink:{user.id}")
+        base = (auth.google_callback_url or auth.callback_url).split("/api/", 1)[0]
+        callback = f"{base}/api/connections/bazaarlink/callback"
+        url = authorization_url(callback, state, challenge).replace("https://openrouter.ai/auth?", "https://bazaarlink.ai/auth?")
+        return RedirectResponse(url, status_code=303, headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/connections/bazaarlink/callback")
+    async def connected_bazaarlink(code: str, state: str, http_request: Request) -> RedirectResponse:
+        user = current_user(http_request)
+        verifier = accounts.consume_provider_link(state, f"bazaarlink:{user.id}")
+        if not verifier:
+            raise HTTPException(status_code=400, detail="授權已過期，請重新連接 BazaarLink")
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                result = await client.post("https://bazaarlink.ai/api/v1/auth/keys", json={"code": code, "code_verifier": verifier, "code_challenge_method": "S256"})
+                result.raise_for_status()
+                key = result.json().get("key")
+                if not isinstance(key, str) or not key:
+                    raise ValueError()
+            accounts.save_provider_key(user.id, key, "bazaarlink")
+        except (httpx.HTTPError, ValueError):
+            raise HTTPException(status_code=400, detail="BazaarLink 授權失敗，請重新連接")
+        return RedirectResponse("/?openrouter=connected#connections", status_code=303, headers={"Cache-Control": "no-store"})
+
+    @app.get("/api/connections/priority")
+    def provider_priority(http_request: Request, response: Response) -> dict:
+        user = current_user(http_request)
+        response.headers["Cache-Control"] = "private, no-store"
+        return {"priority": accounts.provider_priority(user.id), "connected": [p for p, _ in accounts.provider_credentials(user.id)]}
+
+    @app.put("/api/connections/priority")
+    def save_priority(http_request: Request, priority: list[str] = Body(...)) -> dict:
+        user = current_user(http_request)
+        try:
+            accounts.save_provider_priority(user.id, priority)
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error))
+        return {"priority": priority}
 
     @app.post("/api/auth/logout", status_code=204, response_model=None)
     def logout(request: Request, response: Response) -> None:
@@ -448,7 +490,7 @@ def create_app(
             raise HTTPException(status_code=400, detail="Conversation must not be empty")
         user = current_user(http_request)
         user_memories, _conversations, _relationships, _profiles, _interactions, _generator = stores_for(user)
-        api_key = accounts.openrouter_key_for(user.id) if auth.required else None
+        api_key = accounts.provider_credentials(user.id) if auth.required else None
         if auth.required and not api_key:
             raise HTTPException(status_code=409, detail="此帳號尚未設定模型連線")
         records = await (extractor if not auth.required else MemoryExtractor(OpenRouterExtractionClient(api_key))).extract(conversation)
@@ -472,7 +514,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="找不到這段對話") from error
         if not record.messages:
             return {"created": 0, "skipped": True}
-        if auth.required and not accounts.openrouter_key_for(user.id):
+        if auth.required and not accounts.provider_credentials(user.id):
             raise HTTPException(status_code=409, detail="此帳號尚未設定模型連線")
         generated: list[MemoryRecord] = []
         recent_messages = record.messages[-80:]
@@ -522,7 +564,7 @@ def create_app(
     @app.post("/api/characters/generate", response_model=CharacterGenerationResult)
     async def generate_character(request: CharacterGenerationRequest, http_request: Request) -> CharacterGenerationResult:
         user = current_user(http_request)
-        if auth.required and not accounts.openrouter_key_for(user.id):
+        if auth.required and not accounts.provider_credentials(user.id):
             raise HTTPException(status_code=409, detail="此帳號尚未設定模型連線")
         _memories, _conversations, _relationships, _profiles, _interactions, user_generator = stores_for(user)
         model_id = request.model.removesuffix(":online")
@@ -536,7 +578,7 @@ def create_app(
         user = current_user(http_request)
         if auth.required:
             visible_character(http_request, request.character.id)
-        if auth.required and not accounts.openrouter_key_for(user.id):
+        if auth.required and not accounts.provider_credentials(user.id):
             raise HTTPException(status_code=409, detail="此帳號尚未設定模型連線")
         user_memories, user_conversations, user_relationships, _profiles, user_interactions, _generator = stores_for(user)
         request = request.model_copy(update={"user": request.user.model_copy(update={"id": user.id}), "message": request.message.model_copy(update={"sender_id": user.id})})

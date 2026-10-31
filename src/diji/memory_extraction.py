@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Protocol
 
 from openai import AsyncOpenAI
+from .provider_routing import provider_client
 
 from .memory_store import MemoryRecord
 
@@ -33,7 +34,7 @@ class OpenRouterExtractionClient:
         if not self.api_key:
             raise RuntimeError("OPENROUTER_API_KEY is not configured")
         if self.client is None:
-            self.client = AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=self.api_key)
+            self.client = provider_client(api_key=self.api_key)
         response = await self.client.chat.completions.create(**kwargs)
         return response.choices[0].message.content or ""
 

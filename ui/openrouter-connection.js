@@ -31,6 +31,35 @@
   }));
   setInterval(() => { if (!document.hidden) load(); }, 60000);
   load();
+  const bazaar = document.querySelector('#connect-bazaarlink');
+  const bazaarStatus = document.querySelector('#bazaarlink-status');
+  const priority = document.querySelector('#provider-priority');
+  const priorityStatus = document.querySelector('#provider-priority-status');
+  async function loadPriority() {
+    try {
+      const response = await fetch('/api/connections/priority', {cache:'no-store'});
+      if (response.status === 401) { bazaarStatus.textContent = '請先登入 DIJI 再連接。'; return; }
+      if (!response.ok) throw new Error();
+      const data = await response.json();
+      priority.value = data.priority[0];
+      bazaar.disabled = data.connected.includes('bazaarlink');
+      bazaar.textContent = bazaar.disabled ? '已連接您的 BazaarLink' : '連接您的 BazaarLink';
+      bazaarStatus.textContent = bazaar.disabled ? '使用您自己的 BazaarLink 額度。' : '授權後即可使用。';
+    } catch { priorityStatus.textContent = '無法載入額度順序，請重新開啟此頁。'; }
+  }
+  bazaar.addEventListener('click', () => {
+    if (requireLogin()) window.location.assign('/api/connections/bazaarlink/start');
+  });
+  document.querySelector('#save-provider-priority').addEventListener('click', async () => {
+    if (!requireLogin()) return;
+    const order = priority.value === 'bazaarlink' ? ['bazaarlink','openrouter'] : ['openrouter','bazaarlink'];
+    try {
+      const response = await fetch('/api/connections/priority', {method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(order)});
+      if (!response.ok) throw new Error();
+      priorityStatus.textContent = '已儲存，下一次模型請求開始套用。';
+    } catch { priorityStatus.textContent = '儲存失敗，請稍後再試。'; }
+  });
+  loadPriority();
   if (new URLSearchParams(window.location.search).get('openrouter') === 'connected') {
     document.querySelector('.rail-button[data-view="connections"]').click();
   }

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 import os
+import json
 from pathlib import Path
 import secrets
 import sqlite3
@@ -177,6 +178,13 @@ class AccountStore:
                     user_id TEXT PRIMARY KEY,
                     encrypted_key BLOB NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS additional_provider_keys (
+                    user_id TEXT NOT NULL, provider TEXT NOT NULL, encrypted_key BLOB NOT NULL,
+                    PRIMARY KEY(user_id, provider)
+                );
+                CREATE TABLE IF NOT EXISTS provider_preferences (
+                    user_id TEXT PRIMARY KEY, priority TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS provider_link_states (
                     state_hash TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL
@@ -327,11 +335,33 @@ class AccountStore:
             connection.execute("DELETE FROM provider_link_states WHERE state_hash = ?", (self._hash(state),))
         return self.consume_oauth_verifier(state)
 
-    def save_provider_key(self, user_id: str, key: str) -> None:
+    def save_provider_key(self, user_id: str, key: str, provider: str = "openrouter") -> None:
         if not self.cipher:
             raise RuntimeError("伺服器尚未設定憑證加密")
         with self._connection() as connection:
+            if provider != "openrouter":
+                connection.execute("INSERT OR REPLACE INTO additional_provider_keys VALUES (?, ?, ?)", (user_id, provider, self.cipher.encrypt(key.encode())))
+                return
             connection.execute("INSERT OR REPLACE INTO provider_connections VALUES (?, ?)", (user_id, self.cipher.encrypt(key.encode())))
+
+    def provider_priority(self, user_id):
+        with self._connection() as connection:
+            row = connection.execute("SELECT priority FROM provider_preferences WHERE user_id = ?", (user_id,)).fetchone()
+        return json.loads(row["priority"]) if row else ["openrouter", "bazaarlink"]
+
+    def save_provider_priority(self, user_id, priority):
+        if sorted(priority) != ["bazaarlink", "openrouter"]:
+            raise ValueError("請選擇兩個不同的額度來源")
+        with self._connection() as connection:
+            connection.execute("INSERT OR REPLACE INTO provider_preferences VALUES (?, ?)", (user_id, json.dumps(priority)))
+
+    def provider_credentials(self, user_id):
+        keys = {"openrouter": self.openrouter_key_for(user_id)}
+        with self._connection() as connection:
+            row = connection.execute("SELECT encrypted_key FROM additional_provider_keys WHERE user_id = ? AND provider = ?", (user_id, "bazaarlink")).fetchone()
+        if row and self.cipher:
+            keys["bazaarlink"] = self.cipher.decrypt(bytes(row["encrypted_key"])).decode()
+        return [(provider, keys[provider]) for provider in self.provider_priority(user_id) if keys.get(provider)]
 
 
 def authorization_url(callback_url: str, state: str, challenge: str) -> str:

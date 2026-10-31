@@ -7,6 +7,7 @@ import os
 from typing import Protocol
 
 from openai import AsyncOpenAI
+from ..provider_routing import provider_client
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -51,7 +52,7 @@ class OpenRouterGenerationClient:
         if not self.api_key:
             raise RuntimeError("OPENROUTER_API_KEY is not configured")
         if self.client is None:
-            self.client = AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key=self.api_key)
+            self.client = provider_client(api_key=self.api_key)
         kwargs: dict[str, object] = {
             "model": model,
             "temperature": temperature,
