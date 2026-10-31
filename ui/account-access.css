@@ -24,7 +24,12 @@ body { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100dvh; o
 .google-login-close svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 2; }
 @media (max-width: 760px) {
   .account-access { min-height: 60px; padding: max(8px, env(safe-area-inset-top)) 12px 8px; }
-  .app { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: var(--mobile-bar, 60px) minmax(0, 1fr); }
+  .account-access { z-index: 60; }
+  .account-access .mobile-nav-toggle { display: grid; margin: 0 auto 0 0; }
+  .app { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+  .app .rail { display: none; }
+  .app.mobile-nav-open .rail { display: flex; top: 60px; height: calc(100dvh - 60px); }
+  .app.mobile-nav-open .rail-button[data-view="create-character"]::after { content: "建立角色"; }
   .content { height: auto !important; }
   .screen[data-screen="chat"], .screen[data-screen="chat"].awaiting-character { height: 100%; }
   .account-login { min-height: 40px; padding: 8px 11px; font-size: 15px; }
