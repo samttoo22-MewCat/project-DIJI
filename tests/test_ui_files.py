@@ -386,7 +386,7 @@ def test_character_cards_do_not_expose_ai_server_import_labels() -> None:
     assert 'character.source?.generated_file ? "ai-server 匯入" : "本機角色"' not in library
     assert '<em></em>' not in library
     assert "app.js?v=20261101-memory-hub-1" in markup
-    assert "character-creator.js?v=20261101-polish-1" in markup
+    assert "character-creator.js?v=20261101-creator-ux-3" in markup
 
 
 def test_chat_starts_with_role_selection_before_opening_a_conversation() -> None:

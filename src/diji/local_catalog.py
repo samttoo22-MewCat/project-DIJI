@@ -22,6 +22,7 @@ class CharacterSpec(BaseModel):
     relationship_start: Literal["new", "familiar", "opposed"] = "new"
     profile: dict[str, Any] = Field(default_factory=dict)
     style_guide: str = Field(default="", max_length=30_000)
+    generation_metadata: dict[str, str] = Field(default_factory=dict)
     full_prompt: str = Field(default="", max_length=50_000)
     source: dict[str, str] = Field(default_factory=dict)
 

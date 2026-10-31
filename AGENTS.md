@@ -47,6 +47,12 @@
 
 ## UI 設計約束
 
+- 角色建立已於 2026-11-01 以 Edge 真實走過：網路參考生成、審核修改、私人保存、開始聊天，修改後背景的唯一測試設定進入實際回覆。結果與限制見 `docs/creator-usability-test.md`。
+- 建立角色預設優先 DeepSeek V4.1 Flash，帳號選擇可覆寫。概念暫存鍵為 `diji-creator-brief:<account-id>`；登入完成後才恢復，忽略舊的不分帳號鍵，登出清空畫面。未保存草稿／生成中提供離頁提醒，沒有伺服器草稿備份，不可聲稱重整後完整草稿仍在。
+- `character-creator.js` 除了監聽 `diji-workspace-ready`，載入時若 `workspaceAvailable` 已成立也必須立即初始化，避免登入事件先發出時模型選單永久卡住；此情境在 Edge 重整及隔離 DOM 測試均重現。
+- 生成成功先驗證再替換現有草稿，HTTP／非 JSON 失敗保留既有審核資料；顯示真實等待秒數，不假造階段進度。保存後隱藏已完成表單、清除該帳號概念暫存，提供聊天、回角色庫及建立另一位選項。
+- `CharacterSpec.generation_metadata` 保存一句話介紹、分類與嗜好，審核頁可在展開區修改；不改既有 `_full_prompt` 組裝或四階段生成提示。
+
 - 全站精緻化與動態集中於最後載入的 `ui/ui-polish.css`、`ui/ui-polish.js`；深藍／低彩度青色、現有大字級與 44px 觸控目標維持。`showScreen` 發出 `diji-screen-changed` 更新頂欄頁名與 `aria-current`，展示層不得發模型請求或改帳號／模型路由。
 - 切頁、抽屜與面板進場使用 180–280ms 的 opacity/transform，首頁線條僅一次；hover 位移只在精準滑鼠與無減少動態設定下啟用。減少動態時停用 CSS 動畫並取消首頁 Web Animation；內容預設可見，不以 JS 或動畫作為顯示前提。設計規範見 `docs/ui-design.md`。
 - 手機從首頁開導覽時沒有 active rail item，焦點退回第一個導覽項目；requestAnimationFrame 執行時必須確認抽屜仍開啟，避免聚焦已隱藏內容。
