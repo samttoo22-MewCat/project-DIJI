@@ -111,6 +111,15 @@ def save_openrouter_key(path: Path, key: str) -> None:
     os.environ["OPENROUTER_API_KEY"] = value
 
 
+class DraftTrialRequest(BaseModel):
+    chat_id: str = Field(pattern=r'^trial-[a-z0-9-]{1,57}$')
+    revision: int = Field(ge=0)
+    model: str = Field(min_length=1, max_length=256)
+    text: str = Field(min_length=1, max_length=16_000)
+    chat_mode: Literal['story', 'dialog'] = 'dialog'
+    is_nsfw: bool = False
+
+
 def create_app(
     catalog: LocalCatalog | None = None,
     memory_store: LocalMemoryStore | None = None,
@@ -173,10 +182,12 @@ def create_app(
         root = _user_directory(user.id) if auth.required else local_catalog.path.parent
         return PlayerActivity(root / 'player_activity.sqlite3')
 
-    def stores_for(user: AuthenticatedUser) -> tuple[LocalMemoryStore, ConversationStore, RelationshipStore, UserProfileStore, InteractionService, CharacterGenerationService]:
-        if not auth.required:
+    def stores_for(user: AuthenticatedUser, *, trial: bool = False) -> tuple[LocalMemoryStore, ConversationStore, RelationshipStore, UserProfileStore, InteractionService, CharacterGenerationService]:
+        if not auth.required and not trial:
             return local_memories, conversations, relationships, profiles, interactions, generator
-        root = _user_directory(user.id)
+        root = _user_directory(user.id) if auth.required else local_catalog.path.parent
+        if trial:
+            root = root / 'creator_trials'
         root.mkdir(parents=True, exist_ok=True)
         root.chmod(0o700)
         user_memories = LocalMemoryStore(root / "memories")
@@ -696,12 +707,56 @@ def create_app(
 
     @app.post("/api/interactions", response_model=InteractionResponse)
     async def interact(request: InteractionRequest, http_request: Request) -> InteractionResponse:
+        return await execute_interaction(request, http_request)
+
+    @app.post('/api/character-generations/{run_id}/test-interactions', response_model=InteractionResponse)
+    async def test_draft(run_id: str, trial: DraftTrialRequest, http_request: Request):
         user = current_user(http_request)
-        if auth.required:
+        try:
+            run = activity_for(user).get(run_id)
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail='草稿不存在') from error
+        if run['kind'] != 'generation' or run['status'] != 'completed' or run['data'].get('saved_character_id'):
+            raise HTTPException(status_code=409, detail='請使用尚未加入角色庫的完整草稿試聊')
+        if run['revision'] != trial.revision:
+            raise HTTPException(status_code=409, detail='草稿版本已變更，請返回審核並重新開啟測試對話')
+        if not any(p.review_status == 'approved' and p.prompt and trial.model.removesuffix(':online') in p.openrouter_models for p in jailbreaks.list()):
+            raise HTTPException(status_code=400, detail='請選擇有已核准越獄的模型')
+        draft = CharacterGenerationResult.model_validate(run['data']['draft'])
+        profile = draft.character.model_dump()
+        samples = profile.get('language_style')
+        request = InteractionRequest.model_validate({
+            'chat_id':trial.chat_id, 'llm':{'model':trial.model},
+            'character':{'id':run_id, 'name':draft.character.character_name,
+                'brief_description':draft.description_for_app or draft.brief_description,
+                'description':CharacterGenerationService._full_prompt(draft.character,draft.style_guide),
+                'sample_dialog':[{'sender_type':2,'text':str(line)[:800]} for line in samples[:10]] if isinstance(samples,list) else [],
+                **{key:profile.get(key) for key in ('psychological_evolution','behavioral_boundaries','evolution_requirements')}},
+            'user':{'id':'local-user', 'persona':{'name':'使用者','chat_mode':trial.chat_mode}},
+            'message':{'sender_id':user.id,'text':trial.text},
+            'style_prompt':draft.style_guide, 'is_nsfw':trial.is_nsfw, 'enable_favorability':False,
+        })
+        _, chats, *_ = stores_for(user, trial=True)
+        try:
+            previous = chats.get(trial.chat_id)
+            if previous.character_id != run_id:
+                raise HTTPException(status_code=409, detail='測試對話不屬於這份草稿')
+            if previous.chat_mode != trial.chat_mode:
+                chats.set_mode(trial.chat_id,trial.chat_mode)
+            payload = request.model_dump()
+            payload['history'] = [{'sender_type':m.sender_type,'text':m.text,'timestamp':m.timestamp} for m in previous.messages[-500:]]
+            request = InteractionRequest.model_validate(payload)
+        except StopIteration:
+            pass
+        return await execute_interaction(request, http_request, trial_data={'generation_id':run_id,'revision':trial.revision,'character':profile})
+
+    async def execute_interaction(request: InteractionRequest, http_request: Request, trial_data: dict | None = None) -> InteractionResponse:
+        user = current_user(http_request)
+        if auth.required and trial_data is None:
             visible_character(http_request, request.character.id)
         if auth.required and not accounts.provider_credentials(user.id):
             raise HTTPException(status_code=409, detail="此帳號尚未設定模型連線")
-        user_memories, user_conversations, user_relationships, _profiles, user_interactions, _generator = stores_for(user)
+        user_memories, user_conversations, user_relationships, _profiles, user_interactions, _generator = stores_for(user, trial=trial_data is not None)
         request = request.model_copy(update={"user": request.user.model_copy(update={"id": user.id}), "message": request.message.model_copy(update={"sender_id": user.id})})
         if request.reset:
             try:
@@ -741,6 +796,9 @@ def create_app(
         try:
             activity = activity_for(user)
             turn_id = activity.begin('conversation_turn',{'chat_id':request.chat_id,'character_id':request.character.id,'model':request.llm.model_dump(exclude={'url'}),'message':request.message.text,'history_count':len(request.history),'chat_mode':request.user.persona.chat_mode,'is_nsfw':request.is_nsfw,'enable_favorability':request.enable_favorability})
+            if trial_data is not None:
+                activity.finish(turn_id,'running',{'purpose':'draft_trial',**trial_data})
+                user_conversations.start(request.chat_id,request.character.id,request.character.name,request.user.persona.chat_mode)
             user_conversations.append(
                 request.chat_id,
                 request.character.id,

@@ -85,6 +85,14 @@
           if (epoch !== creatorEpoch) return;
           if (!record.data.draft || record.data.saved_character_id) throw new Error('此草稿已保存或無法恢復');
           draft={...record.data.draft,revision:record.revision}; draftId=draft.generation_id; savedCharacter=null; draftDirty=false;
+          const brief=record.data.request;
+          if (brief) {
+            panel.querySelector('#creator-keywords').value=brief.keywords || '';
+            panel.querySelector('#creator-search').checked=Boolean(brief.enable_search);
+            panel.querySelector('#creator-adult').checked=Boolean(brief.is_nsfw);
+            if ([...model.options].some(option=>option.value===brief.model)) model.value=brief.model;
+            persistBrief();
+          }
           form.hidden=false; renderDraft(); setStep(1); creatorStatus.textContent='已恢復伺服器草稿，不會重新呼叫模型。';
         } catch(error) { creatorStatus.textContent=error.message; }
         finally { restore.disabled=false; }
@@ -199,6 +207,7 @@
     finally { window.clearInterval(waiting); generating = false; button.disabled = false; button.textContent = "生成角色草稿"; form.setAttribute('aria-busy', 'false'); }
   });
   function renderDraft() {
+    panel.classList.remove('creator-trial-active');
     result.hidden = false; result.replaceChildren();
     const title = document.createElement('h2'); title.textContent = '審核你的角色';
     const draftWarning = document.createElement('p'); draftWarning.className = 'creator-draft-warning'; draftWarning.setAttribute('role','status'); draftWarning.textContent = draft.generation_id ? '草稿已保存至伺服器。修改會自動同步；按下儲存角色才會加入角色庫。' : '草稿尚未儲存，請先審核並儲存。';
@@ -236,8 +245,72 @@
     const json = document.createElement('pre'); json.textContent = JSON.stringify(draft.character,null,2);
     advanced.addEventListener('toggle', () => { json.textContent = JSON.stringify(draft.character,null,2); }); advanced.append(heading,json);
     const save = document.createElement('button'); save.type = 'submit'; save.className = 'primary-button'; save.textContent = '儲存角色 · 僅自己可見';
+    const test = document.createElement('button'); test.type='button'; test.className='ghost-button creator-test-button'; test.textContent='測試對話';
+    const actions = document.createElement('div'); actions.className='creator-review-actions'; actions.append(test,save);
+    test.addEventListener('click', async () => {
+      if (saving || generating || test.disabled || !review.reportValidity()) return;
+      test.disabled=true; test.textContent='準備測試對話…';
+      try {
+        await syncDraft();
+        if (!draft.generation_id || draftDirty) throw new Error('草稿尚未同步，請保留此頁，等同步完成後再試。');
+        openTrial(review, test, title, draftWarning);
+      } catch(error) { creatorStatus.textContent=error.message; storageStatus(error.message); }
+      finally { test.disabled=false; test.textContent='測試對話'; }
+    });
     review.addEventListener('submit', event => { event.preventDefault(); saveDraft(save); });
-    review.append(presentation,advanced,save); result.append(title,draftWarning,review);
+    review.append(presentation,advanced,actions); result.append(title,draftWarning,review);
+  }
+  function openTrial(review, testButton, title, warning) {
+    result.querySelector('.draft-trial')?.remove();
+    const trial = document.createElement('section'); trial.className='draft-trial'; trial.setAttribute('aria-label','草稿測試對話');
+    const generationId=draft.generation_id, revision=draft.revision, chatId=`trial-${crypto.randomUUID()}`;
+    const selectedModel=model.value, adult=panel.querySelector('#creator-adult').checked;
+    const header=document.createElement('header'); header.className='draft-trial-header';
+    const back=document.createElement('button'); back.type='button'; back.className='primary-button'; back.textContent='返回審核草稿';
+    const name=document.createElement('h3'); name.textContent=`和「${draft.character.character_name}」試聊`;
+    const note=document.createElement('p'); note.textContent='使用你的模型商額度；試聊不會將角色加入角色庫。返回後可繼續修改，重新測試會開始新的對話。';
+    const modelNote=document.createElement('p'); modelNote.className='draft-trial-model'; modelNote.textContent=`測試模型：${selectedModel}`;
+    const modeLabel=document.createElement('label'); modeLabel.textContent='回覆方式';
+    const mode=document.createElement('select'); mode.append(new Option('短對話','dialog'),new Option('長對話','story')); modeLabel.append(mode);
+    const log=document.createElement('div'); log.className='draft-trial-log'; log.setAttribute('role','log'); log.setAttribute('aria-label','測試對話記錄');
+    const composer=document.createElement('form'); composer.className='draft-trial-composer';
+    const inputLabel=document.createElement('label'); inputLabel.textContent='測試訊息';
+    const input=document.createElement('textarea'); input.required=true; input.rows=3; input.maxLength=16000; input.placeholder='用一句話試試角色的反應…'; inputLabel.append(input);
+    const send=document.createElement('button'); send.type='submit'; send.className='primary-button'; send.textContent='送出測試訊息';
+    const status=document.createElement('p'); status.className='draft-trial-status'; status.setAttribute('role','status'); status.textContent='尚未發送訊息，不會產生模型費用。';
+    function appendMessage(author,text,role) {
+      const article=document.createElement('article'); article.className=`draft-trial-message ${role}`;
+      const label=document.createElement('strong'); label.textContent=author;
+      const copy=document.createElement('p'); copy.textContent=text; article.append(label,copy); log.append(article); return article;
+    }
+    let busy=false;
+    composer.addEventListener('submit',async event=>{
+      event.preventDefault();
+      const text=input.value.trim(); if (busy || !text) return;
+      busy=true; input.disabled=true; send.disabled=true; mode.disabled=true; send.textContent='正在生成…';
+      appendMessage('你',text,'user'); input.value='';
+      const waiting=appendMessage('角色','正在生成回覆…','assistant draft-trial-waiting');
+      const dots=waiting.querySelector('p'); dots.textContent=''; dots.className='draft-trial-dots'; dots.setAttribute('aria-label','角色正在生成回覆');
+      for (let i=0;i<3;i++) { const dot=document.createElement('span'); dot.textContent='●'; dot.setAttribute('aria-hidden','true'); dots.append(dot); }
+      status.textContent='可隨時返回審核草稿；已開始的模型請求仍可能計費。';
+      try {
+        const response=await fetch(`/api/character-generations/${generationId}/test-interactions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,revision,model:selectedModel,text,chat_mode:mode.value,is_nsfw:adult})});
+        const data=await response.json();
+        if (!response.ok) throw new Error(typeof data.detail==='string' ? data.detail : `測試未完成（HTTP ${response.status}）`);
+        waiting.remove(); appendMessage('角色',data.text,'assistant'); status.textContent='測試對話已保存至伺服器，與正式聊天分開。';
+      } catch(error) { waiting.remove(); status.textContent=`測試失敗：${error.message}。可返回審核，或重新送出訊息。`; input.value=text; }
+      finally { busy=false; input.disabled=false; send.disabled=false; mode.disabled=false; send.textContent='送出測試訊息'; }
+    });
+    const previousHistoryHidden=historyPanel.hidden;
+    back.addEventListener('click',()=>{
+      panel.classList.remove('creator-trial-active');
+      trial.hidden=true; review.hidden=false; form.hidden=false; warning.hidden=false; title.hidden=false; historyPanel.hidden=previousHistoryHidden;
+      testButton.focus(); testButton.scrollIntoView({block:'center'});
+    });
+    header.append(back,name); composer.append(inputLabel,send); trial.append(header,note,modelNote,modeLabel,log,composer,status); result.append(trial);
+    review.hidden=true; form.hidden=true; warning.hidden=true; title.hidden=true; historyPanel.hidden=true;
+    panel.classList.add('creator-trial-active');
+    trial.scrollIntoView({block:'start'}); back.focus();
   }
   async function saveDraft(button) {
     if (saving) return;
@@ -281,5 +354,5 @@
   function initializeCreator() { creatorEpoch++; restoreBrief(); loadModels(); refreshCharacterLibrary(); loadDraftHistory(); }
   window.addEventListener('diji-workspace-ready', initializeCreator);
   if (workspaceAvailable) initializeCreator();
-  document.querySelectorAll('[data-auth-logout]').forEach(button=>button.addEventListener('click',()=>{creatorEpoch++;clearTimeout(syncTimer);draftDirty=false;historyPanel.hidden=true;historyPanel.replaceChildren();briefKey=null;draft=null;savedCharacter=null;form.reset();form.hidden=false;result.replaceChildren();result.hidden=true;setStep(0);}));
+  document.querySelectorAll('[data-auth-logout]').forEach(button=>button.addEventListener('click',()=>{creatorEpoch++;panel.classList.remove('creator-trial-active');clearTimeout(syncTimer);draftDirty=false;historyPanel.hidden=true;historyPanel.replaceChildren();briefKey=null;draft=null;savedCharacter=null;form.reset();form.hidden=false;result.replaceChildren();result.hidden=true;setStep(0);}));
 })();
