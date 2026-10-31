@@ -6,6 +6,9 @@
 
 ## 架構原則
 
+- 記憶工作區每筆可編輯／刪除。`GET /api/memories/{chat_id}/entries` 提供檔案版本＋內容＋位置 fingerprint；PATCH／DELETE 先驗證目前帳號擁有該對話，再匹配 fingerprint，任何資料變動時回 404 要求重載，避免重複內容位移後被舊操作誤刪。只允許修改分類、摘要、關鍵字、重點與角色回覆摘要，保留時間、原訊息及來源 metadata，附 `manually_edited` 標記。
+- Linux/macOS 的記憶追加、修改、單筆刪除與整段 reset 共用檔案鎖與原子替換，避免並行覆寫。不得用整批前端資料覆蓋檔案。刪除 UI 顯示摘要及不可直接復原警告，必須勾選確認；後端測試以隔離資料驗證刪除，不在瀏覽器實刪既有使用者資料。
+
 - 2026-11-01 Edge 實測：記憶抽取的 DeepSeek V4.1 Flash 預設推理可耗盡 1000 token，導致空正文與回退記憶。抽取請求固定 `reasoning.enabled=false`，保留模型、1000-token 上限、JSON schema、提示與 ai-server 查詢語義。`tests/test_memory_reasoning.py` 重現空正文並防止回歸。
 - 記憶工作區：記憶入口先顯示角色卡片，僅列 `message_count>0` 的對話並依 character_id 分組。角色內切換對話、查看最近 100 筆記憶及搜尋／篩選；重新整理回角色網格，不自動選取角色。右側「開啟完整記憶資料」直接打開該對話。UI 位於 `memory-workspace.js/css`，不在瀏覽器保存記憶正文。
 - 多值關鍵字限制已依使用者明確指示修正，使用分隔符拆值；仍不做語意檢索，不將短片段反向命中整個人名。`extraction_status` 只新增來源 metadata，舊未標記紀錄顯示「待整理」，不得冒稱已確認為模型抽取或回退。

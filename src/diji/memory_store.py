@@ -5,6 +5,11 @@ from __future__ import annotations
 from datetime import datetime
 import json
 import re
+import hashlib
+import os
+import tempfile
+import fcntl
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Literal
 
@@ -36,19 +41,82 @@ class LocalMemoryStore:
         return self._read(chat_id)[-limit:]
 
     def add(self, chat_id: str, record: MemoryRecord) -> MemoryRecord:
-        records = self._read(chat_id)
-        records.append(record)
-        path = self._path(chat_id)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.parent.chmod(0o700)
-        path.write_text(json.dumps([item.model_dump() for item in records], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        path.chmod(0o600)
+        with self._locked(chat_id):
+            records = self._raw(chat_id)
+            records.append(record.model_dump())
+            self._write(chat_id, records)
         return record
 
     def delete(self, chat_id: str) -> None:
+        with self._locked(chat_id):
+            self._path(chat_id).unlink(missing_ok=True)
+
+    @staticmethod
+    def _record_id(index: int, record: dict, revision: str) -> str:
+        value = f"{revision}:{index}:" + json.dumps(record, ensure_ascii=False, sort_keys=True)
+        return hashlib.sha256(value.encode()).hexdigest()
+
+    @staticmethod
+    def _revision(records: list[dict]) -> str:
+        return hashlib.sha256(json.dumps(records, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
+
+    def entries(self, chat_id: str, limit: int = 100) -> list[dict]:
+        records = self._raw(chat_id)
+        start = max(0, len(records) - limit)
+        revision = self._revision(records)
+        return [{**self._validate_and_fix(record).model_dump(), "record_id": self._record_id(index, record, revision)} for index, record in enumerate(records) if index >= start]
+
+    def update_entry(self, chat_id: str, record_id: str, changes: dict) -> dict:
+        with self._locked(chat_id):
+            records = self._raw(chat_id)
+            index = self._entry_index(records, record_id)
+            updated = {**records[index], **changes, "manually_edited": True}
+            self._validate_and_fix(updated)
+            records[index] = updated
+            self._write(chat_id, records)
+            return {**self._validate_and_fix(updated).model_dump(), "record_id": self._record_id(index, updated, self._revision(records))}
+
+    def delete_entry(self, chat_id: str, record_id: str) -> None:
+        with self._locked(chat_id):
+            records = self._raw(chat_id)
+            del records[self._entry_index(records, record_id)]
+            self._write(chat_id, records)
+
+    def _entry_index(self, records: list[dict], record_id: str) -> int:
+        revision = self._revision(records)
+        for index, record in enumerate(records):
+            if self._record_id(index, record, revision) == record_id:
+                return index
+        raise LookupError("記憶已變更或不存在，請重新載入後再操作。")
+
+    def _raw(self, chat_id: str) -> list[dict]:
         path = self._path(chat_id)
-        if path.exists():
-            path.unlink()
+        return json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+
+    @contextmanager
+    def _locked(self, chat_id: str):
+        path = self._path(chat_id)
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        path.parent.chmod(0o700)
+        with path.with_suffix('.lock').open('a') as lock:
+            os.chmod(lock.name, 0o600)
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
+
+    def _write(self, chat_id: str, records: list[dict]) -> None:
+        path = self._path(chat_id)
+        with tempfile.NamedTemporaryFile(mode='w', dir=path.parent, encoding='utf-8', delete=False) as temporary:
+            try:
+                json.dump(records, temporary, ensure_ascii=False, indent=2)
+                temporary.write('\n')
+                temporary.flush()
+                os.fsync(temporary.fileno())
+                os.replace(temporary.name, path)
+            finally:
+                Path(temporary.name).unlink(missing_ok=True)
 
     def search_by_text(self, chat_id: str, query: str, count: int = 5) -> list[MemoryRecord]:
         """Match full keyword phrases or delimited values, retaining newest-first order."""

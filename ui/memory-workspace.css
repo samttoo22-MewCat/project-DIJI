@@ -43,6 +43,28 @@
 .memory-source h4 { margin: 18px 0 8px; color: #d2e5e9; font-size: 17px; }
 .memory-source p, .memory-source li { white-space: pre-wrap; overflow-wrap: anywhere; color: #bccfdb; line-height: 1.85; font-size: 16px; }
 #memory-back { margin-top: 24px; }
+.memory-safety { padding: 14px 18px; border: 1px solid #786c50; border-radius: 12px; color: #e2d7bf; background: #302f29; font-size: 16px; line-height: 1.8; }
+.memory-entry-actions { display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap; margin-top: 20px; padding-top: 16px; border-top: 1px solid #3d576a; }
+.memory-entry-actions button { min-height: 44px; padding: 10px 16px; margin: 0; }
+.memory-editor-dialog { width: min(680px,calc(100vw - 28px)); max-height: calc(100dvh - 32px); margin: auto; padding: 0; overflow: auto; border: 1px solid #698c9c; border-radius: 22px; background: #152536; color: #e8f1f6; box-shadow: 0 28px 80px #00000080; }
+.memory-editor-dialog::backdrop { background: #050e19cc; }
+.memory-editor-dialog form { padding: 28px; display: grid; gap: 20px; }
+.memory-editor-dialog h2 { margin: 4px 0 0; font-size: 26px; }
+.memory-editor-dialog label { display: grid; gap: 9px; color: #d3e1e9; font-size: 17px; }
+.memory-editor-dialog :is(textarea,select) { width: 100%; min-width: 0; padding: 12px; border: 1px solid #567387; border-radius: 11px; color: #e5eef4; background: #101d2c; font: inherit; font-size: 17px; line-height: 1.8; }
+.memory-editor-dialog textarea { resize: vertical; }
+#memory-edit-fields { display: grid; gap: 20px; }
+.memory-editor-dialog [hidden] { display: none !important; }
+.memory-edit-warning { margin: 0; padding: 14px; border: 1px solid #827458; border-radius: 12px; background: #34342c; color: #eee1c6; font-size: 16px; line-height: 1.8; }
+.memory-edit-note, #memory-edit-status { font-size: 16px; line-height: 1.8; color: #bed1dd; margin: 0; }
+#memory-edit-status:empty { display: none; }
+#memory-delete-preview { margin: 0; padding: 18px; border-left: 3px solid #b78695; background: #283143; border-radius: 10px; color: #edf3f7; line-height: 1.8; overflow-wrap: anywhere; }
+.memory-editor-dialog .memory-delete-ack { display: flex; align-items: center; gap: 12px; min-height: 44px; line-height: 1.8; }
+.memory-delete-ack input { flex: 0 0 22px; width: 22px; height: 22px; }
+.memory-editor-actions { display: flex; justify-content: flex-end; gap: 12px; flex-wrap: wrap; padding-top: 18px; border-top: 1px solid #425a6d; }
+.memory-editor-actions button { min-height: 48px; margin: 0; padding: 12px 18px; }
+.memory-editor-actions button:disabled { opacity: .5; cursor: default; }
+@media (max-width: 760px) { .memory-editor-dialog form { padding: 20px; } .memory-editor-actions { display: grid; grid-template-columns: 1fr 1fr; } .memory-editor-actions button { padding-inline: 10px; } }
 @media (max-width: 1050px) { .memory-role-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .memory-detail-heading { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 760px) {
   .memory-role-grid { grid-template-columns: minmax(0,1fr); }

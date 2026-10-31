@@ -36,7 +36,7 @@
     <link rel="stylesheet" href="onboarding.css?v=20261101-google-first-1&amp;type=20261101-larger-1" />
     <link rel="stylesheet" href="home.css?v=20261101-story-home-1&amp;type=20261101-larger-1" />
     <link rel="stylesheet" href="ui-polish.css?v=20261101-2" />
-    <link rel="stylesheet" href="memory-workspace.css?v=20261101-2" />
+    <link rel="stylesheet" href="memory-workspace.css?v=20261101-edit-1" />
   </head>
   <body class="guest-mode">
     <header class="account-access" aria-label="帳號操作">
@@ -484,6 +484,7 @@
             <section id="memory-detail" aria-label="角色的對話記憶" hidden>
               <button id="memory-back" class="ghost-button" type="button">← 返回已聊角色</button>
               <div class="memory-detail-heading"><div><p class="eyebrow">你們的記憶</p><h1 id="memory-character-title"></h1><p id="memory-context"></p></div><label class="memory-conversation-label" for="memory-conversation">選擇對話<select id="memory-conversation"></select></label></div>
+              <p class="memory-safety">記憶會影響角色之後的回覆。編輯或刪除前請謹慎確認；原始對話會保留。</p>
               <div class="memory-stats" aria-label="本次載入記憶統計"><div><strong id="memory-total">0</strong><span>筆記憶</span></div><div><strong id="memory-organized">0</strong><span>已整理</span></div><div><strong id="memory-pending">0</strong><span>待整理</span></div></div>
               <div class="memory-tools"><label class="memory-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5"/><path d="m15 15 5 5"/></svg><input id="memory-search" type="search" aria-label="搜尋記憶" placeholder="搜尋摘要、人名或關鍵字" /></label><div id="memory-filters" class="memory-filters" aria-label="記憶篩選"><button type="button" data-memory-filter="all" aria-pressed="true">全部</button><button type="button" data-memory-filter="organized" aria-pressed="false">已整理</button><button type="button" data-memory-filter="pending" aria-pressed="false">待整理</button><button type="button" data-memory-filter="error" aria-pressed="false">抽取異常</button></div></div>
               <p class="memory-list-note" id="memory-results" aria-live="polite"></p>
@@ -629,6 +630,7 @@
     <script src="pwa.js?v=20261021-pwa-3"></script>
     <script src="openrouter-connection.js?v=20261101-polish-1"></script>
     <script src="ui-polish.js?v=20261101-2"></script>
-    <script src="memory-workspace.js?v=20261101-2"></script>
+    <script src="memory-workspace.js?v=20261101-edit-2"></script>
+    <script src="memory-editor.js?v=20261101-1"></script>
   </body>
 </html>

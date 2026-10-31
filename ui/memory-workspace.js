@@ -47,16 +47,18 @@
     el('memory-status').textContent = '正在讀取這段對話的記憶…';
     el('memory-list').setAttribute('aria-busy','true');
     try {
-      const response = await fetch(`/api/memories/${encodeURIComponent(el('memory-conversation').value)}?limit=100`, {cache:'no-store'});
+      const response = await fetch(`/api/memories/${encodeURIComponent(el('memory-conversation').value)}/entries`, {cache:'no-store'});
       if (!response.ok) throw new Error();
       const data = await response.json();
       if (ticket !== epoch) return;
       records = data.slice().sort((a,b) => b.timestamp.localeCompare(a.timestamp));
       el('memory-context').textContent = `記憶所屬對話：${current.name} · 每段對話分開保存`;
       el('memory-status').textContent = ''; renderRecords();
+      return true;
     } catch {
       if (ticket !== epoch) return;
       el('memory-status').textContent = '記憶讀取失敗。請重新選擇對話，或稍後再試。';
+      return false;
     } finally { if (ticket === epoch) el('memory-list').setAttribute('aria-busy','false'); }
   }
   function memoryCard(memory) {
@@ -78,6 +80,14 @@
     if (memory.user_message) details.append(node('h4','','使用者訊息'),node('p','',memory.user_message));
     if (memory.character_response_summary) details.append(node('h4','','角色回覆摘要'),node('p','',memory.character_response_summary));
     if (details.children.length > 1) article.append(details);
+    if (memory.manually_edited) meta.append(node('span','memory-type','手動編輯'));
+    const actions = node('div','memory-entry-actions');
+    for (const [mode,label] of [['edit','編輯記憶'],['delete','刪除記憶']]) {
+      const button = node('button',mode === 'delete' ? 'danger-button' : 'ghost-button',label); button.type='button';
+      button.addEventListener('click',()=>window.dijiMemoryEditor.open(mode,memory,el('memory-conversation').value,async()=>{const loaded=await loadRecords();el('memory-status').textContent=loaded?(mode==='edit'?'記憶已儲存，後續回覆將使用更新內容。':'已刪除這筆記憶，原始對話仍保留。'):'操作已完成，但讀取最新記憶失敗。請重新開啟記憶頁。';el('memory-back').focus();}));
+      actions.append(button);
+    }
+    article.append(actions);
     return article;
   }
   function renderRecords() {

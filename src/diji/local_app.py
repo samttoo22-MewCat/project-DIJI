@@ -77,6 +77,15 @@ class ConversationModeUpdate(BaseModel):
     chat_mode: Literal["story", "dialog"]
 
 
+class MemoryUpdate(BaseModel):
+    model_config = {"extra": "forbid"}
+    type: Literal["事實", "偏好", "事件", "標記", "event"]
+    summary: str = Field(min_length=1, max_length=60)
+    keywords: dict[str, str] = Field(default_factory=dict, max_length=32)
+    key_points: list[str] = Field(default_factory=list, max_length=5)
+    character_response_summary: str | None = Field(default=None, max_length=2000)
+
+
 def _user_directory(user_id: str) -> Path:
     if not user_id or any(part in user_id for part in ("/", "\\", "..")):
         raise ValueError("Invalid user id")
@@ -467,6 +476,33 @@ def create_app(
             return user_memories.recent(chat_id, limit=limit)
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
+
+    @app.get("/api/memories/{chat_id}/entries")
+    def memory_entries(chat_id: str, http_request: Request) -> list[dict]:
+        memories, chats, *_ = stores_for(current_user(http_request))
+        try:
+            chats.get(chat_id)
+            return memories.entries(chat_id)
+        except (StopIteration, LookupError) as error:
+            raise HTTPException(status_code=404, detail="對話不存在") from error
+
+    @app.patch("/api/memories/{chat_id}/entries/{record_id}")
+    def update_memory_entry(chat_id: str, record_id: str, changes: MemoryUpdate, http_request: Request) -> dict:
+        memories, chats, *_ = stores_for(current_user(http_request))
+        try:
+            chats.get(chat_id)
+            return memories.update_entry(chat_id, record_id, changes.model_dump())
+        except (StopIteration, LookupError) as error:
+            raise HTTPException(status_code=404, detail="記憶已變更或不存在，請重新載入後再操作。") from error
+
+    @app.delete("/api/memories/{chat_id}/entries/{record_id}", status_code=204, response_model=None)
+    def delete_memory_entry(chat_id: str, record_id: str, http_request: Request) -> None:
+        memories, chats, *_ = stores_for(current_user(http_request))
+        try:
+            chats.get(chat_id)
+            memories.delete_entry(chat_id, record_id)
+        except (StopIteration, LookupError) as error:
+            raise HTTPException(status_code=404, detail="記憶已變更或不存在，請重新載入後再操作。") from error
 
     @app.get("/api/conversations", response_model=list[ConversationSummary])
     def list_conversations(http_request: Request) -> list[ConversationSummary]:
