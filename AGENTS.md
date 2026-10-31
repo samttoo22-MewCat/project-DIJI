@@ -145,6 +145,8 @@ pytest -q
 
 ## 年齡確認
 
+- 首頁品牌入口沿用 Web App manifest 的 `/icons/diji-192.png`，置於頂部帳號列與登入垂直對齊。側欄不再放文字 D；手機仍保留左上主要選單按鈕。
+
 - BazaarLink 費用從模型 JSON 回應 `usage.cost` 按帳號記錄於 SQLite `provider_usage`，以請求 ID 去重、Decimal 累計。記憶／好感度／角色生成子請求皆納入，最近一次代表單次模型請求，並非整個多階段流程。介面顯示啟用紀錄後的 DIJI 累計，進入模型連線頁後每 3 秒刷新；缺失費用不可當作 0。
 
 - 模型連線頁由 `ui/connection-layout.css` 管理：頁首、兩張服務卡、獨立順序卡；手機堆疊。優先順序保留原生 select 的鍵盤與手機選擇器，外觀以深藍底、自訂箭頭及青色聚焦環統一。

@@ -439,7 +439,7 @@ def test_ui_defers_google_sign_in_until_the_user_requests_it() -> None:
     assert 'id="google-login"' in markup
     assert "使用 Google 登入" in markup
     assert "OpenRouter 登入" not in markup
-    assert "account-access.css?v=20261031-bazaar-2" in markup
+    assert "account-access.css?v=20261101-app-icon-1" in markup
     assert ".account-logout[hidden] { display: none; }" in (ROOT / "ui/account-access.css").read_text()
     assert 'fetch("/api/auth/session", { cache: "no-store" })' in script
     assert 'window.location.assign("/api/auth/google/start")' in script
