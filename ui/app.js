@@ -21,6 +21,30 @@ function showScreen(name) {
   if (name !== "chat") setChatList(false);
   else if (!compactChatList.matches) setChatList(isChatListAvailable());
   if (name === "memory" && requireLogin()) loadMemories();
+  if (name === "chat") refreshChatProviderState();
+}
+
+async function refreshChatProviderState() {
+  const status = document.querySelector('#chat-provider-status');
+  const config = document.querySelector('#chat-provider-config');
+  const setup = document.querySelector('#chat-provider-setup');
+  const names = {openrouter: 'OpenRouter', bazaarlink: 'BazaarLink'};
+  try {
+    const response = await fetch('/api/connections/priority', {cache:'no-store'});
+    if (response.status === 401) {
+      status.textContent = '尚未登入及連接模型商'; config.textContent = ''; setup.hidden = false; return false;
+    }
+    if (!response.ok) throw new Error();
+    const data = await response.json();
+    const providers = data.priority.filter(id => data.connected.includes(id));
+    setup.hidden = providers.length > 0;
+    status.textContent = providers.length ? `已連接模型商：${providers.map(id => names[id]).join('、')}` : '尚未連接模型商';
+    const model = document.querySelector('#model-input').value;
+    config.textContent = providers.length ? `額度順序：${providers.map(id => names[id]).join(' → ')}。目前模型：${model || '尚未選擇'}。` : '';
+    return providers.length > 0;
+  } catch {
+    status.textContent = '無法確認模型商連接狀態，請稍後重試'; config.textContent = ''; setup.hidden = false; return false;
+  }
 }
 function openRolePicker() {
   setChatReady(false);
@@ -291,6 +315,7 @@ async function loadInteractionModels() {
     };
     select.addEventListener("change", describe);
     describe();
+    refreshChatProviderState();
   } catch (error) {
     select.replaceChildren(new Option("沒有可用的已核准模型", ""));
     select.disabled = true;
@@ -533,7 +558,7 @@ document.querySelector("#chat-form").addEventListener("submit", async (event) =>
   const input = document.querySelector("#chat-input"), text = input.value.trim();
   if (!text) return;
   if (!requireLogin()) return;
-  if (!document.querySelector("#live-mode").checked) { showToast("請先在右側啟用實際模型請求；預覽不會產生假回覆。"); return; }
+  if (!await refreshChatProviderState()) { showToast("請先設定模型商連線，再傳送訊息。"); showScreen("connections"); return; }
   const payload = interactionPayload(text);
   if (!state.liveSession) { conversations.innerHTML = '<div class="date-divider"><span>本機互動</span></div>'; state.liveSession = true; }
   const timestamp = Date.now(); message("user", text, timestamp); state.history.push({ sender_type: 1, text, timestamp }); input.value = ""; setComposerBusy(true);
@@ -553,8 +578,10 @@ document.querySelector("#chat-input").addEventListener("keydown", (event) => { i
 document.querySelector("#chat-input").addEventListener("input", (event) => { event.target.style.height = "auto"; event.target.style.height = `${Math.min(event.target.scrollHeight, 160)}px`; });
 document.querySelectorAll("[data-chat-mode]").forEach((button) => button.addEventListener("click", () => saveChatMode(button.dataset.chatMode)));
 loadAuthentication().then((signedIn) => {
+  refreshChatProviderState();
   loadLocalCatalog();
   loadInteractionModels();
   if (signedIn) loadConversations();
   else renderConversationHistory();
 });
+document.querySelector('#model-input').addEventListener('change', refreshChatProviderState);

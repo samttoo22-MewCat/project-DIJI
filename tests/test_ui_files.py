@@ -179,7 +179,7 @@ def test_compact_layout_has_an_accessible_left_list_drawer_and_readable_copy() -
     assert "flex-direction: column" in responsive
     assert "mobileNavBackdrop.addEventListener" in script
     assert "responsive.css?v=20261030-openrouter-1" in markup
-    assert "app.js?v=20261030-openrouter-1" in markup
+    assert "app.js?v=20261101-provider-status-2" in markup
     assert ".app.chat-list-visible" in responsive
     assert 'name !== "chat"' in script
     assert 'app.classList.toggle("chat-list-visible"' in script
@@ -194,7 +194,7 @@ def test_conversation_settings_labels_are_large_and_the_logo_returns_home() -> N
 
     assert ".live-switch { min-height: 44px; gap: 12px; font-size: 18px;" in responsive
     assert ".live-switch input { width: 20px; height: 20px; }" in responsive
-    assert "app.js?v=20261030-openrouter-1" in markup
+    assert "app.js?v=20261101-provider-status-2" in markup
 
 
 def test_studio_subpage_secondary_copy_is_readable() -> None:
@@ -226,10 +226,11 @@ def test_live_interaction_is_explicitly_opt_in() -> None:
     markup = (ROOT / "ui/index.html").read_text()
     script = (ROOT / "ui/app.js").read_text()
 
-    assert 'id="live-mode"' in markup
+    assert 'id="chat-provider-status"' in markup
+    assert 'id="live-mode"' not in markup
     assert 'id="model-input"' in markup
     assert '<select id="model-input"' in markup
-    assert 'document.querySelector("#live-mode").checked' in script
+    assert 'if (!await refreshChatProviderState())' in script
     assert 'fetch("/api/interactions"' in script
     assert 'fetch("/api/jailbreaks")' in script
     assert 'id="chat-adult" type="checkbox" checked' in markup
@@ -313,7 +314,7 @@ def test_ui_uses_a_user_requested_google_login_without_browser_key_storage() -> 
     assert 'id="google-login-dialog"' in markup
     assert 'id="google-login"' in markup
     assert "OpenRouter 登入" not in markup
-    assert "app.js?v=20261030-openrouter-1" in markup
+    assert "app.js?v=20261101-provider-status-2" in markup
     assert 'fetch("/api/auth/session", { cache: "no-store" })' in script
     assert 'window.location.protocol === "file:"' in script
     assert 'window.location.assign("/api/auth/google/start")' in script
@@ -384,7 +385,7 @@ def test_character_cards_do_not_expose_ai_server_import_labels() -> None:
     assert "ai-server 匯入角色" not in app
     assert 'character.source?.generated_file ? "ai-server 匯入" : "本機角色"' not in library
     assert '<em></em>' not in library
-    assert "app.js?v=20261030-openrouter-1" in markup
+    assert "app.js?v=20261101-provider-status-2" in markup
     assert "character-creator.js?v=20261030-openrouter-1" in markup
 
 

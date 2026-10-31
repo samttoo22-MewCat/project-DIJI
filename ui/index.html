@@ -296,8 +296,7 @@
                 </div>
               </form>
               <p>
-                預設不會呼叫模型；須在右側明確啟用，且 server 已設定 provider
-                金鑰。
+                連接模型商後即可傳送訊息，費用使用你設定的模型商額度。
               </p>
             </div>
           </div>
@@ -373,11 +372,8 @@
               ><p class="connection-note" id="model-jailbreak-status" aria-live="polite">
                 只顯示有已核准越獄的模型。
               </p>
-              ><button class="ghost-button" data-view="connections" type="button">前往模型連線設定</button><label class="live-switch"
-                ><input id="live-mode" type="checkbox" /><span
-                >啟用實際模型請求</span
-                ></label
-              ><label class="live-switch"
+              <div class="chat-provider-summary" aria-live="polite"><p class="connection-note" id="chat-provider-status">正在確認模型商連接狀態…</p><p class="connection-note" id="chat-provider-config"></p><button class="ghost-button" id="chat-provider-setup" data-view="connections" type="button" hidden>按此設定模型商</button></div>
+              <label class="live-switch"
                 ><input id="chat-adult" type="checkbox" checked /><span
                 >是否開啟色情內容</span
                 ></label
@@ -388,7 +384,7 @@
                 ></label
               >
               <p class="connection-note">
-                僅在送出時呼叫本機 server；需先設定 provider 金鑰。
+                傳送訊息會使用目前模型與已連接模型商的額度。
               </p>
             </section>
             <section>
@@ -616,7 +612,7 @@
     </dialog>
     <div class="toast" id="toast" role="status"></div>
     <script src="age-confirmation.js?v=20261028-age-gate-2"></script>
-    <script src="app.js?v=20261030-openrouter-1"></script>
+    <script src="app.js?v=20261101-provider-status-2"></script>
     <script src="jailbreak-studio.js?v=20261011-model-jailbreak-1"></script>
     <script src="character-creator.js?v=20261030-openrouter-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>
