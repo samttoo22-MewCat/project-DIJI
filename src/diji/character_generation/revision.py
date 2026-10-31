@@ -14,6 +14,7 @@ class DraftRevisionRequest(BaseModel):
     model: str = Field(min_length=1, max_length=256)
     instruction: str = Field(min_length=1, max_length=4000)
     is_nsfw: bool = False
+    base_revision: int | None = Field(default=None,ge=0)
 
 
 class Change(BaseModel):

@@ -1,0 +1,14 @@
+.message-edit-button { display:block; margin:10px 0 0 auto; min-height:44px; padding:8px 14px; border:1px solid #5e7b8c; border-radius:10px; background:#162c3b; color:#cbe9ed; font:inherit; font-size:16px; cursor:pointer; }
+.message-edit-button[hidden] { display:none; }
+.message-editor { display:grid; gap:14px; margin-top:14px; padding:16px; border:1px solid #779eaa; border-radius:14px; background:#102131; }
+.message-editor label { display:grid; gap:10px; font-size:18px; color:#e0eef4; }
+.message-editor textarea { box-sizing:border-box; width:100%; min-width:0; padding:12px; border:1px solid #7399a8; border-radius:10px; color:#eef6fa; background:#0b1828; font:inherit; font-size:18px; line-height:1.8; resize:vertical; }
+.message-editor p,.conversation-branch-notice { font-size:17px; line-height:1.8; color:#c2dce6; overflow-wrap:anywhere; }
+.message-editor-actions { display:flex; flex-wrap:wrap; gap:12px; }
+.message-editor-actions button { min-height:48px; cursor:pointer; }
+.message-editor :is(button,textarea):focus-visible,.message-edit-button:focus-visible { outline:3px solid #a5d4d9; outline-offset:3px; }
+.conversation-branch-notice { display:grid; gap:12px; padding:16px; border:1px solid #4f7789; border-radius:12px; background:#152e3c; margin-bottom:18px; }
+.conversation-branch-notice button { justify-self:start; min-height:44px; }
+.creator-ai-panel:has(.message-editor) > form { display:none; }
+.creator-ai-log:has(.message-editor) { max-height:none; }
+@media(max-width:760px) { .message-editor-actions { flex-direction:column; } .message-editor-actions button { width:100%; } }

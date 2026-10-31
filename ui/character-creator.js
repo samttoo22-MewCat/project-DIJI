@@ -38,6 +38,7 @@
   assistant.innerHTML='<button type="button" class="creator-ai-launcher" aria-controls="creator-ai-panel" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v11H9l-4 4V5Z"/><path d="M9 9h6M9 12h4"/></svg><span>AI 修改</span></button><section id="creator-ai-panel" class="creator-ai-panel" aria-labelledby="creator-ai-title"><header><h2 id="creator-ai-title">AI 修改助手</h2><button type="button" class="creator-ai-close" aria-label="收起 AI 修改助手">×</button></header><p>直接說想改哪裡，AI 會更新草稿並保存至伺服器；確認儲存角色後才會加入角色庫。</p><div class="creator-ai-log" role="log" aria-label="角色修改紀錄"></div><form><label for="creator-ai-instruction">想怎麼修改角色？</label><textarea id="creator-ai-instruction" rows="4" maxlength="4000" required placeholder="例如：個性更幽默，保留背景，說話不要太正式。"></textarea><p class="creator-ai-model"></p><button type="submit" class="primary-button">交給 AI 修改</button></form><p class="creator-ai-status" role="status">使用你選擇的模型及自備額度。</p></section>';
   document.body.append(assistant);
   const assistantLauncher=assistant.querySelector('.creator-ai-launcher'), assistantPanel=assistant.querySelector('.creator-ai-panel'), assistantInput=assistant.querySelector('textarea'), assistantLog=assistant.querySelector('.creator-ai-log'), assistantStatus=assistant.querySelector('.creator-ai-status');
+  const assistantForm=assistantPanel.querySelector('form');
   assistantPanel.querySelector('header + p').textContent='AI 會更新並保存草稿；儲存角色後才加入角色庫。';
   const assistantHistory=document.createElement('details'); assistantHistory.className='creator-ai-history'; assistantHistory.open=assistantMedia?.matches || false;
   const historyTitle=document.createElement('summary'); historyTitle.textContent='本次修改紀錄'; assistantLog.replaceWith(assistantHistory); assistantHistory.append(historyTitle,assistantLog);
@@ -54,6 +55,7 @@
       assistantDraftId=draft?.generation_id; assistantLog.replaceChildren(); assistantInput.value=''; assistantStatus.textContent='使用你選擇的模型及自備額度。';
     }
     assistantHistory.hidden=assistantLog.children.length===0;
+    assistantLog.querySelectorAll('.message-edit-button').forEach(button=>button.disabled=revising || restoringVersion);
   }
   assistantLauncher.addEventListener('click',()=>{assistantOpen=true;updateAssistant();assistantInput.focus();});
   assistant.querySelector('.creator-ai-close').addEventListener('click',()=>{assistantOpen=false;updateAssistant();assistantLauncher.focus();});
@@ -61,13 +63,12 @@
   assistantMedia?.addEventListener('change',event=>{assistantOpen=event.matches;assistantHistory.open=event.matches;updateAssistant();});
   new MutationObserver(updateAssistant).observe(creationPage,{attributes:true,attributeFilter:['class']});
   model.addEventListener('change',updateAssistant);
-  assistant.querySelector('form').addEventListener('submit',async event=>{
-    event.preventDefault();
-    const instruction=assistantInput.value.trim();
+  assistantForm.addEventListener('submit',event=>{event.preventDefault();reviseAssistant(assistantInput.value.trim()).catch(()=>{});});
+  async function reviseAssistant(instruction,baseRevision=null) {
     if (!instruction || revising || saving || generating || restoringVersion || !draft?.generation_id) return;
     if (!result.querySelector('.character-review')?.reportValidity()) return;
     const current=draft, epoch=creatorEpoch;
-    const submit=assistant.querySelector('button[type="submit"]');
+    const submit=assistantForm.querySelector('button[type="submit"]');
     const locked=[...panel.querySelectorAll('input,textarea,select,button')].filter(el=>!el.disabled);
     revising=true; locked.forEach(el=>el.disabled=true); submit.disabled=true; assistantInput.disabled=true; submit.textContent='正在修改…'; updateAssistant();
     assistantStatus.textContent='正在依照要求修改。可收起視窗，已開始的請求仍可能計費。';
@@ -76,7 +77,8 @@
       if (draftDirty) throw new Error('原有修改尚未同步，請稍後再試');
       const openDetails=[...result.querySelectorAll('details[open]')].map(el=>el.querySelector('summary')?.textContent);
       const scroll=creationPage.scrollTop;
-      const response=await fetch(`/api/character-generations/${current.generation_id}/revise`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision:current.revision,model:model.value,instruction,is_nsfw:panel.querySelector('#creator-adult').checked})});
+      const instructionBase=baseRevision ?? current.revision;
+      const response=await fetch(`/api/character-generations/${current.generation_id}/revise`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision:current.revision,model:model.value,instruction,is_nsfw:panel.querySelector('#creator-adult').checked,...(baseRevision===null ? {} : {base_revision:baseRevision})})});
       const data=await response.json();
       if (!response.ok) throw new Error(typeof data.detail==='string' ? data.detail : `修改未完成（HTTP ${response.status}）`);
       if (epoch!==creatorEpoch || draft!==current) return;
@@ -84,14 +86,17 @@
       result.querySelectorAll('details').forEach(el=>{el.open=openDetails.includes(el.querySelector('summary')?.textContent);}); creationPage.scrollTop=scroll;
       const entry=document.createElement('article'); const asked=document.createElement('strong'); asked.textContent=instruction;
       const summary=document.createElement('p'); summary.textContent=data.summary; entry.append(asked,summary); assistantLog.append(entry);
+      window.dijiAttachMessageEditor(entry,{text:instruction,isBusy:()=>revising || restoringVersion || saving || generating,
+        note:'會從這次修改前的草稿重新生成並另存新版本，使用你的模型商額度。目前草稿與後續修改仍留在版本歷史。',onSave:value=>reviseAssistant(value,instructionBase)});
       while(assistantLog.children.length>5) assistantLog.firstElementChild.remove();
       assistantInput.value=''; assistantStatus.textContent=`已更新 ${data.changed_fields.length} 個欄位並保存草稿。可繼續審核或測試對話。`; loadDraftHistory();
     } catch(error) {
       if (epoch===creatorEpoch && draft===current) assistantStatus.textContent=`修改失敗：${error.message}。原草稿仍保留。`;
+      throw error;
     } finally {
       locked.forEach(el=>el.disabled=false); revising=false; submit.disabled=false; assistantInput.disabled=false; submit.textContent='交給 AI 修改'; updateAssistant();
     }
-  });
+  }
   const historyPanel = document.createElement('div');
   historyPanel.className = 'creator-draft-history'; historyPanel.hidden = true;
   form.before(historyPanel);
@@ -407,7 +412,8 @@
   function openTrial(review, testButton, title, warning) {
     result.querySelector('.draft-trial')?.remove();
     const trial = document.createElement('section'); trial.className='draft-trial'; trial.setAttribute('aria-label','草稿測試對話');
-    const generationId=draft.generation_id, revision=draft.revision, chatId=`trial-${crypto.randomUUID()}`;
+    const generationId=draft.generation_id, revision=draft.revision, epoch=creatorEpoch;
+    let chatId=`trial-${crypto.randomUUID()}`;
     const selectedModel=model.value, adult=panel.querySelector('#creator-adult').checked;
     const header=document.createElement('header'); header.className='draft-trial-header';
     const back=document.createElement('button'); back.type='button'; back.className='primary-button'; back.textContent='返回審核草稿';
@@ -422,16 +428,48 @@
     const input=document.createElement('textarea'); input.required=true; input.rows=3; input.maxLength=16000; input.placeholder='用一句話試試角色的反應…'; inputLabel.append(input);
     const send=document.createElement('button'); send.type='submit'; send.className='primary-button'; send.textContent='送出測試訊息';
     const status=document.createElement('p'); status.className='draft-trial-status'; status.setAttribute('role','status'); status.textContent='尚未發送訊息，不會產生模型費用。';
-    function appendMessage(author,text,role) {
+    function appendMessage(author,text,role,index=log.querySelectorAll('.draft-trial-message').length) {
       const article=document.createElement('article'); article.className=`draft-trial-message ${role}`;
       const label=document.createElement('strong'); label.textContent=author;
-      const copy=document.createElement('p'); copy.textContent=text; article.append(label,copy); log.append(article); return article;
+      const copy=document.createElement('p'); copy.textContent=text; article.append(label,copy); log.append(article);
+      if(role==='user')window.dijiAttachMessageEditor(article,{text,isBusy:()=>busy,onSave:value=>editTrialMessage(index,text,value)});
+      return article;
     }
     let busy=false;
+    function setBusy(value) {
+      busy=value;input.disabled=value;send.disabled=value;mode.disabled=value;send.textContent=value?'正在生成…':'送出測試訊息';
+      log.querySelectorAll('.message-edit-button').forEach(button=>button.disabled=value);
+    }
+    function showRecord(record) {
+      chatId=record.chat_id;log.replaceChildren();
+      if(record.parent_chat_id) {
+        const notice=document.createElement('div');notice.className='conversation-branch-notice';notice.textContent='已從編輯處重新生成，原試聊仍保留。'+(record.state_checkpoint_available===false?' 舊試聊缺少狀態快照，記憶將重新累積。':'');
+        const original=document.createElement('button');original.type='button';original.className='ghost-button';original.textContent='查看編輯前對話';
+        original.addEventListener('click',async()=>{
+          if(busy)return;
+          try{const response=await fetch(`/api/character-generations/${generationId}/test-conversations/${record.parent_chat_id}`,{cache:'no-store'});if(!response.ok)throw new Error('無法讀取原試聊');const source=await response.json();if(epoch===creatorEpoch && trial.isConnected)showRecord(source);}catch(error){status.textContent=error.message;}
+        });notice.append(original);log.append(notice);
+      }
+      record.messages.forEach((message,index)=>appendMessage(message.sender_type===1?'你':'角色',message.text,message.sender_type===1?'user':'assistant',index));
+    }
+    async function editTrialMessage(index,original,text) {
+      const sourceId=chatId;setBusy(true);status.textContent='正在從修改處重新生成，原試聊會保留。';
+      try {
+        const sourceResponse=await fetch(`/api/character-generations/${generationId}/test-conversations/${sourceId}`,{cache:'no-store'});
+        if(!sourceResponse.ok)throw new Error('無法讀取已保存的試聊');const source=await sourceResponse.json();
+        if(source.messages[index]?.sender_type!==1 || source.messages[index]?.text!==original)throw new Error('試聊已變更，請重新讀取後再編輯');
+        const response=await fetch(`/api/character-generations/${generationId}/test-interactions/edit`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:sourceId,revision,model:selectedModel,text,chat_mode:mode.value,is_nsfw:adult,message_index:index,expected_revision:source.revision})});
+        const data=await response.json();if(epoch!==creatorEpoch || !trial.isConnected)return;
+        if(data.conversation)showRecord(data.conversation);
+        if(!response.ok)throw new Error(data.detail || '重新生成未完成');
+        status.textContent='已從修改處重新生成，原試聊及原記憶仍保留在原對話。';
+      }catch(error){status.textContent=`重新生成未完成：${error.message}`;throw error;}
+      finally{setBusy(false);}
+    }
     composer.addEventListener('submit',async event=>{
       event.preventDefault();
       const text=input.value.trim(); if (busy || !text) return;
-      busy=true; input.disabled=true; send.disabled=true; mode.disabled=true; send.textContent='正在生成…';
+      setBusy(true);
       appendMessage('你',text,'user'); input.value='';
       const waiting=appendMessage('角色','正在生成回覆…','assistant draft-trial-waiting');
       const dots=waiting.querySelector('p'); dots.textContent=''; dots.className='draft-trial-dots'; dots.setAttribute('aria-label','角色正在生成回覆');
@@ -443,7 +481,7 @@
         if (!response.ok) throw new Error(typeof data.detail==='string' ? data.detail : `測試未完成（HTTP ${response.status}）`);
         waiting.remove(); appendMessage('角色',data.text,'assistant'); status.textContent='測試對話已保存至伺服器，與正式聊天分開。';
       } catch(error) { waiting.remove(); status.textContent=`測試失敗：${error.message}。可返回審核，或重新送出訊息。`; input.value=text; }
-      finally { busy=false; input.disabled=false; send.disabled=false; mode.disabled=false; send.textContent='送出測試訊息'; }
+      finally { setBusy(false); }
     });
     const previousHistoryHidden=historyPanel.hidden;
     back.addEventListener('click',()=>{

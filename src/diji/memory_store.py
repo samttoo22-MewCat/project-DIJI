@@ -40,6 +40,13 @@ class LocalMemoryStore:
     def recent(self, chat_id: str, limit: int = 10) -> list[MemoryRecord]:
         return self._read(chat_id)[-limit:]
 
+    def snapshot(self, chat_id):
+        return [record.model_dump() for record in self._read(chat_id)]
+
+    def restore_snapshot(self, chat_id, records):
+        with self._locked(chat_id):
+            self._write(chat_id,[MemoryRecord.model_validate(record).model_dump() for record in records])
+
     def add(self, chat_id: str, record: MemoryRecord) -> MemoryRecord:
         with self._locked(chat_id):
             records = self._raw(chat_id)

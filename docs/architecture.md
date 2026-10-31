@@ -22,6 +22,12 @@ DIJI 是把既有 ai-server 的可開源核心拆成可檢查模組，而不是�
 
 ## 不可改變的行為
 
+玩家訊息編輯採對話分支，不就地刪改舊紀錄。正式與試聊入口都驗證來源對話指紋、玩家訊息索引與帳號，複製編輯點之前的訊息，將修改後訊息送入同一個 `execute_interaction`。新 record 記錄 parent chat 與 edited index；模型、長短對話、越獄、事件記憶抽取與好感度判決的原流程不變。
+
+AI 修改指令的編輯使用草稿版本機制：`base_revision` 指向原指令執行前的快照，`revision` 驗證目前提交版本；生成結果另存為新版本，之後的修改保留在歷史，不混入重新生成的基礎。這與玩家對話分支分開，不觸發正式聊天或角色保存。
+
+每輪生成前保存狀態快照；memory、relationship、profile 的 JSON 以內容雜湊存入 `checkpoint_values`，`turn_checkpoints` 保存引用及前文指紋。編輯分支只恢復精確匹配的快照，後續偏好保存至 `branch_profiles/<chat-id>/`，避免污染原對話或全域偏好。舊資料沒有快照時，不複製編輯點之後的狀態：保留前文，記憶與關係狀態重新累積並告知使用者。原資料不清除，生成失敗的新分支也保留已送出修改。
+
 `player_activity.sqlite3` 的 `draft_versions` 以 `(run_id, revision)` 保存完整且不可覆寫的草稿。新版本快照與 runs 的最新草稿指標在同一個 `BEGIN IMMEDIATE` transaction 提交；手動同步、AI 修改及確認儲存均經此處。回滾將所選舊版內容另存為新 revision，保留回滾前版本。已儲存角色的回滾建立新 generation 並記錄 parent generation/version，不修改原角色。版本列表分頁只限制一次回傳數，不裁切資料庫歷史。
 
 舊資料僅由已保存的四階段原始回傳、AI 修改前與成功提案快照、目前草稿補入版本；未記錄的中間內容無法恢復。此資料表與逐字對話／事件記憶分開，不改 ai-server prompt 與生成邏輯。查看與回滾不呼叫模型。

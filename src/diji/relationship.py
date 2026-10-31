@@ -54,6 +54,9 @@ class RelationshipStore:
     def __init__(self, directory: Path) -> None:
         self.directory = directory
 
+    def restore_snapshot(self, chat_id, state):
+        self._save(chat_id,RelationshipState.model_validate(state))
+
     def get(self, chat_id: str) -> RelationshipState:
         path = self._path(chat_id)
         if not path.exists():

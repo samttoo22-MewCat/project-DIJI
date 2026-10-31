@@ -80,6 +80,20 @@ def test_revision_conflict_preserves_newer_manual_draft(trial,monkeypatch):
     assert activity.get(run_id)['data']['draft']['character']['backstory']=='另一頁較新的手動修改'
 
 
+def test_edited_instruction_regenerates_from_its_original_base_and_keeps_later_versions(trial,monkeypatch):
+    owner,_,_,activity,root,run_id,payload,_=trial
+    first=activity.get(run_id)['data']['draft']
+    later={**first,'style_guide':'後續風格修改'}
+    activity.save_draft(run_id,0,later)
+    calls=fake_revision(monkeypatch,proposal(value='編輯指令後的新背景'))
+    response=owner.post(f'/api/character-generations/{run_id}/revise',json={'revision':1,'base_revision':0,'model':'test/model','instruction':'修改原指令'})
+    assert response.status_code==200
+    assert response.json()['draft']['revision']==2
+    assert response.json()['draft']['style_guide']==first['style_guide']
+    assert activity.version(run_id,1)['draft']['style_guide']=='後續風格修改'
+    assert '後續風格修改' not in calls[0]['prompt']
+
+
 @pytest.mark.parametrize('output',[proposal(['character'],{}),'not JSON',RuntimeError('secret-provider-key')])
 def test_revision_failure_keeps_original_and_hides_exception_secrets(trial,monkeypatch,output):
     owner,_,_,activity,root,run_id,payload,_=trial

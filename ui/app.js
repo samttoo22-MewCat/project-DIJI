@@ -150,7 +150,7 @@ window.dijiSelectCharacter = async (character, openChat = true) => {
     setChatReady(true); showScreen("chat");
   } catch (error) { showToast(`無法建立對話：${error.message}`); }
 };
-function message(role, text, timestamp = Date.now()) {
+function message(role, text, timestamp = Date.now(), index = state.history.length) {
   const article = document.createElement("article");
   article.className = `message ${role}`;
   const meta = document.createElement("div");
@@ -165,6 +165,7 @@ function message(role, text, timestamp = Date.now()) {
   const time = document.createElement("time"); time.textContent = new Date(timestamp).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" });
   const copy = document.createElement("p"); copy.textContent = text;
   meta.append(author, time); article.append(meta, copy); conversations.append(article);
+  if(role==='user') window.dijiAttachMessageEditor(article,{text,isBusy:()=>document.querySelector('#chat-form').getAttribute('aria-busy')==='true',onSave:value=>editSentMessage(index,text,value)});
   conversations.scrollTop = conversations.scrollHeight;
 }
 function showTypingIndicator() {
@@ -199,8 +200,35 @@ function renderConversation(record) {
   state.history = record.messages.map(({ sender_type, text, timestamp }) => ({ sender_type, text, timestamp }));
   state.liveSession = state.history.length > 0;
   setChatMode(record.chat_mode || "story");
-  for (const item of record.messages) message(item.sender_type === 1 ? "user" : "assistant", item.text, item.timestamp);
+  if(record.parent_chat_id) {
+    const notice=document.createElement('div');notice.className='conversation-branch-notice';
+    notice.textContent='這是編輯後的對話，原回覆與後續內容仍保留在原對話。'+(record.state_checkpoint_available===false?' 較舊對話缺少當時的狀態快照，前文仍保留，記憶與好感度將重新累積。':'');
+    const original=document.createElement('button');original.type='button';original.className='ghost-button';original.textContent='查看編輯前對話';original.addEventListener('click',()=>openConversation(record.parent_chat_id));notice.append(original);conversations.append(notice);
+  }
+  record.messages.forEach((item,index)=>message(item.sender_type === 1 ? "user" : "assistant", item.text, item.timestamp,index));
   loadChatMemories();
+}
+async function editSentMessage(index,original,text) {
+  if(!requireLogin())throw new Error('請先登入');
+  const chatId=state.chatId, ownerId=authenticatedUser?.id;
+  const payload=interactionPayload(text);payload.history=[];
+  setComposerBusy(true);
+  try {
+    if(!await refreshChatProviderState())throw new Error('請先連接模型商');
+    const response=await fetch(`/api/conversations/${chatId}`);if(!response.ok)throw new Error('無法讀取已保存的對話');
+    const source=await response.json();
+    if(source.messages[index]?.sender_type!==1 || source.messages[index]?.text!==original)throw new Error('對話已變更，請重新載入後再編輯');
+    const pending=showTypingIndicator();
+    try {
+      const result=await fetch(`/api/conversations/${chatId}/edit`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message_index:index,expected_revision:source.revision,interaction:payload})});
+      const data=await result.json();
+      if(!workspaceAvailable || authenticatedUser?.id!==ownerId)return;
+      if(data.conversation && state.chatId===chatId)renderConversation(data.conversation);
+      if(!result.ok)throw new Error(data.detail || '重新生成未完成');
+      showToast('已從修改處重新生成，原對話仍保留。');
+    }finally{pending.remove();}
+  }catch(error){showToast(error.message);throw error;}
+  finally{setComposerBusy(false);if(workspaceAvailable && authenticatedUser?.id===ownerId)loadConversations();}
 }
 function renderConversationHistory(query = "") {
   const list = document.querySelector("#conversation-history");
@@ -216,7 +244,7 @@ function renderConversationHistory(query = "") {
     row.innerHTML = '<span class="initial avatar-a"></span><span class="row-copy"><strong></strong><small></small></span><time></time>';
     row.querySelector(".initial").textContent = item.character_name.slice(0, 1);
     row.querySelector("strong").textContent = item.character_name;
-    row.querySelector("small").textContent = item.preview;
+    row.querySelector("small").textContent = (item.parent_chat_id ? '編輯後 · ' : '')+item.preview;
     row.querySelector("time").textContent = new Date(item.updated_at).toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" });
     row.addEventListener("click", () => openConversation(item.chat_id));
     return row;
@@ -296,6 +324,7 @@ function setComposerBusy(busy) {
   document.querySelector('#chat-form').setAttribute('aria-busy', String(busy));
   const send = document.querySelector(".send-button"), input = document.querySelector("#chat-input");
   send.disabled = busy; input.disabled = busy; send.querySelector("span").textContent = busy ? "傳送中…" : "送出";
+  conversations.querySelectorAll('.message-edit-button').forEach(button=>button.disabled=busy);
 }
 function renderSidebarCharacters() {
   const library = document.querySelector(".chat-list .character-library");

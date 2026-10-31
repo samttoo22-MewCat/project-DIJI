@@ -47,6 +47,12 @@
 
 ## UI 設計約束
 
+- 2026-11-01 訊息編輯驗證：124 項 pytest、`message-edit.test.cjs` 與 `chat-ime.test.cjs` 通過。AWS 隔離目錄以真實已連接模型測試原訊息、編輯、重新生成；新回覆符合修改後主題，新訊息／記憶保存，原對話逐字未變，編輯前快照恢復。公開 JS 與部署檔相同。此輪 Edge 控制通道中斷，未完成瀏覽器視覺／實體手機驗證，不能把 DOM 測試當成 Edge 操作證據。
+- 正式聊天與草稿試聊的玩家訊息提供「編輯 → 儲存並重新生成」。共用 `ui/message-editor.js`，不以 Enter 自動提交編輯框。後端驗證帳號、完整對話 revision、訊息索引與 sender_type；建立新 chat_id，複製編輯處之前的逐字歷史，從修改訊息重新執行原 `execute_interaction`。原對話與其後續訊息／記憶／關係狀態保留；新畫面提供「查看編輯前對話」，正式列表標示「編輯後」。
+- 每回合在追加玩家訊息前將 memory／relationship／profile 存為狀態快照，以完整前文指紋綁定 `(chat_id,message_index)`；SQLite 的 `checkpoint_values` 按內容雜湊共用不可變資料，避免每回合重複保存全部記憶正文。新分支只恢復該點之前的快照，profile 寫入帳號 `branch_profiles/<chat-id>/`，不可改全域或其他分支偏好。試聊仍限於 `creator_trials/`。舊對話沒有匹配快照時，保留前文並從空記憶／初始關係／空偏好累積，UI 必須說明限制；不可拿目前的未來狀態當成過去狀態。
+- 編輯後模型失敗仍保存修改後的分支，回應提供該對話與通用錯誤，不回傳原始供應商例外。前端保留編輯失敗時的輸入，取消不送請求；生成中停用其他編輯，帳號／對話已切換時不覆蓋另一個畫面。測試：`tests/test_message_edit.py`、`NODE_PATH=/tmp/diji-onboarding/dom-check/node_modules node tests/message-edit.test.cjs`，並保留 `tests/chat-ime.test.cjs` 的輸入法回歸。
+- AI 修改助手目前頁面中的已送出指令亦可編輯。每筆指令綁定執行前的草稿 revision；編輯後以 `base_revision` 讀取該快照重新請求模型，以目前 `revision` 作提交衝突檢查，再另存新版本。後續草稿不摻入舊指令的重新生成，亦不刪除。訊息共用元件要允許不同保留說明（對話分支／草稿版本），避免誤導。浮窗編輯指令時隱藏原輸入表單，避免兩個送出入口混淆。
+
 - 聊天 Enter 送出必須先略過 `event.isComposing` 與 `event.keyCode===229`，避免中文選字確認誤送（含 Safari 的 compositionend／keydown 順序）。選字完成後下一次普通 Enter 才送出，Shift+Enter 保持換行。`tests/chat-ime.test.cjs` 載入真實 app 事件監聽器驗證此行為；可用 `NODE_PATH=/tmp/diji-onboarding/dom-check/node_modules node tests/chat-ime.test.cjs` 執行，缺少依賴時先 `npm install --prefix /tmp/diji-onboarding/dom-check jsdom`。此修正不修改 prompt、草稿或對話保存。
 
 - 草稿每次成功同步都在同一個 SQLite transaction 追加 `draft_versions` 完整快照，包含首次生成、手動、AI 修改、確認儲存與回滾；版本不可覆寫或自動清除。`save_draft` 必須同時驗證當前 revision 並更新最新指標。回滾另存新版本，保留被回滾的內容；已存成角色的紀錄改為 fork 新 generation，原角色與原版本保持不變。不得把未成功的 AI 提案列為已保存版本。

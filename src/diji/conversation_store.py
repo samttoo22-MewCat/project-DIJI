@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from contextlib import contextmanager
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -36,6 +37,10 @@ class ConversationRecord(BaseModel):
     created_at: int = Field(default_factory=_now, ge=0)
     updated_at: int = Field(default_factory=_now, ge=0)
     messages: list[ConversationMessage] = Field(default_factory=list, max_length=5_000)
+    parent_chat_id: str | None = None
+    edited_message_index: int | None = None
+    state_checkpoint_available: bool | None = None
+    revision: str = ''
 
 
 class ConversationSummary(BaseModel):
@@ -46,6 +51,7 @@ class ConversationSummary(BaseModel):
     updated_at: int
     message_count: int
     preview: str = ""
+    parent_chat_id: str | None = None
 
 
 class ConversationStore:
@@ -64,7 +70,33 @@ class ConversationStore:
         path = self._path(chat_id)
         if not path.exists():
             raise StopIteration(chat_id)
-        return ConversationRecord.model_validate_json(path.read_text(encoding="utf-8"))
+        record = ConversationRecord.model_validate_json(path.read_text(encoding="utf-8"))
+        record.revision = self.fingerprint(record)
+        return record
+
+    @staticmethod
+    def fingerprint(record):
+        return hashlib.sha256(record.model_dump_json(exclude={'revision'}).encode()).hexdigest()
+
+    @staticmethod
+    def prefix_fingerprint(messages):
+        return hashlib.sha256(json.dumps([m.model_dump() for m in messages],sort_keys=True,ensure_ascii=False).encode()).hexdigest()
+
+    def fork_edit(self, chat_id, index, expected_revision, new_id, *, checkpoint_available=None):
+        with self._lock(chat_id):
+            record = self.get(chat_id)
+            if record.revision != expected_revision:
+                raise ValueError('對話已變更，請重新載入後再編輯')
+            if index < 0 or index >= len(record.messages) or record.messages[index].sender_type != 1:
+                raise ValueError('只能編輯自己已送出的訊息')
+            branch = ConversationRecord(chat_id=new_id,character_id=record.character_id,character_name=record.character_name,
+                chat_mode=record.chat_mode,messages=[m.model_copy(deep=True) for m in record.messages[:index]],
+                parent_chat_id=chat_id,edited_message_index=index,state_checkpoint_available=checkpoint_available)
+            with self._lock(new_id):
+                if self._path(new_id).exists():
+                    raise ValueError('新對話識別碼已使用')
+                self._write(branch)
+            return branch
 
     def start(self, chat_id: str, character_id: str, character_name: str, chat_mode: Literal["story", "dialog"] = "story") -> ConversationRecord:
         with self._lock(chat_id):
@@ -108,13 +140,14 @@ class ConversationStore:
                 fcntl.flock(lock, fcntl.LOCK_UN)
 
     def _write(self, record: ConversationRecord) -> None:
+        record.revision = self.fingerprint(record)
         path = self._path(record.chat_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.parent.chmod(0o700)
         with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent, delete=False) as output:
             temporary = Path(output.name)
             try:
-                output.write(record.model_dump_json(indent=2) + '\n')
+                output.write(record.model_dump_json(indent=2,exclude={'revision'}) + '\n')
                 output.flush()
                 os.fsync(output.fileno())
             except BaseException:
@@ -137,6 +170,7 @@ class ConversationStore:
             updated_at=record.updated_at,
             message_count=len(record.messages),
             preview=" ".join(latest.split())[:80],
+            parent_chat_id=record.parent_chat_id,
         )
 
     def _path(self, chat_id: str) -> Path:

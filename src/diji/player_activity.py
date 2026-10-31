@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import sqlite3
 import uuid
+import hashlib
 
 
 def now():
@@ -20,6 +21,8 @@ class PlayerActivity:
             db.execute('CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, kind TEXT NOT NULL, status TEXT NOT NULL, started TEXT NOT NULL, updated TEXT NOT NULL, data TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0)')
             db.execute('CREATE TABLE IF NOT EXISTS events (seq INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT NOT NULL, stage TEXT NOT NULL, status TEXT NOT NULL, timestamp TEXT NOT NULL, data TEXT NOT NULL)')
             db.execute('CREATE TABLE IF NOT EXISTS draft_versions (run_id TEXT NOT NULL, revision INTEGER NOT NULL, created TEXT NOT NULL, source TEXT NOT NULL, note TEXT NOT NULL, restored_from INTEGER, data TEXT NOT NULL, PRIMARY KEY(run_id,revision))')
+            db.execute('CREATE TABLE IF NOT EXISTS checkpoint_values (digest TEXT PRIMARY KEY, data TEXT NOT NULL)')
+            db.execute('CREATE TABLE IF NOT EXISTS turn_checkpoints (chat_id TEXT NOT NULL, message_index INTEGER NOT NULL, prefix_hash TEXT NOT NULL, refs TEXT NOT NULL, PRIMARY KEY(chat_id,message_index))')
         path.chmod(0o600)
 
     @contextmanager
@@ -42,6 +45,24 @@ class PlayerActivity:
     def event(self, run_id, stage, status, data):
         with self.connect() as db:
             db.execute('INSERT INTO events (run_id,stage,status,timestamp,data) VALUES (?,?,?,?,?)', (run_id,stage,status,now(),json.dumps(data,ensure_ascii=False)))
+
+    def checkpoint(self, chat_id, message_index, prefix_hash, state):
+        with self.connect() as db:
+            def save(value):
+                raw=json.dumps(value,ensure_ascii=False,sort_keys=True)
+                digest=hashlib.sha256(raw.encode()).hexdigest()
+                db.execute('INSERT OR IGNORE INTO checkpoint_values VALUES (?,?)',(digest,raw))
+                return digest
+            refs={'memories':[save(value) for value in state['memories']], 'relationship':save(state['relationship']), 'profile':save(state['profile'])}
+            db.execute('INSERT OR IGNORE INTO turn_checkpoints VALUES (?,?,?,?)',(chat_id,message_index,prefix_hash,json.dumps(refs)))
+
+    def checkpoint_for(self, chat_id, message_index, prefix_hash):
+        with self.connect() as db:
+            row=db.execute('SELECT refs FROM turn_checkpoints WHERE chat_id=? AND message_index=? AND prefix_hash=?',(chat_id,message_index,prefix_hash)).fetchone()
+            if row is None:return None
+            refs=json.loads(row['refs'])
+            def read(digest):return json.loads(db.execute('SELECT data FROM checkpoint_values WHERE digest=?',(digest,)).fetchone()['data'])
+            return {'memories':[read(digest) for digest in refs['memories']],'relationship':read(refs['relationship']),'profile':read(refs['profile'])}
 
     def finish(self, run_id, status, changes):
         with self.connect() as db:

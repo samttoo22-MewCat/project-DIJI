@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import os
+import uuid
 from typing import Literal
 
 import httpx
@@ -126,6 +127,17 @@ class DraftRollbackRequest(BaseModel):
     target_revision: int = Field(ge=0)
 
 
+class ConversationEditRequest(BaseModel):
+    message_index: int = Field(ge=0,le=4999)
+    expected_revision: str = Field(pattern=r'^[a-f0-9]{64}$')
+    interaction: InteractionRequest
+
+
+class TrialEditRequest(DraftTrialRequest):
+    message_index: int = Field(ge=0,le=4999)
+    expected_revision: str = Field(pattern=r'^[a-f0-9]{64}$')
+
+
 def create_app(
     catalog: LocalCatalog | None = None,
     memory_store: LocalMemoryStore | None = None,
@@ -188,8 +200,8 @@ def create_app(
         root = _user_directory(user.id) if auth.required else local_catalog.path.parent
         return PlayerActivity(root / 'player_activity.sqlite3')
 
-    def stores_for(user: AuthenticatedUser, *, trial: bool = False) -> tuple[LocalMemoryStore, ConversationStore, RelationshipStore, UserProfileStore, InteractionService, CharacterGenerationService]:
-        if not auth.required and not trial:
+    def stores_for(user: AuthenticatedUser, *, trial: bool = False, profile_chat_id: str | None = None) -> tuple[LocalMemoryStore, ConversationStore, RelationshipStore, UserProfileStore, InteractionService, CharacterGenerationService]:
+        if not auth.required and not trial and profile_chat_id is None:
             return local_memories, conversations, relationships, profiles, interactions, generator
         root = _user_directory(user.id) if auth.required else local_catalog.path.parent
         if trial:
@@ -198,7 +210,7 @@ def create_app(
         root.chmod(0o700)
         user_memories = LocalMemoryStore(root / "memories")
         user_relationships = RelationshipStore(root / "relationships")
-        user_profiles = UserProfileStore(root / "user_profiles")
+        user_profiles = UserProfileStore(root / 'branch_profiles' / profile_chat_id if profile_chat_id else root / 'user_profiles')
         api_key = accounts.provider_credentials(user.id)
         user_interactions = InteractionService(
             AiServerCompatibleAdapter(api_key),
@@ -568,6 +580,57 @@ def create_app(
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 
+    def edited_branch(user, chat_id, index, expected_revision, text, *, trial=False):
+        _memories,chats,*_ = stores_for(user,trial=trial)
+        try:
+            source=chats.get(chat_id)
+        except StopIteration as error:
+            raise HTTPException(status_code=404,detail='對話不存在') from error
+        if index>=len(source.messages) or source.messages[index].sender_type!=1:
+            raise HTTPException(status_code=400,detail='只能編輯玩家已送出的訊息')
+        activity=activity_for(user)
+        prefix_hash=chats.prefix_fingerprint(source.messages[:index])
+        snapshot=activity.checkpoint_for(chat_id,index,prefix_hash)
+        new_id=('trial-' if trial else 'chat-')+str(uuid.uuid4())
+        try:
+            branch=chats.fork_edit(chat_id,index,expected_revision,new_id,checkpoint_available=snapshot is not None)
+        except ValueError as error:
+            raise HTTPException(status_code=409,detail=str(error)) from error
+        memories,_,relationships,profiles,*_=stores_for(user,trial=trial,profile_chat_id=new_id)
+        snapshot=snapshot or {'memories':[],'relationship':RelationshipState().model_dump(),'profile':{}}
+        memories.restore_snapshot(new_id,snapshot['memories'])
+        relationships.restore_snapshot(new_id,snapshot['relationship'])
+        profiles.restore_snapshot(user.id,snapshot['profile'])
+        audit_id=activity.begin('conversation_edit',{'parent_chat_id':chat_id,'chat_id':new_id,'message_index':index,
+            'original_text':source.messages[index].text,'edited_text':text,'state_checkpoint_available':branch.state_checkpoint_available,'trial':trial})
+        activity.finish(audit_id,'completed',{})
+        return branch
+
+    @app.post('/api/conversations/{chat_id}/edit')
+    async def edit_message(chat_id: str, request: ConversationEditRequest, http_request: Request):
+        user=current_user(http_request)
+        _,chats,*_=stores_for(user)
+        try:source=chats.get(chat_id)
+        except StopIteration as error:raise HTTPException(status_code=404,detail='對話不存在') from error
+        if request.interaction.chat_id!=chat_id or request.interaction.character.id!=source.character_id:
+            raise HTTPException(status_code=400,detail='對話與角色不符')
+        if auth.required:
+            visible_character(http_request,source.character_id)
+            if not accounts.provider_credentials(user.id):raise HTTPException(status_code=409,detail='此帳號尚未設定模型連線')
+        if request.interaction.is_nsfw and not any(p.review_status=='approved' and p.prompt and request.interaction.llm.model.removesuffix(':online') in p.openrouter_models for p in jailbreaks.list()):
+            raise HTTPException(status_code=400,detail='此模型沒有已核准的越獄')
+        branch=edited_branch(user,chat_id,request.message_index,request.expected_revision,request.interaction.message.text)
+        if branch.chat_mode!=request.interaction.user.persona.chat_mode:
+            chats.set_mode(branch.chat_id,request.interaction.user.persona.chat_mode)
+        payload=request.interaction.model_dump()
+        payload.update(chat_id=branch.chat_id,reset=False,history=[m.model_dump() for m in branch.messages[-500:]])
+        interaction=InteractionRequest.model_validate(payload)
+        try:
+            response=await execute_interaction(interaction,http_request)
+            return {'conversation':chats.get(branch.chat_id).model_dump(),'response':response.model_dump()}
+        except Exception:
+            return JSONResponse({'detail':'重新生成未完成；修改與新分支已保留，可再次編輯或繼續對話','conversation':chats.get(branch.chat_id).model_dump()},status_code=502)
+
     @app.put("/api/conversations/{chat_id}/mode", response_model=ConversationRecord)
     def update_conversation_mode(chat_id: str, request: ConversationModeUpdate, http_request: Request) -> ConversationRecord:
         _memories, user_conversations, _relationships, _profiles, _interactions, _generator = stores_for(current_user(http_request))
@@ -751,9 +814,13 @@ def create_app(
         preset = next((p for p in jailbreaks.list() if p.review_status == 'approved' and p.prompt and request.model.removesuffix(':online') in p.openrouter_models),None)
         if preset is None:
             raise HTTPException(status_code=400, detail='請選擇有已核准越獄的模型')
-        before = CharacterGenerationResult.model_validate(run['data']['draft'])
+        try:
+            base = activity.version(run_id,request.base_revision)['draft'] if request.base_revision is not None else run['data']['draft']
+        except LookupError as error:
+            raise HTTPException(status_code=404,detail='修改前的草稿版本不存在') from error
+        before = CharacterGenerationResult.model_validate(base)
         prompt = revision_prompt(before,request.instruction,preset.prompt,request.is_nsfw)
-        revision_id = activity.begin('draft_revision',{'generation_id':run_id,'base_revision':request.revision,'model':request.model,'instruction':request.instruction,'before':before.model_dump(),'jailbreak_id':preset.id,'jailbreak_updated':preset.last_updated})
+        revision_id = activity.begin('draft_revision',{'generation_id':run_id,'base_revision':request.base_revision if request.base_revision is not None else request.revision,'expected_revision':request.revision,'model':request.model,'instruction':request.instruction,'before':before.model_dump(),'jailbreak_id':preset.id,'jailbreak_updated':preset.last_updated})
         activity.event(revision_id,'revise','started',{'prompt':prompt})
         try:
             *_, user_generator = stores_for(user)
@@ -782,6 +849,23 @@ def create_app(
 
     @app.post('/api/character-generations/{run_id}/test-interactions', response_model=InteractionResponse)
     async def test_draft(run_id: str, trial: DraftTrialRequest, http_request: Request):
+        return await run_draft_trial(run_id,trial,http_request)
+
+    @app.get('/api/character-generations/{run_id}/test-conversations/{chat_id}', response_model=ConversationRecord)
+    def trial_conversation(run_id: str, chat_id: str, http_request: Request):
+        user=current_user(http_request)
+        _,chats,*_=stores_for(user,trial=True)
+        try:
+            record=chats.get(chat_id)
+            if record.character_id!=run_id:raise StopIteration()
+            return record
+        except StopIteration as error:raise HTTPException(status_code=404,detail='測試對話不存在') from error
+
+    @app.post('/api/character-generations/{run_id}/test-interactions/edit')
+    async def edit_trial(run_id: str, trial: TrialEditRequest, http_request: Request):
+        return await run_draft_trial(run_id,trial,http_request,edit=trial)
+
+    async def run_draft_trial(run_id: str, trial: DraftTrialRequest, http_request: Request, edit: TrialEditRequest | None = None):
         user = current_user(http_request)
         try:
             run = activity_for(user).get(run_id)
@@ -794,6 +878,15 @@ def create_app(
         if not any(p.review_status == 'approved' and p.prompt and trial.model.removesuffix(':online') in p.openrouter_models for p in jailbreaks.list()):
             raise HTTPException(status_code=400, detail='請選擇有已核准越獄的模型')
         draft = CharacterGenerationResult.model_validate(run['data']['draft'])
+        branch=None
+        if edit is not None:
+            if auth.required and not accounts.provider_credentials(user.id):raise HTTPException(status_code=409,detail='此帳號尚未設定模型連線')
+            _,source_chats,*_=stores_for(user,trial=True)
+            try:source=source_chats.get(trial.chat_id)
+            except StopIteration as error:raise HTTPException(status_code=404,detail='測試對話不存在') from error
+            if source.character_id!=run_id:raise HTTPException(status_code=404,detail='測試對話不存在')
+            branch=edited_branch(user,trial.chat_id,edit.message_index,edit.expected_revision,trial.text,trial=True)
+            trial=trial.model_copy(update={'chat_id':branch.chat_id})
         profile = draft.character.model_dump()
         samples = profile.get('language_style')
         request = InteractionRequest.model_validate({
@@ -819,7 +912,12 @@ def create_app(
             request = InteractionRequest.model_validate(payload)
         except StopIteration:
             pass
-        return await execute_interaction(request, http_request, trial_data={'generation_id':run_id,'revision':trial.revision,'character':profile})
+        try:
+            response=await execute_interaction(request, http_request, trial_data={'generation_id':run_id,'revision':trial.revision,'character':profile})
+            return {'conversation':chats.get(branch.chat_id).model_dump(),'response':response.model_dump()} if branch else response
+        except Exception:
+            if branch:return JSONResponse({'detail':'重新生成未完成，修改與新分支已保留','conversation':chats.get(branch.chat_id).model_dump()},status_code=502)
+            raise
 
     async def execute_interaction(request: InteractionRequest, http_request: Request, trial_data: dict | None = None) -> InteractionResponse:
         user = current_user(http_request)
@@ -828,6 +926,10 @@ def create_app(
         if auth.required and not accounts.provider_credentials(user.id):
             raise HTTPException(status_code=409, detail="此帳號尚未設定模型連線")
         user_memories, user_conversations, user_relationships, _profiles, user_interactions, _generator = stores_for(user, trial=trial_data is not None)
+        try:existing=user_conversations.get(request.chat_id)
+        except StopIteration:existing=None
+        if existing is not None and existing.parent_chat_id:
+            user_memories,user_conversations,user_relationships,_profiles,user_interactions,_generator=stores_for(user,trial=trial_data is not None,profile_chat_id=request.chat_id)
         request = request.model_copy(update={"user": request.user.model_copy(update={"id": user.id}), "message": request.message.model_copy(update={"sender_id": user.id})})
         if request.reset:
             try:
@@ -866,6 +968,9 @@ def create_app(
             request = request.model_copy(update={"experiment_id": experiment_id})
         try:
             activity = activity_for(user)
+            before=user_conversations.start(request.chat_id,request.character.id,request.character.name,request.user.persona.chat_mode)
+            activity.checkpoint(request.chat_id,len(before.messages),user_conversations.prefix_fingerprint(before.messages),
+                {'memories':user_memories.snapshot(request.chat_id),'relationship':user_relationships.get(request.chat_id).model_dump(),'profile':_profiles.get(user.id)})
             turn_id = activity.begin('conversation_turn',{'chat_id':request.chat_id,'character_id':request.character.id,'model':request.llm.model_dump(exclude={'url'}),'message':request.message.text,'history_count':len(request.history),'chat_mode':request.user.persona.chat_mode,'is_nsfw':request.is_nsfw,'enable_favorability':request.enable_favorability})
             if trial_data is not None:
                 activity.finish(turn_id,'running',{'purpose':'draft_trial',**trial_data})
