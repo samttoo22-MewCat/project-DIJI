@@ -1,36 +1,36 @@
 .connections-layout { width: 100%; max-width: 1040px; margin: 0 auto; padding-bottom: 24px; }
 .connections-heading { margin-bottom: 32px; }
-.connections-heading h1 { margin: 8px 0 12px; color: #eef4fa; font-size: clamp(27px, 3vw, 36px); line-height: 1.35; letter-spacing: -.035em; }
-.connections-heading > p:last-child { margin: 0; font-size: 17px; line-height: 1.7; color: #b9c9d8; }
+.connections-heading h1 { margin: 8px 0 12px; color: #eef4fa; font-size: clamp(29px, 3vw, 38px); line-height: 1.35; letter-spacing: -.035em; }
+.connections-heading > p:last-child { margin: 0; font-size: 19px; line-height: 1.7; color: #b9c9d8; }
 .provider-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: stretch; }
 [data-screen="connections"] .settings-card { max-width: none; margin: 0; padding: 26px; border: 1px solid #344b60; border-radius: 18px; background: #132030; box-shadow: 0 8px 28px rgba(0,0,0,.12); }
 .provider-card { display: flex; flex-direction: column; min-width: 0; }
 .provider-card-heading { display: flex; align-items: center; gap: 14px; }
-.provider-symbol { display: grid; place-items: center; flex: 0 0 46px; height: 46px; border: 1px solid #4f7785; border-radius: 13px; background: #1d3643; color: #bfe2e4; font-size: 23px; font-weight: 600; }
+.provider-symbol { display: grid; place-items: center; flex: 0 0 46px; height: 46px; border: 1px solid #4f7785; border-radius: 13px; background: #1d3643; color: #bfe2e4; font-size: 25px; font-weight: 600; }
 .provider-symbol svg { width: 24px; height: 24px; }
-.provider-card h2, .priority-card h2 { margin: 0; color: #edf3f8; font-size: 23px; line-height: 1.4; }
-.provider-card-heading p { margin: 3px 0 0; color: #a7bacb; font-size: 14px; }
-.provider-description { min-height: 56px; margin: 22px 0; color: #becddb; font-size: 16px; line-height: 1.75; }
-[data-screen="connections"] .ghost-button { min-height: 46px; padding: 10px 16px; border-radius: 11px; font-size: 16px; font-weight: 500; }
+.provider-card h2, .priority-card h2 { margin: 0; color: #edf3f8; font-size: 25px; line-height: 1.4; }
+.provider-card-heading p { margin: 3px 0 0; color: #a7bacb; font-size: 16px; }
+.provider-description { min-height: 56px; margin: 22px 0; color: #becddb; font-size: 18px; line-height: 1.75; }
+[data-screen="connections"] .ghost-button { min-height: 46px; padding: 10px 16px; border-radius: 11px; font-size: 18px; font-weight: 500; }
 .provider-card > .ghost-button { width: 100%; color: #d9f0f1; border-color: #4d818a; background: #1b3a46; }
 .provider-card > .ghost-button:hover { background: #254955; border-color: #81b8bd; }
 .provider-card > .provider-disconnect { margin-top: 10px; background: transparent; border-color: #735361; color: #e4bcc8; }
 .provider-card > .provider-disconnect:hover { background: #382632; border-color: #ad788b; }
 .provider-disconnect[hidden] { display: none; }
-.provider-card > .connection-note { margin: 10px 0; font-size: 14px; line-height: 1.7; color: #b9c9d8; }
+.provider-card > .connection-note { margin: 10px 0; font-size: 16px; line-height: 1.7; color: #b9c9d8; }
 .provider-card > .connection-note a { color: #b5dfe3; text-underline-offset: 3px; }
 .provider-card > .ghost-button:disabled { background: #19332f; color: #b9ddcd; border-color: #456f63; }
-.provider-status { margin: 12px 0 20px; min-height: 25px; color: #b5c7d6; font-size: 14px; line-height: 1.7; }
+.provider-status { margin: 12px 0 20px; min-height: 25px; color: #b5c7d6; font-size: 16px; line-height: 1.7; }
 .provider-card .openrouter-spend { margin-top: auto; padding: 18px 0 0; border: 0; border-top: 1px solid #304559; border-radius: 0; background: transparent; }
 .spend-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
-[data-screen="connections"] #refresh-openrouter { min-height: 36px; padding: 5px 10px; background: transparent; font-size: 14px; }
-.openrouter-spend strong { font-size: 30px; font-weight: 600; }
+[data-screen="connections"] #refresh-openrouter { min-height: 36px; padding: 5px 10px; background: transparent; font-size: 16px; }
+.openrouter-spend strong { font-size: 32px; font-weight: 600; }
 [data-screen="connections"] .priority-card { display: grid; grid-template-columns: 1fr minmax(260px, 340px); gap: 32px; margin-top: 24px; padding: 28px; }
-.priority-card .eyebrow { margin: 0 0 8px; color: #93bbc2; font-size: 13px; }
-.priority-card p { margin: 12px 0 0; color: #bacbd9; font-size: 16px; line-height: 1.75; }
-.priority-controls label { display: block; margin-bottom: 10px; color: #c9d7e3; font-size: 15px; }
+.priority-card .eyebrow { margin: 0 0 8px; color: #93bbc2; font-size: 16px; }
+.priority-card p { margin: 12px 0 0; color: #bacbd9; font-size: 18px; line-height: 1.75; }
+.priority-controls label { display: block; margin-bottom: 10px; color: #c9d7e3; font-size: 17px; }
 .priority-select { position: relative; }
-.priority-select #provider-priority { display: block; appearance: none; -webkit-appearance: none; width: 100%; min-width: 0; min-height: 50px; margin: 0; padding: 12px 42px 12px 14px; border: 1px solid #506f84; border-radius: 11px; background: #0f1b2b; color: #e1edf5; font: inherit; font-size: 16px; cursor: pointer; color-scheme: dark; }
+.priority-select #provider-priority { display: block; appearance: none; -webkit-appearance: none; width: 100%; min-width: 0; min-height: 50px; margin: 0; padding: 12px 42px 12px 14px; border: 1px solid #506f84; border-radius: 11px; background: #0f1b2b; color: #e1edf5; font: inherit; font-size: 18px; cursor: pointer; color-scheme: dark; }
 .priority-select #provider-priority:hover { border-color: #81b5bc; }
 .priority-select #provider-priority:focus-visible { outline: 3px solid rgba(135,200,206,.4); outline-offset: 2px; }
 .priority-select svg { position: absolute; right: 14px; top: 16px; width: 18px; height: 18px; color: #a1cbd0; pointer-events: none; }

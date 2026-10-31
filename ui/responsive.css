@@ -11,8 +11,8 @@ html, body { overflow-x: hidden; }
 .openrouter-connection > button { width: 100%; min-height: 44px; }
 .openrouter-connection > button:disabled { color: #b4ddd0; border-color: #517c73; cursor: default; }
 .openrouter-spend { display: grid; gap: 8px; padding: 16px; border: 1px solid #3b586b; border-radius: 12px; background: #132334; }
-.openrouter-spend span, .openrouter-spend small { color: #c2d0dc; font-size: 14px; }
-.openrouter-spend strong { color: #dbf1f0; font-size: 26px; }
+.openrouter-spend span, .openrouter-spend small { color: #c2d0dc; font-size: 16px; }
+.openrouter-spend strong { color: #dbf1f0; font-size: 28px; }
 .character-create-card { border-style: dashed; border-color: #4e7180; }
 [data-screen="create-character"] .creator-panel { margin-top: 0; padding-top: 0; border-top: 0; }
 .personal-character { background: #252437; border-color: #68617f; }
@@ -40,38 +40,38 @@ html, body { overflow-x: hidden; }
 
 /* Readable copy and resilient long strings across every screen. */
 :root { --ink: #f2f6fb; --muted: #bac8d8; --faint: #96a9bd; }
-body { font-size: 15px; line-height: 1.65; }
+body { font-size: 17px; line-height: 1.65; }
 .role-picker-header > p:last-child, .page-header p:last-child, .settings-card > p,
 .jailbreak-library p, .jailbreak-editor > p, .connection-note { color: var(--muted); }
-.role-picker-copy strong { font-size: 16px; }
-.role-picker-copy small { color: var(--muted); font-size: 14px; line-height: 1.65; }
-.role-picker-copy em { color: #b6e6e8; font-size: 12px; }
-.message p { color: #e8f0f7; font-size: 16px; }
-.message-meta, .profile-link small, .setting-row small, .row-copy small, .character-row small { font-size: 12px; }
-.composer textarea { font-size: 16px; }
-.section-label, .workspace-name, .storage-status, .conversation-history-empty { font-size: 12px; }
+.role-picker-copy strong { font-size: 18px; }
+.role-picker-copy small { color: var(--muted); font-size: 16px; line-height: 1.65; }
+.role-picker-copy em { color: #b6e6e8; font-size: 16px; }
+.message p { color: #e8f0f7; font-size: 18px; }
+.message-meta, .profile-link small, .setting-row small, .row-copy small, .character-row small { font-size: 16px; }
+.composer textarea { font-size: 18px; }
+.section-label, .workspace-name, .storage-status, .conversation-history-empty { font-size: 16px; }
 .role-picker-copy, .row-copy, .character-row > span:last-child, .profile-link > span:nth-child(2),
 .setting-row span, .jailbreak-editor, .settings-card, .studio-screen { overflow-wrap: anywhere; }
 
 /* Studio subpages use readable secondary copy instead of desktop-scale microtext. */
 .studio-screen .eyebrow, .studio-screen .panel-kicker, .studio-screen .character-library-copy em,
-.studio-screen .role-picker-copy em { font-size: 12px; }
+.studio-screen .role-picker-copy em { font-size: 16px; }
 .studio-screen .page-header p:last-child, .studio-screen .creator-header p:last-child,
 .studio-screen .creator-panel > header p:last-child, .studio-screen .character-import-heading p:last-child,
 .studio-screen .jailbreak-panel p:not(.panel-kicker), .studio-screen .jailbreak-editor > p,
-.studio-screen .settings-card > p, .studio-screen .connection-note { font-size: 15px; line-height: 1.72; }
+.studio-screen .settings-card > p, .studio-screen .connection-note { font-size: 17px; line-height: 1.72; }
 .studio-screen .jailbreak-controls label, .studio-screen .jailbreak-editor label,
 .studio-screen .prompt-preview label, .studio-screen .settings-card > label,
 .studio-screen .creator-card label, .studio-screen .editor-card label,
 .studio-screen .character-library-tools > p, .studio-screen .character-import-status,
 .studio-screen .import-select-all, .studio-screen .character-import-skipped,
 .studio-screen .settings-actions span, .studio-screen .jailbreak-editor-status,
-.studio-screen .jailbreak-library p { font-size: 14px; }
+.studio-screen .jailbreak-library p { font-size: 16px; }
 .studio-screen .character-library-copy small, .studio-screen .character-import-item small,
 .studio-screen .template-card small, .studio-screen .flow-chain small,
-.studio-screen .jailbreak-controls #jailbreak-status, .studio-screen .conversation-history-empty { font-size: 14px; line-height: 1.6; }
+.studio-screen .jailbreak-controls #jailbreak-status, .studio-screen .conversation-history-empty { font-size: 16px; line-height: 1.6; }
 .studio-screen .character-library-copy strong, .studio-screen .character-import-item strong,
-.studio-screen .template-card strong, .studio-screen .flow-chain strong { font-size: 15px; }
+.studio-screen .template-card strong, .studio-screen .flow-chain strong { font-size: 17px; }
 
 @media (max-width: 1120px) {
   .content { position: relative; }
@@ -100,12 +100,12 @@ body { font-size: 15px; line-height: 1.65; }
   .app.mobile-nav-open .rail-nav { display: grid; grid-auto-rows: 48px; align-content: start; gap: 8px; margin: 0; }
   .app.mobile-nav-open .rail-footer { display: block; margin-top: auto; }
   .app.mobile-nav-open .rail-button { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 0 13px; }
-  .app.mobile-nav-open .rail-button::after { font-size: 15px; }
+  .app.mobile-nav-open .rail-button::after { font-size: 17px; }
   .app.mobile-nav-open .rail-button[data-view="chat"]::after { content: "對話"; }
   .app.mobile-nav-open .rail-button[data-view="characters"]::after { content: "角色"; }
   .app.mobile-nav-open .rail-button[data-view="memory"]::after { content: "記憶"; }
   .app.mobile-nav-open .rail-button[data-view="jailbreak"]::after { content: "越獄工作台"; }
-  .app.mobile-nav-open .rail-footer .rail-button::after { content: "設定"; font-size: 15px; }
+  .app.mobile-nav-open .rail-footer .rail-button::after { content: "設定"; font-size: 17px; }
   .app.mobile-nav-open .mobile-nav-backdrop { display: block; position: fixed; z-index: 30; inset: 0; border: 0; background: rgba(4, 10, 18, .62); }
   .rail-button { width: 44px; height: 44px; }
   .chat-list-toggle { width: 40px; height: 40px; flex: 0 0 auto; }
@@ -124,12 +124,12 @@ body { font-size: 15px; line-height: 1.65; }
   .role-picker-card { grid-template-columns: 42px minmax(0, 1fr); min-height: 0; padding: 14px; }
   .role-picker-arrow { display: none; }
   .role-picker-copy strong, .role-picker-copy small { overflow-wrap: anywhere; }
-  .role-picker-header > p:last-child { font-size: 16px; }
-  .role-picker-status, .role-picker-empty { font-size: 14px; }
+  .role-picker-header > p:last-child { font-size: 18px; }
+  .role-picker-status, .role-picker-empty { font-size: 16px; }
   .role-picker-card { gap: 13px; }
   .role-picker-copy small { -webkit-line-clamp: 4; }
-  .active-character h1 { font-size: 16px; }
-  .active-character p { font-size: 12px; }
+  .active-character h1 { font-size: 18px; }
+  .active-character p { font-size: 16px; }
   .composer textarea,
   .connection-field select,
   .creator-card textarea,
@@ -137,7 +137,7 @@ body { font-size: 15px; line-height: 1.65; }
   .creator-card select,
   .jailbreak-editor input,
   .jailbreak-editor textarea,
-  .jailbreak-editor select { font-size: 16px; }
+  .jailbreak-editor select { font-size: 18px; }
   .connection-field select { min-height: 44px; }
 }
 
@@ -145,7 +145,7 @@ body { font-size: 15px; line-height: 1.65; }
   .rail-nav { margin-left: 0; }
   .rail-button { width: 44px; }
   .active-character { gap: 8px; }
-  .active-character p { font-size: 11px; }
+  .active-character p { font-size: 16px; }
   .transcript { padding-inline: 13px; }
   .composer { padding-inline: 10px; }
   .details { width: 100%; }
@@ -187,28 +187,28 @@ body { font-size: 15px; line-height: 1.65; }
 /* Per-chat memory stays in the conversation context but opens only on demand. */
 .chat-memory-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .chat-memory-heading .panel-kicker { margin-bottom: 0; }
-.chat-memory-toggle,.chat-memory-link { border: 0; background: transparent; color: #a8dadd; cursor: pointer; font-size: 12px; }
+.chat-memory-toggle,.chat-memory-link { border: 0; background: transparent; color: #a8dadd; cursor: pointer; font-size: 16px; }
 .chat-memory-toggle:hover,.chat-memory-link:hover { color: #d6f2f1; text-decoration: underline; }
 .chat-memory-toggle:focus-visible,.chat-memory-link:focus-visible { outline: 2px solid #87c8ce; outline-offset: 3px; border-radius: 3px; }
 .chat-memory-panel { display: grid; gap: 9px; margin-top: 12px; }
-.chat-memory-empty { margin: 0; color: #bac8d8; font-size: 12px; line-height: 1.55; }
+.chat-memory-empty { margin: 0; color: #bac8d8; font-size: 16px; line-height: 1.55; }
 .chat-memory-list { display: grid; gap: 8px; max-height: 220px; overflow: auto; }
 .chat-memory-item { padding: 9px 10px; border: 1px solid #30445a; border-radius: 8px; background: #101c2a; }
-.chat-memory-item p { margin: 0 0 3px; color: #9cb2c8; font: 10px "DM Mono", monospace; }
-.chat-memory-item strong { display: block; color: #dce8f0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.chat-memory-item p { margin: 0 0 3px; color: #9cb2c8; font: 16px "DM Mono", monospace; }
+.chat-memory-item strong { display: block; color: #dce8f0; font-size: 16px; line-height: 1.5; overflow-wrap: anywhere; }
 .chat-memory-link { justify-self: start; padding: 0; }
-.chat-memory-backfill { justify-self: start; min-height: 36px; padding: 7px 12px; border: 1px solid #5caeb7; border-radius: 8px; background: #1b4854; color: #e3fbfd; cursor: pointer; font: 600 13px/1.3 "Noto Sans TC", sans-serif; }
+.chat-memory-backfill { justify-self: start; min-height: 36px; padding: 7px 12px; border: 1px solid #5caeb7; border-radius: 8px; background: #1b4854; color: #e3fbfd; cursor: pointer; font: 600 16px/1.3 "Noto Sans TC", sans-serif; }
 .chat-memory-backfill:hover { background: #245d69; }
 .chat-memory-backfill:disabled { cursor: wait; opacity: .68; }
 .chat-memory-backfill:focus-visible { outline: 2px solid #b5f3f4; outline-offset: 3px; }
-.chat-memory-backfill-note,.chat-memory-backfill-status { margin: 0; color: #b8c9db; font-size: 13px; line-height: 1.5; }
+.chat-memory-backfill-note,.chat-memory-backfill-status { margin: 0; color: #b8c9db; font-size: 16px; line-height: 1.5; }
 .chat-memory-backfill-status { color: #aee8e9; }
 
 /* The ai-server story/dialog contract is a visible, per-chat choice. */
 .chat-mode-section { display: grid; gap: 12px; padding: 14px !important; border: 1px solid #3b6173; border-radius: 14px; background: linear-gradient(135deg, rgba(40, 91, 109, .26), rgba(18, 31, 46, .92)); }
 .chat-mode-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
-.chat-mode-heading h3 { margin: 2px 0 0; color: #f0f7fb; font-size: 15px; }
-#chat-mode-status { padding: 4px 8px; border: 1px solid #6aafb3; border-radius: 999px; color: #c9f0ed; font-size: 12px; white-space: nowrap; }
+.chat-mode-heading h3 { margin: 2px 0 0; color: #f0f7fb; font-size: 17px; }
+#chat-mode-status { padding: 4px 8px; border: 1px solid #6aafb3; border-radius: 999px; color: #c9f0ed; font-size: 16px; white-space: nowrap; }
 .chat-mode-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 .chat-mode-card { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 9px; min-height: 86px; padding: 10px; border: 1px solid #3a5067; border-radius: 11px; background: #101c2a; color: #dce8f0; cursor: pointer; text-align: left; transition: border-color .18s ease, background-color .18s ease, transform .18s ease; }
 .chat-mode-card:hover { border-color: #74abb1; background: #172b3b; }
@@ -217,8 +217,8 @@ body { font-size: 15px; line-height: 1.65; }
 .chat-mode-icon { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid #5f9fa5; border-radius: 10px; color: #b9e7e5; }
 .chat-mode-icon svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
 .chat-mode-card strong, .chat-mode-card small { display: block; }
-.chat-mode-card strong { color: #f4f8fb; font-size: 13px; }
-.chat-mode-card small { margin-top: 3px; color: #b9cbd9; font-size: 11px; line-height: 1.45; }
+.chat-mode-card strong { color: #f4f8fb; font-size: 16px; }
+.chat-mode-card small { margin-top: 3px; color: #b9cbd9; font-size: 16px; line-height: 1.45; }
 
 /* Mobile Web App shell: chat stays primary; navigation and controls move into drawers. */
 @media (max-width: 760px) {
@@ -226,14 +226,14 @@ body { font-size: 15px; line-height: 1.65; }
   body { background: #0b1320; }
   .app { min-height: 100dvh; background: #0b1320; }
   .rail { position: sticky; z-index: 50; top: 0; height: var(--mobile-bar); min-height: var(--mobile-bar); padding: 8px 14px max(8px, env(safe-area-inset-top)); background: rgba(12, 20, 32, .96); backdrop-filter: blur(18px); }
-  .logo { width: 36px; height: 36px; border-radius: 12px; font-size: 15px; }
+  .logo { width: 36px; height: 36px; border-radius: 12px; font-size: 17px; }
   .mobile-nav-toggle { width: 44px; height: 44px; border: 1px solid #304158; border-radius: 12px; background: #142135; }
   .content { min-height: calc(100dvh - var(--mobile-bar)); background: radial-gradient(ellipse at 50% -5%, #1b3044 0, transparent 42%), #0b1320; }
   .screen[data-screen="chat"] { height: calc(100dvh - var(--mobile-bar)); grid-template-rows: 62px minmax(0, 1fr); }
   .chat-header { min-height: 62px; padding: 0 12px; background: rgba(13, 23, 36, .94); backdrop-filter: blur(18px); }
   .chat-header .active-character { min-width: 0; gap: 9px; }
   .chat-header .active-character > div { min-width: 0; }
-  .chat-header .active-character h1 { max-width: 36vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
+  .chat-header .active-character h1 { max-width: 36vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; }
   .chat-header .active-character p { max-width: 42vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #aebfd1; }
   .chat-header .initial { width: 36px; height: 36px; }
   .chat-header { grid-template-columns: 44px minmax(0, 1fr) 44px; gap: 8px; }
@@ -242,10 +242,10 @@ body { font-size: 15px; line-height: 1.65; }
   .header-actions .ghost-button { display: none; }
 
   .transcript { width: 100%; padding: 22px 14px 16px; scroll-padding-bottom: 132px; }
-  .date-divider { margin: 0 0 22px; font-size: 11px; }
+  .date-divider { margin: 0 0 22px; font-size: 16px; }
   .message { max-width: min(100%, 680px); margin-bottom: 22px; }
   .message.user { max-width: min(88%, 610px); }
-  .message p { font-size: 16px; line-height: 1.82; }
+  .message p { font-size: 18px; line-height: 1.82; }
   .message.user p { padding: 12px 14px; border-radius: 16px 16px 4px 16px; background: #1d334a; }
   .message.assistant p { padding-left: 0; }
   .message-meta { margin-bottom: 6px; }
@@ -254,25 +254,25 @@ body { font-size: 15px; line-height: 1.65; }
 
   .composer-wrap { position: relative; z-index: 4; width: 100%; padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); background: linear-gradient(180deg, rgba(11, 19, 32, 0), #0b1320 20%); }
   .composer { min-height: 68px; padding: 9px 10px 8px 14px; border-radius: 18px; border-color: #3a526d; background: #142135; box-shadow: 0 10px 28px rgba(0, 0, 0, .24); }
-  .composer textarea { min-height: 30px; font-size: 16px; line-height: 1.55; }
+  .composer textarea { min-height: 30px; font-size: 18px; line-height: 1.55; }
   .composer-toolbar { min-height: 36px; margin-top: 3px; }
   .attach-button { width: 44px; height: 40px; margin-left: -9px; }
-  .send-button { min-width: 44px; min-height: 40px; justify-content: center; border-radius: 12px; padding: 0 12px; font-size: 13px; }
+  .send-button { min-width: 44px; min-height: 40px; justify-content: center; border-radius: 12px; padding: 0 12px; font-size: 16px; }
   .send-button svg { width: 16px; height: 16px; }
   .composer-wrap > p { display: none; }
 
   .app.chat-list-open .chat-list { z-index: 70; top: 0; width: min(88vw, 360px); min-height: 100dvh; padding-bottom: env(safe-area-inset-bottom); border-right-color: #3a526d; border-radius: 0 22px 22px 0; background: #101b2a; box-shadow: 20px 0 48px rgba(0, 0, 0, .48); }
   .app.chat-list-open .chat-list-backdrop { z-index: 60; background: rgba(3, 9, 17, .72); backdrop-filter: blur(2px); }
   .chat-list .list-header { position: sticky; z-index: 2; top: 0; padding: max(16px, env(safe-area-inset-top)) 16px 14px; background: #101b2a; }
-  .product-name { font-size: 18px; }
-  .workspace-name { font-size: 12px; color: #aebfd1; }
+  .product-name { font-size: 20px; }
+  .workspace-name { font-size: 16px; color: #aebfd1; }
   .search { height: 44px; margin: 0 16px 16px; border-radius: 12px; }
-  .search input { font-size: 16px; }
+  .search input { font-size: 18px; }
   .list-section { padding: 0 12px 18px; }
-  .section-label { padding: 0 4px 9px; color: #aec4d8; font-size: 13px; }
+  .section-label { padding: 0 4px 9px; color: #aec4d8; font-size: 16px; }
   .chat-row, .character-row { min-height: 64px; padding: 10px 8px; border-radius: 12px; }
-  .chat-row strong, .character-row strong { font-size: 15px; }
-  .chat-row small, .character-row small { font-size: 12px; }
+  .chat-row strong, .character-row strong { font-size: 17px; }
+  .chat-row small, .character-row small { font-size: 16px; }
   .storage-status { position: sticky; bottom: 0; background: #101b2a; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
 
   .content.details-open .details-backdrop { z-index: 80; inset: 0; background: rgba(3, 9, 17, .68); backdrop-filter: blur(2px); }
@@ -280,13 +280,13 @@ body { font-size: 15px; line-height: 1.65; }
   .content.details-open .details { transform: translateY(0); }
   .details::before { content: ""; display: block; width: 38px; height: 4px; margin: 0 auto 12px; border-radius: 999px; background: #60768e; }
   .details-header { margin-bottom: 10px; }
-  .details h2 { font-size: 16px; }
+  .details h2 { font-size: 18px; }
   .details section { padding: 14px 0; }
-  .panel-kicker { color: #9db9ca; font-size: 11px; }
+  .panel-kicker { color: #9db9ca; font-size: 16px; }
   .profile-link, .setting-row { min-height: 44px; }
   .connection-field select { min-height: 48px; border-radius: 12px; }
   .live-switch { min-height: 44px; }
-  .chat-memory-toggle, .chat-memory-link, .chat-memory-backfill { min-height: 44px; font-size: 14px; }
+  .chat-memory-toggle, .chat-memory-link, .chat-memory-backfill { min-height: 44px; font-size: 16px; }
   .chat-memory-item { padding: 11px 12px; border-radius: 12px; }
   .chat-memory-list { max-height: 200px; }
   .chat-mode-section { padding: 13px !important; }
@@ -296,10 +296,10 @@ body { font-size: 15px; line-height: 1.65; }
   .screen[data-screen="chat"].awaiting-character { display: block; height: calc(100dvh - var(--mobile-bar)); min-height: 0; }
   .role-picker { padding: 24px 14px calc(28px + env(safe-area-inset-bottom)); }
   .role-picker-header { margin-bottom: 18px; }
-  .role-picker-header h1 { font-size: clamp(28px, 9vw, 36px); line-height: 1.18; }
-  .role-picker-header > p:last-child { margin-top: 10px; font-size: 15px; }
+  .role-picker-header h1 { font-size: clamp(30px, 9vw, 38px); line-height: 1.18; }
+  .role-picker-header > p:last-child { margin-top: 10px; font-size: 17px; }
   .role-picker-search { position: sticky; z-index: 3; top: calc(var(--mobile-bar) + 8px); height: 48px; margin-bottom: 16px; border-radius: 14px; box-shadow: 0 10px 22px rgba(4, 10, 18, .3); }
-  .role-picker-search input { font-size: 16px; }
+  .role-picker-search input { font-size: 18px; }
   .role-picker-grid { gap: 10px; }
   .role-picker-card { min-height: 104px; padding: 15px; border-radius: 16px; border-color: #30465f; background: #142135; }
   .role-picker-card:active { background: #1d3348; border-color: #76abb1; }
@@ -307,14 +307,14 @@ body { font-size: 15px; line-height: 1.65; }
   .role-picker-create { width: 100%; min-height: 104px; margin-top: 0; border-radius: 16px; }
 
   .studio-screen { padding: 24px 14px calc(30px + env(safe-area-inset-bottom)); }
-  .page-header h1 { font-size: clamp(27px, 8vw, 34px); line-height: 1.18; }
+  .page-header h1 { font-size: clamp(29px, 8vw, 36px); line-height: 1.18; }
 }
 
 @media (max-width: 760px) {
   .studio-screen .page-header p:last-child, .studio-screen .creator-header p:last-child,
   .studio-screen .creator-panel > header p:last-child, .studio-screen .character-import-heading p:last-child,
   .studio-screen .jailbreak-panel p:not(.panel-kicker), .studio-screen .jailbreak-editor > p,
-  .studio-screen .settings-card > p, .studio-screen .connection-note { font-size: 16px; }
+  .studio-screen .settings-card > p, .studio-screen .connection-note { font-size: 18px; }
   .studio-screen .jailbreak-controls label, .studio-screen .jailbreak-editor label,
   .studio-screen .prompt-preview label, .studio-screen .settings-card > label,
   .studio-screen .creator-card label, .studio-screen .editor-card label,
@@ -324,7 +324,7 @@ body { font-size: 15px; line-height: 1.65; }
   .studio-screen .jailbreak-library p,
   .studio-screen .character-library-copy small, .studio-screen .character-import-item small,
   .studio-screen .template-card small, .studio-screen .flow-chain small,
-  .studio-screen .jailbreak-controls #jailbreak-status, .studio-screen .conversation-history-empty { font-size: 14px; }
+  .studio-screen .jailbreak-controls #jailbreak-status, .studio-screen .conversation-history-empty { font-size: 16px; }
 }
 
 /* Description copy is deliberately two type steps larger than the original compact UI. */
@@ -338,7 +338,7 @@ body { font-size: 15px; line-height: 1.65; }
 .jailbreak-library p,
 .jailbreak-editor > p,
 .settings-card > p,
-.connection-note { font-size: 17px; line-height: 1.72; }
+.connection-note { font-size: 19px; line-height: 1.72; }
 
 .role-picker-status,
 .role-picker-empty,
@@ -366,7 +366,7 @@ body { font-size: 15px; line-height: 1.65; }
 .jailbreak-controls #jailbreak-status,
 .chat-memory-empty,
 .chat-memory-item strong,
-.chat-mode-card small { font-size: 16px; line-height: 1.65; }
+.chat-mode-card small { font-size: 18px; line-height: 1.65; }
 
 .role-picker-copy em,
 .character-library-copy em,
@@ -379,7 +379,7 @@ body { font-size: 15px; line-height: 1.65; }
 .chat-memory-item p,
 .chat-memory-toggle,
 .chat-memory-link,
-#chat-mode-status { font-size: 14px; }
+#chat-mode-status { font-size: 16px; }
 
 @media (max-width: 760px) {
   .role-picker-header > p:last-child,
@@ -392,16 +392,16 @@ body { font-size: 15px; line-height: 1.65; }
   .jailbreak-library p,
   .jailbreak-editor > p,
   .settings-card > p,
-  .connection-note { font-size: 18px; }
+  .connection-note { font-size: 20px; }
 }
 
 /* Conversation settings need the same readable label scale as the rest of the app. */
-.live-switch { min-height: 44px; gap: 12px; font-size: 18px; line-height: 1.5; }
+.live-switch { min-height: 44px; gap: 12px; font-size: 20px; line-height: 1.5; }
 .live-switch input { width: 20px; height: 20px; }
 
 /* The desktop settings rail is only 300px wide: keep response choices readable, not column-bound. */
 @media (min-width: 761px) {
   .chat-mode-grid { grid-template-columns: 1fr; }
   .chat-mode-card { min-height: 74px; }
-  .chat-mode-card small { font-size: 14px; line-height: 1.55; }
+  .chat-mode-card small { font-size: 16px; line-height: 1.55; }
 }

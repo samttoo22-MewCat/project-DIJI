@@ -192,7 +192,7 @@ def test_conversation_settings_labels_are_large_and_the_logo_returns_home() -> N
     responsive = (ROOT / "ui/responsive.css").read_text()
     markup = (ROOT / "ui/index.html").read_text()
 
-    assert ".live-switch { min-height: 44px; gap: 12px; font-size: 18px;" in responsive
+    assert ".live-switch { min-height: 44px; gap: 12px; font-size: 20px;" in responsive
     assert ".live-switch input { width: 20px; height: 20px; }" in responsive
     assert "app.js?v=20261101-story-home-1" in markup
 
@@ -204,8 +204,8 @@ def test_studio_subpage_secondary_copy_is_readable() -> None:
     assert ".studio-screen .jailbreak-editor label" in responsive
     assert ".studio-screen .jailbreak-library p" in responsive
     assert "Description copy is deliberately two type steps larger" in responsive
-    assert "font-size: 17px; line-height: 1.72" in responsive
-    assert "font-size: 18px;" in responsive
+    assert "font-size: 19px; line-height: 1.72" in responsive
+    assert "font-size: 20px;" in responsive
     assert "@media (max-width: 760px)" in responsive
 
 
@@ -255,7 +255,7 @@ def test_chat_mode_is_a_visible_per_conversation_long_or_short_choice() -> None:
     assert ".chat-mode-card.active" in responsive
     assert "@media (min-width: 761px)" in responsive
     assert ".chat-mode-grid { grid-template-columns: 1fr; }" in responsive
-    assert ".chat-mode-card small { font-size: 14px; line-height: 1.55; }" in responsive
+    assert ".chat-mode-card small { font-size: 16px; line-height: 1.55; }" in responsive
     assert "responsive.css?v=20261030-openrouter-1" in markup
 
 
