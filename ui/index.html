@@ -31,7 +31,7 @@
     <link rel="stylesheet" href="home.css?v=20261020-project-home-1" />
     <link rel="stylesheet" href="responsive.css?v=20261030-openrouter-1" />
     <link rel="stylesheet" href="pwa.css?v=20261021-pwa-2" />
-    <link rel="stylesheet" href="account-access.css?v=20261031-topnav-1" />
+    <link rel="stylesheet" href="account-access.css?v=20261031-model-nav-1" />
     <link rel="stylesheet" href="age-confirmation.css?v=20261028-age-gate-1" />
   </head>
   <body>
@@ -94,6 +94,7 @@
             </svg>
           </button>
           <button class="rail-button" data-view="create-character" aria-label="建立角色" title="建立角色"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="8" r="3"/><path d="M3.5 19c.7-3 2.9-4.5 6.5-4.5M18 12v8M14 16h8"/></svg></button>
+          <button class="rail-button" data-view="connections" aria-label="模型連線" title="模型連線"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-6 6v4M6 11h12"/></svg></button>
         </nav>
         <div class="rail-footer">
           <button class="rail-button" data-view="settings" aria-label="設定" title="設定">
@@ -371,7 +372,7 @@
               ><p class="connection-note" id="model-jailbreak-status" aria-live="polite">
                 只顯示有已核准越獄的模型。
               </p>
-              ><div class="openrouter-connection"><button class="ghost-button" id="connect-openrouter" type="button">連接您的 OpenRouter</button><p class="connection-note" id="openrouter-connection-status" aria-live="polite"></p><div class="openrouter-spend"><span>此連接累計使用 · USD</span><strong id="openrouter-total">—</strong><small id="openrouter-daily">連接後顯示用量</small><button class="ghost-button" id="refresh-openrouter" type="button">更新用量</button></div></div><label class="live-switch"
+              ><button class="ghost-button" data-view="connections" type="button">前往模型連線設定</button><label class="live-switch"
                 ><input id="live-mode" type="checkbox" /><span
                 >啟用實際模型請求</span
                 ></label
@@ -448,7 +449,11 @@
             </aside>
           </div>
         </section>
-        <section class="screen studio-screen" data-screen="create-character" aria-label="建立角色"></section>
+        <section class="screen studio-screen" data-screen="connections" aria-label="模型連線">
+          <header class="page-header"><div><p class="eyebrow">模型連線</p><h1>連接你的 OpenRouter</h1><p>登入 DIJI 後，連接自己的 OpenRouter 額度，供角色生成與聊天使用。</p></div></header>
+          <section class="settings-card openrouter-connection"><button class="ghost-button" id="connect-openrouter" type="button">連接您的 OpenRouter</button><p class="connection-note" id="openrouter-connection-status" aria-live="polite"></p><div class="openrouter-spend"><span>此連接累計使用 · USD</span><strong id="openrouter-total">—</strong><small id="openrouter-daily">連接後顯示用量</small><button class="ghost-button" id="refresh-openrouter" type="button">更新用量</button></div></section>
+        </section>
+        <section class="screen studio-screen" data-screen="create-character" aria-label="建立角色"><div class="creation-connection-hint"><span>角色生成需要先連接模型服務。</span><button class="ghost-button" data-view="connections" type="button">設定模型連線</button></div></section>
         <section class="screen studio-screen" data-screen="memory">
           <header class="page-header">
             <div>
@@ -608,6 +613,6 @@
     <script src="jailbreak-studio.js?v=20261011-model-jailbreak-1"></script>
     <script src="character-creator.js?v=20261030-openrouter-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>
-    <script src="openrouter-connection.js?v=20261030-1"></script>
+    <script src="openrouter-connection.js?v=20261031-1"></script>
   </body>
 </html>

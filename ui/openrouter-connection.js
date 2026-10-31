@@ -31,4 +31,7 @@
   }));
   setInterval(() => { if (!document.hidden) load(); }, 60000);
   load();
+  if (new URLSearchParams(window.location.search).get('openrouter') === 'connected') {
+    document.querySelector('.rail-button[data-view="connections"]').click();
+  }
 })();
