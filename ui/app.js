@@ -62,13 +62,14 @@ function setChatProviderLocked(locked, title = '尚未連接模型商') {
   for (const name of ['chat', 'create-character']) {
     const screen = document.querySelector(`[data-screen="${name}"]`);
     const gate = screen.querySelector('.chat-provider-gate');
-    screen.classList.toggle('provider-locked', locked);
-    gate.hidden = !locked;
+    const screenLocked = locked && !(name === 'chat' && screen.classList.contains('awaiting-character'));
+    screen.classList.toggle('provider-locked', screenLocked);
+    gate.hidden = !screenLocked;
     gate.querySelector('h2').textContent = title;
     for (const child of screen.children) {
       if (child === gate) continue;
-      child.inert = locked;
-      if (locked) child.setAttribute('aria-hidden', 'true');
+      child.inert = screenLocked;
+      if (screenLocked) child.setAttribute('aria-hidden', 'true');
       else child.removeAttribute('aria-hidden');
     }
   }
@@ -309,30 +310,6 @@ function renderSidebarCharacters() {
     library.append(row);
   }
 }
-function renderRolePicker(query = "") {
-  const grid = document.querySelector("#role-picker-grid");
-  const status = document.querySelector("#role-picker-status");
-  const empty = document.querySelector("#role-picker-empty");
-  if (!grid || !status || !empty) return;
-  const createCard = document.querySelector("#role-picker-create");
-  const needle = query.trim().toLocaleLowerCase();
-  const characters = state.characters.filter((character) => `${character.name} ${character.premise}`.toLocaleLowerCase().includes(needle));
-  grid.replaceChildren(...characters.map((character) => {
-    const card = document.createElement("button");
-    card.type = "button"; card.className = "role-picker-card";
-    if (character.source?.visibility === "private") card.classList.add("personal-character");
-    card.innerHTML = '<span class="initial avatar-a"></span><span class="role-picker-copy"><strong></strong><small></small><em>開始對話</em></span><span class="role-picker-arrow" aria-hidden="true">›</span>';
-    card.querySelector(".initial").textContent = character.name.slice(0, 1);
-    card.querySelector("strong").textContent = character.name;
-    card.querySelector("small").textContent = character.premise;
-    if (character.source?.visibility === "private") card.querySelector("em").textContent = "我的角色 · 僅自己可見";
-    card.addEventListener("click", () => window.dijiSelectCharacter(character));
-    return card;
-  }));
-  if (createCard) grid.append(createCard);
-  status.textContent = `共 ${characters.length} 位可選角色`;
-  empty.hidden = characters.length > 0;
-}
 async function loadLocalCatalog() {
   try {
     const response = await fetch("/api/characters");
@@ -341,7 +318,6 @@ async function loadLocalCatalog() {
     const character = state.characters.find((item) => item.id === state.characterId);
     if (character) activeCharacter(character);
     renderSidebarCharacters();
-    renderRolePicker();
     window.dijiRenderCharacterLibrary?.();
   } catch { showToast("角色庫無法載入；請確認以本機網址開啟。"); }
 }
@@ -539,9 +515,8 @@ compactMobileNav.addEventListener("change", () => setMobileNav(false));
 document.querySelector("#new-chat").addEventListener("click", () => { setChatReady(false); showScreen("chat"); });
 document.querySelector("#new-session").addEventListener("click", () => { const character = selectedCharacter(); if (character) startConversation(character).catch((error) => showToast(`無法建立對話：${error.message}`)); });
 document.querySelector("#clear-chat").addEventListener("click", () => { const character = selectedCharacter(); if (character) startConversation(character).catch((error) => showToast(`無法建立對話：${error.message}`)); });
-document.querySelector("#search-input").addEventListener("input", (event) => { renderConversationHistory(event.target.value); renderRolePicker(event.target.value); });
-document.querySelector("#role-picker-search").addEventListener("input", (event) => renderRolePicker(event.target.value));
-document.querySelector("#role-picker-create").addEventListener("click", () => showScreen("create-character"));
+document.querySelector("#search-input").addEventListener("input", (event) => renderConversationHistory(event.target.value));
+document.querySelector("#chat-choose-character").addEventListener("click", () => showScreen("characters"));
 const loginDialog = document.querySelector("#google-login-dialog");
 const loginStatus = document.querySelector("#google-login-status");
 const accountLogin = document.querySelector("#account-login");

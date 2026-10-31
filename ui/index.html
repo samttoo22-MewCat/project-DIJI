@@ -24,7 +24,7 @@
     <link rel="stylesheet" href="jailbreak-studio-overrides.css?type=20261101-larger-1" />
     <link rel="stylesheet" href="jailbreak-delete.css?type=20261101-larger-1" />
     <link rel="stylesheet" href="character-import.css?type=20261101-larger-1" />
-    <link rel="stylesheet" href="role-picker.css?v=20261011-role-first-1&amp;type=20261101-larger-1" />
+    <link rel="stylesheet" href="role-picker.css?v=20261101-chat-entry-1&amp;type=20261101-larger-1" />
     <link rel="stylesheet" href="conversation-history.css?v=20261011-persistent-chats-1&amp;type=20261101-larger-1" />
     <link rel="stylesheet" href="settings.css?v=20261018-auth-gate-hidden-1&amp;type=20261101-larger-1" />
     <link rel="stylesheet" href="character-creator.css?type=20261101-larger-1" />
@@ -202,21 +202,13 @@
           </div>
         </section>
         <section class="screen awaiting-character" data-screen="chat">
-          <section class="role-picker" id="role-picker" aria-labelledby="role-picker-title">
+          <section class="role-picker chat-welcome" id="role-picker" aria-labelledby="role-picker-title">
             <header class="role-picker-header">
               <p class="eyebrow">開始對話</p>
-              <h1 id="role-picker-title">先選一位角色。</h1>
-              <p>每次選擇都會建立新的對話；角色的人設、風格與記憶會維持各自的脈絡。</p>
+              <h1 id="role-picker-title">想和誰聊聊？</h1>
+              <p>前往角色頁面，選擇一位角色後，就能在這裡開始對話。</p>
             </header>
-            <label class="role-picker-search" for="role-picker-search">
-              <span class="sr-only">搜尋角色</span>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="4.5" /><path d="m14 14 4.5 4.5" /></svg>
-              <input id="role-picker-search" type="search" placeholder="搜尋角色名稱或人設" autocomplete="off" />
-            </label>
-            <p class="role-picker-status" id="role-picker-status" aria-live="polite">正在讀取角色庫…</p>
-            <div class="role-picker-grid" id="role-picker-grid" aria-live="polite"></div>
-            <p class="role-picker-empty" id="role-picker-empty" hidden>找不到相符角色。請換個關鍵字，或先建立新角色。</p>
-            <button class="role-picker-card role-picker-create" id="role-picker-create" type="button"><span class="initial avatar-a" aria-hidden="true">＋</span><span class="role-picker-copy"><strong>建立角色</strong><small>創造屬於你的角色</small><em>開始創作</em></span><span class="role-picker-arrow" aria-hidden="true">›</span></button>
+            <button class="primary-button chat-welcome-button" id="chat-choose-character" type="button">前往角色頁面<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 5l7 7-7 7"/></svg></button>
           </section>
           <header class="chat-header">
             <button class="chat-side-control chat-list-toggle" id="toggle-chat-list" aria-expanded="false" aria-controls="chat-list" aria-label="開啟角色與對話列表">
@@ -632,7 +624,7 @@
     </dialog>
     <div class="toast" id="toast" role="status"></div>
     <script src="age-confirmation.js?v=20261028-age-gate-2"></script>
-    <script src="app.js?v=20261101-story-home-1"></script>
+    <script src="app.js?v=20261101-chat-entry-1"></script>
     <script src="jailbreak-studio.js?v=20261101-google-first-1"></script>
     <script src="character-creator.js?v=20261101-google-first-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>
