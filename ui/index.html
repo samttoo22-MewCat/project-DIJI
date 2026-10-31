@@ -33,6 +33,7 @@
     <link rel="stylesheet" href="pwa.css?v=20261021-pwa-2" />
     <link rel="stylesheet" href="account-access.css?v=20261031-bazaar-2" />
     <link rel="stylesheet" href="age-confirmation.css?v=20261028-age-gate-1" />
+    <link rel="stylesheet" href="connection-layout.css?v=20261101-1" />
   </head>
   <body>
     <header class="account-access" aria-label="帳號操作">
@@ -450,10 +451,14 @@
           </div>
         </section>
         <section class="screen studio-screen" data-screen="connections" aria-label="模型連線">
-          <section class="settings-card"><h2>BazaarLink</h2><p>連接自己的 BazaarLink 額度，供角色生成、聊天與記憶整理使用。</p><button class="ghost-button" id="connect-bazaarlink" type="button">連接您的 BazaarLink</button><p id="bazaarlink-status" aria-live="polite"></p></section>
-          <section class="settings-card"><h2>額度使用順序</h2><label for="provider-priority">優先使用</label><select id="provider-priority"><option value="openrouter">OpenRouter → BazaarLink</option><option value="bazaarlink">BazaarLink → OpenRouter</option></select><p>依順序使用已連接的服務。只有明確回報額度不足時才切換；其他錯誤會直接顯示。</p><button class="ghost-button" id="save-provider-priority" type="button">儲存使用順序</button><p id="provider-priority-status" aria-live="polite"></p></section>
-          <header class="page-header"><div><p class="eyebrow">模型連線</p><h1>連接你的 OpenRouter</h1><p>登入 DIJI 後，連接自己的 OpenRouter 額度，供角色生成與聊天使用。</p></div></header>
-          <section class="settings-card openrouter-connection"><button class="ghost-button" id="connect-openrouter" type="button">連接您的 OpenRouter</button><p class="connection-note" id="openrouter-connection-status" aria-live="polite"></p><div class="openrouter-spend"><span>此連接累計使用 · USD</span><strong id="openrouter-total">—</strong><small id="openrouter-daily">連接後顯示用量</small><button class="ghost-button" id="refresh-openrouter" type="button">更新用量</button></div></section>
+          <div class="connections-layout">
+            <header class="connections-heading"><p class="eyebrow">模型連線</p><h1>讓你的角色，連上模型。</h1><p>連接自己的額度，再決定優先使用哪個服務。</p></header>
+            <div class="provider-cards">
+              <section class="settings-card provider-card"><div class="provider-card-heading"><span class="provider-symbol" aria-hidden="true">B</span><div><h2>BazaarLink</h2><p>繁體中文服務介面</p></div></div><p class="provider-description">使用自己的 BazaarLink 額度，進行角色生成、聊天與記憶整理。</p><button class="ghost-button" id="connect-bazaarlink" type="button">連接您的 BazaarLink</button><p class="provider-status" id="bazaarlink-status" aria-live="polite"></p></section>
+              <section class="settings-card provider-card openrouter-connection"><div class="provider-card-heading"><span class="provider-symbol" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 12h15M14 6l6 6-6 6M4 6h5M4 18h5"/></svg></span><div><h2>OpenRouter</h2><p>使用自己的模型額度</p></div></div><p class="provider-description">連接 OpenRouter 帳號，使用授權給 DIJI 的額度。</p><button class="ghost-button" id="connect-openrouter" type="button">連接您的 OpenRouter</button><p class="provider-status" id="openrouter-connection-status" aria-live="polite"></p><div class="openrouter-spend"><div class="spend-heading"><span>此連接累計使用 · USD</span><button class="ghost-button" id="refresh-openrouter" type="button">更新用量</button></div><strong id="openrouter-total">—</strong><small id="openrouter-daily">連接後顯示用量</small></div></section>
+            </div>
+            <section class="settings-card priority-card"><div><p class="eyebrow">額度偏好</p><h2>先使用哪個服務？</h2><p>依順序使用已連接的服務。第一順位額度不足時，再切換下一個。</p></div><div class="priority-controls"><label for="provider-priority">額度使用順序</label><div class="priority-select"><select id="provider-priority"><option value="openrouter">OpenRouter → BazaarLink</option><option value="bazaarlink">BazaarLink → OpenRouter</option></select><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></div><button class="ghost-button" id="save-provider-priority" type="button">儲存使用順序</button><p id="provider-priority-status" aria-live="polite"></p></div></section>
+          </div>
         </section>
         <section class="screen studio-screen" data-screen="create-character" aria-label="建立角色"><div class="creation-connection-hint"><span>角色生成需要先連接模型服務。</span><button class="ghost-button" data-view="connections" type="button">設定模型連線</button></div></section>
         <section class="screen studio-screen" data-screen="memory">
