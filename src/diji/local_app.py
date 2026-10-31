@@ -324,6 +324,11 @@ def create_app(
         response.headers["Cache-Control"] = "private, no-store"
         return {"priority": accounts.provider_priority(user.id), "connected": [p for p, _ in accounts.provider_credentials(user.id)]}
 
+    @app.delete("/api/connections/{provider}", status_code=204, response_model=None)
+    def disconnect_provider(provider: Literal["openrouter", "bazaarlink"], http_request: Request, response: Response) -> None:
+        accounts.disconnect_provider(current_user(http_request).id, provider)
+        response.headers["Cache-Control"] = "no-store"
+
     @app.get("/api/connections/bazaarlink/usage")
     def bazaarlink_usage(http_request: Request, response: Response) -> dict:
         user = current_user(http_request)

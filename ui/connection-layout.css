@@ -14,6 +14,11 @@
 [data-screen="connections"] .ghost-button { min-height: 46px; padding: 10px 16px; border-radius: 11px; font-size: 16px; font-weight: 500; }
 .provider-card > .ghost-button { width: 100%; color: #d9f0f1; border-color: #4d818a; background: #1b3a46; }
 .provider-card > .ghost-button:hover { background: #254955; border-color: #81b8bd; }
+.provider-card > .provider-disconnect { margin-top: 10px; background: transparent; border-color: #735361; color: #e4bcc8; }
+.provider-card > .provider-disconnect:hover { background: #382632; border-color: #ad788b; }
+.provider-disconnect[hidden] { display: none; }
+.provider-card > .connection-note { margin: 10px 0; font-size: 14px; line-height: 1.7; color: #b9c9d8; }
+.provider-card > .connection-note a { color: #b5dfe3; text-underline-offset: 3px; }
 .provider-card > .ghost-button:disabled { background: #19332f; color: #b9ddcd; border-color: #456f63; }
 .provider-status { margin: 12px 0 20px; min-height: 25px; color: #b5c7d6; font-size: 14px; line-height: 1.7; }
 .provider-card .openrouter-spend { margin-top: auto; padding: 18px 0 0; border: 0; border-top: 1px solid #304559; border-radius: 0; background: transparent; }

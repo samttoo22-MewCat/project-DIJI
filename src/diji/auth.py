@@ -324,9 +324,17 @@ class AccountStore:
             if linked:
                 return self.cipher.decrypt(bytes(linked["encrypted_key"])).decode("utf-8")
             row = connection.execute("SELECT encrypted_openrouter_key FROM users WHERE id = ?", (user_id,)).fetchone()
-        if not row:
+        if not row or not row["encrypted_openrouter_key"]:
             return None
         return self.cipher.decrypt(bytes(row["encrypted_openrouter_key"])).decode("utf-8")
+
+    def disconnect_provider(self, user_id: str, provider: str) -> None:
+        with self._connection() as connection:
+            if provider == "openrouter":
+                connection.execute("DELETE FROM provider_connections WHERE user_id = ?", (user_id,))
+                connection.execute("UPDATE users SET encrypted_openrouter_key = ? WHERE id = ?", (b"", user_id))
+            connection.execute("DELETE FROM additional_provider_keys WHERE user_id = ? AND provider = ?", (user_id, provider))
+            connection.execute("DELETE FROM provider_link_states WHERE user_id = ?", (user_id if provider == "openrouter" else f"{provider}:{user_id}",))
 
     def begin_provider_link(self, user_id: str) -> tuple[str, str]:
         state, _verifier, challenge = self.begin_oauth()

@@ -4,6 +4,31 @@
   const refresh = document.querySelector('#refresh-openrouter');
   const total = document.querySelector('#openrouter-total');
   const daily = document.querySelector('#openrouter-daily');
+  function addDisconnect(provider, connectButton) {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'ghost-button provider-disconnect';
+    button.textContent = '撤銷連接'; button.hidden = true;
+    connectButton.after(button);
+    const note = document.createElement('p');
+    note.className = 'connection-note'; note.hidden = true;
+    const management = provider === 'openrouter' ? 'https://openrouter.ai/settings/keys' : 'https://bazaarlink.ai/keys';
+    note.append('撤銷會清除 DIJI 保存的授權，已開始的請求不會取消。若要讓供應商金鑰失效，請至 ');
+    const link = document.createElement('a'); link.href = management; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.textContent = '金鑰管理頁';
+    note.append(link, ' 撤銷金鑰。'); button.after(note);
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      try {
+        const response = await fetch(`/api/connections/${provider}`, {method:'DELETE'});
+        if (!response.ok) throw new Error();
+        await Promise.all([load(), loadPriority()]);
+        await refreshChatProviderState();
+        showToast('已撤銷連接，DIJI 不再保存此模型商的授權。');
+      } catch { showToast('撤銷失敗，請稍後再試。'); }
+      finally { button.disabled = false; }
+    });
+    return connected => { button.hidden = !connected; note.hidden = !connected; };
+  }
+  const updateRouterDisconnect = addDisconnect('openrouter', connect);
   const money = value => typeof value === 'number' ? `$${value.toFixed(4)}` : '—';
   async function load() {
     refresh.disabled = true;
@@ -13,6 +38,7 @@
       const data = await response.json();
       connect.textContent = data.connected ? '已連接您的 OpenRouter' : '連接您的 OpenRouter';
       connect.disabled = data.connected;
+      updateRouterDisconnect(data.connected);
       status.textContent = data.error || (data.connected ? '模型請求使用您自己的 OpenRouter 額度。' : '登入 DIJI 後，授權連接您自己的模型額度。');
       total.textContent = money(data.usage);
       daily.textContent = data.connected ? `今日使用：${money(data.usage_daily)} USD · OpenRouter 用量可能稍有延遲` : '連接後顯示用量';
@@ -25,6 +51,8 @@
   });
   refresh.addEventListener('click', load);
   document.querySelectorAll('[data-auth-logout]').forEach(button => button.addEventListener('click', () => {
+    updateRouterDisconnect(false);
+    updateBazaarDisconnect(false);
     connect.disabled = false;
     connect.textContent = '連接您的 OpenRouter';
     total.textContent = '—'; daily.textContent = '連接後顯示用量'; status.textContent = '';
@@ -32,6 +60,7 @@
   setInterval(() => { if (!document.hidden) load(); }, 60000);
   load();
   const bazaar = document.querySelector('#connect-bazaarlink');
+  const updateBazaarDisconnect = addDisconnect('bazaarlink', bazaar);
   const bazaarStatus = document.querySelector('#bazaarlink-status');
   const priority = document.querySelector('#provider-priority');
   const priorityStatus = document.querySelector('#provider-priority-status');
@@ -43,6 +72,7 @@
       const data = await response.json();
       priority.value = data.priority[0];
       bazaar.disabled = data.connected.includes('bazaarlink');
+      updateBazaarDisconnect(bazaar.disabled);
       bazaar.textContent = bazaar.disabled ? '已連接您的 BazaarLink' : '連接您的 BazaarLink';
       bazaarStatus.textContent = bazaar.disabled ? '使用您自己的 BazaarLink 額度。' : '授權後即可使用。';
     } catch { priorityStatus.textContent = '無法載入額度順序，請重新開啟此頁。'; }
