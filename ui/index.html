@@ -31,7 +31,7 @@
     <link rel="stylesheet" href="home.css?v=20261020-project-home-1" />
     <link rel="stylesheet" href="responsive.css?v=20261030-openrouter-1" />
     <link rel="stylesheet" href="pwa.css?v=20261021-pwa-2" />
-    <link rel="stylesheet" href="account-access.css?v=20261101-app-icon-1" />
+    <link rel="stylesheet" href="account-access.css?v=20261101-chat-lock-1" />
     <link rel="stylesheet" href="age-confirmation.css?v=20261028-age-gate-1" />
     <link rel="stylesheet" href="connection-layout.css?v=20261101-disconnect-1" />
   </head>
@@ -401,6 +401,7 @@
               </button>
             </section>
           </aside>
+          <div class="chat-provider-gate" id="chat-provider-gate" role="region" aria-labelledby="chat-provider-gate-title" hidden><div><h2 id="chat-provider-gate-title">尚未連接模型商</h2><p id="chat-provider-gate-description">角色回覆需要由模型商提供 AI 模型。連接後才能開始聊天，費用會使用你自己的額度。請前往左側「模型連線」完成設定。</p></div></div>
         </section>
         <section class="screen studio-screen" data-screen="characters">
           <header class="page-header">
@@ -614,7 +615,7 @@
     </dialog>
     <div class="toast" id="toast" role="status"></div>
     <script src="age-confirmation.js?v=20261028-age-gate-2"></script>
-    <script src="app.js?v=20261101-unconnected-1"></script>
+    <script src="app.js?v=20261101-chat-lock-1"></script>
     <script src="jailbreak-studio.js?v=20261011-model-jailbreak-1"></script>
     <script src="character-creator.js?v=20261030-openrouter-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>

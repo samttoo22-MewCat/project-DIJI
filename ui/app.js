@@ -24,6 +24,21 @@ function showScreen(name) {
   if (name === "chat") refreshChatProviderState();
 }
 
+function setChatProviderLocked(locked, title = '尚未連接模型商') {
+  const screen = document.querySelector('[data-screen="chat"]');
+  const gate = document.querySelector('#chat-provider-gate');
+  screen.classList.toggle('provider-locked', locked);
+  gate.hidden = !locked;
+  document.querySelector('#chat-provider-gate-title').textContent = title;
+  for (const child of screen.children) {
+    if (child === gate) continue;
+    child.inert = locked;
+    if (locked) child.setAttribute('aria-hidden', 'true');
+    else child.removeAttribute('aria-hidden');
+  }
+  if (locked) { setDetails(false); setChatList(false); }
+}
+
 async function refreshChatProviderState() {
   const status = document.querySelector('#chat-provider-status');
   const config = document.querySelector('#chat-provider-config');
@@ -33,18 +48,19 @@ async function refreshChatProviderState() {
   try {
     const response = await fetch('/api/connections/priority', {cache:'no-store'});
     if (response.status === 401) {
-      status.textContent = '尚未連接模型商'; config.textContent = explain; controls.hidden = true; return false;
+      status.textContent = '尚未連接模型商'; config.textContent = explain; controls.hidden = true; setChatProviderLocked(true); return false;
     }
     if (!response.ok) throw new Error();
     const data = await response.json();
     const providers = data.priority.filter(id => data.connected.includes(id));
+    setChatProviderLocked(providers.length === 0);
     controls.hidden = providers.length === 0;
     status.textContent = providers.length ? `已連接模型商：${providers.map(id => names[id]).join('、')}` : '尚未連接模型商';
     const model = document.querySelector('#model-input').value;
     config.textContent = providers.length ? `額度順序：${providers.map(id => names[id]).join(' → ')}。目前模型：${model || '尚未選擇'}。` : explain;
     return providers.length > 0;
   } catch {
-    status.textContent = '無法確認模型商連接狀態，請稍後重試'; config.textContent = explain; controls.hidden = true; return false;
+    status.textContent = '無法確認模型商連接狀態，請稍後重試'; config.textContent = explain; controls.hidden = true; setChatProviderLocked(true, status.textContent); return false;
   }
 }
 function openRolePicker() {
@@ -578,6 +594,7 @@ document.querySelector("#chat-form").addEventListener("submit", async (event) =>
 document.querySelector("#chat-input").addEventListener("keydown", (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); document.querySelector("#chat-form").requestSubmit(); } });
 document.querySelector("#chat-input").addEventListener("input", (event) => { event.target.style.height = "auto"; event.target.style.height = `${Math.min(event.target.scrollHeight, 160)}px`; });
 document.querySelectorAll("[data-chat-mode]").forEach((button) => button.addEventListener("click", () => saveChatMode(button.dataset.chatMode)));
+setChatProviderLocked(true, '正在確認模型商連接狀態…');
 loadAuthentication().then((signedIn) => {
   refreshChatProviderState();
   loadLocalCatalog();
