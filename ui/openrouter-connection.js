@@ -4,6 +4,17 @@
   const refresh = document.querySelector('#refresh-openrouter');
   const total = document.querySelector('#openrouter-total');
   const daily = document.querySelector('#openrouter-daily');
+  const resume = document.createElement('button');
+  resume.type = 'button'; resume.className = 'primary-button resume-task'; resume.hidden = true;
+  document.querySelector('.connections-heading').append(resume);
+  let hasConnection = false;
+  function updateResume() {
+    const task = pendingTask();
+    resume.hidden = !hasConnection || !task;
+    resume.textContent = task === 'create-character' ? '繼續建立角色' : '繼續選角與對話';
+  }
+  resume.addEventListener('click', resumePendingTask);
+  window.addEventListener('diji-task-changed', updateResume);
   function addDisconnect(provider, connectButton) {
     const button = document.createElement('button');
     button.type = 'button'; button.className = 'ghost-button provider-disconnect';
@@ -71,6 +82,9 @@
       if (!response.ok) throw new Error();
       const data = await response.json();
       priority.value = data.priority[0];
+      hasConnection = data.connected.length > 0;
+      updateResume();
+      updateHomeJourney();
       bazaar.disabled = data.connected.includes('bazaarlink');
       updateBazaarDisconnect(bazaar.disabled);
       bazaar.textContent = bazaar.disabled ? '已連接您的 BazaarLink' : '連接您的 BazaarLink';
@@ -114,5 +128,8 @@
   loadBazaarUsage();
   if (new URLSearchParams(window.location.search).get('openrouter') === 'connected') {
     document.querySelector('.rail-button[data-view="connections"]').click();
+    const clean = new URL(window.location.href);
+    clean.searchParams.delete('openrouter');
+    history.replaceState(null, '', clean.pathname + clean.search + '#connections');
   }
 })();

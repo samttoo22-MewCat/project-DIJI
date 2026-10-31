@@ -34,6 +34,7 @@
     <link rel="stylesheet" href="account-access.css?v=20261101-creator-lock-1" />
     <link rel="stylesheet" href="age-confirmation.css?v=20261028-age-gate-1" />
     <link rel="stylesheet" href="connection-layout.css?v=20261101-disconnect-1" />
+    <link rel="stylesheet" href="onboarding.css?v=20261101-1" />
   </head>
   <body>
     <header class="account-access" aria-label="帳號操作">
@@ -113,7 +114,7 @@
         <header class="list-header">
           <div>
             <p class="product-name">DIJI</p>
-            <p class="workspace-name">本機工作區</p>
+            <p class="workspace-name">我的工作區</p>
           </div>
           <div class="list-actions">
             <button class="square-button" id="new-chat" aria-label="建立新對話">
@@ -159,7 +160,7 @@
           </button>
         </div>
         <footer class="storage-status">
-          <span class="status-light"></span>只在本機儲存
+          <span class="status-light"></span>保存至你的帳號
         </footer>
       </aside>
       <button class="chat-list-backdrop" id="chat-list-backdrop" type="button" aria-label="關閉角色與對話列表" hidden></button>
@@ -170,6 +171,7 @@
               <p class="home-kicker">DIJI · 角色互動工作台</p>
               <h1 id="home-title">讓角色的每一次對話，都留在脈絡裡。</h1>
               <p class="home-summary">DIJI 是一個非商業、可自架的角色互動專案。它把角色人設、逐字對話、事件記憶與互動設定放在同一個清楚且可檢查的工作流程中。</p>
+              <ol id="home-journey" class="home-journey" aria-label="開始使用步驟"><li>1 登入帳號</li><li>2 連接模型商</li><li>3 選角開始對話</li></ol>
               <div class="home-actions">
                 <button class="home-start" id="home-start" type="button">選擇角色開始對話<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M14 7l5 5-5 5" /></svg></button>
                 <button class="pwa-install home-install" data-pwa-install type="button" hidden>安裝至裝置</button>
@@ -189,7 +191,7 @@
             <header class="role-picker-header">
               <p class="eyebrow">開始對話</p>
               <h1 id="role-picker-title">先選一位角色。</h1>
-              <p>每次選擇都會建立新的本機對話；角色的人設、風格與記憶會維持各自的脈絡。</p>
+              <p>每次選擇都會建立新的對話；角色的人設、風格與記憶會維持各自的脈絡。</p>
             </header>
             <label class="role-picker-search" for="role-picker-search">
               <span class="sr-only">搜尋角色</span>
@@ -213,7 +215,7 @@
               <span class="initial avatar-a" id="chat-avatar">夜</span>
               <div>
                 <h1 id="chat-title">夜蘭</h1>
-                <p><span class="online-dot"></span>沉浸式對話 · 本機預覽</p>
+                <p><span class="online-dot"></span>角色對話</p>
               </div>
             </div>
             <div class="header-actions">
@@ -489,7 +491,7 @@
             <div>
               <p class="eyebrow">帳號與授權</p>
               <h1>你的模型授權，不會留在瀏覽器。</h1>
-              <p>登入用來保存你自己的角色、對話與記憶。模型連線會在後續的進階設定中獨立管理。</p>
+              <p>登入用來保存你自己的角色、對話與記憶。可在左側「模型連線」管理模型商與額度。</p>
             </div>
           </header>
           <section class="settings-card account-card" aria-labelledby="account-title">
@@ -511,10 +513,10 @@
     </main>
     <template id="character-creator">
       <section class="creator" aria-labelledby="character-library-title">
-        <header class="creator-header"><div><p class="eyebrow">角色庫</p><h1 id="character-library-title">選擇一位角色，開始對話。</h1><p>已匯入的人設保留原始完整 prompt、風格指南與來源資訊，只在本機使用。</p></div><button class="primary-button" id="open-character-creator" type="button">建立角色</button></header>
+        <header class="creator-header"><div><p class="eyebrow">角色庫</p><h1 id="character-library-title">選擇一位角色，開始對話。</h1><p>已匯入的人設保留原始完整 prompt、風格指南與來源資訊，保存到你的帳號。</p></div><button class="primary-button" id="open-character-creator" type="button">建立角色</button></header>
         <div class="character-library-tools"><label class="search creator-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="4.5" /><path d="m14 14 4.5 4.5" /></svg><span class="sr-only">搜尋角色庫</span><input id="character-library-search" placeholder="搜尋角色名稱、人設或風格" /></label><p id="character-library-status" aria-live="polite">正在讀取角色庫…</p></div>
         <section id="character-library-grid" class="character-library-grid" aria-live="polite"></section>
-        <section id="character-creator-panel" class="creator-panel" hidden aria-labelledby="creator-title"><header><p class="eyebrow">角色創建</p><h2 id="creator-title">從一個概念，寫成可互動的人。</h2><p>生成不會自動儲存；完成審核後才會寫入本機角色庫。</p></header><ol class="creator-steps"><li class="active">1 創作簡報</li><li>2 審核草稿</li><li>3 儲存角色</li></ol><form id="creator-brief" class="creator-card"><label>角色概念<textarea id="creator-keywords" rows="5" placeholder="例如：台南老街的古董修復師，外冷內熱，對失物有特殊直覺。" required></textarea></label><label><input id="creator-search" type="checkbox" checked> 使用網路參考</label><label><input id="creator-adult" type="checkbox"> 成人虛構分類</label><label>生成模型<select id="creator-model" required disabled><option>正在讀取可用模型…</option></select></label><button class="primary-button" type="submit">生成角色草稿</button><p id="creator-status" aria-live="polite"></p></form><section id="creator-result" class="creator-result" hidden></section></section>
+        <section id="character-creator-panel" class="creator-panel" hidden aria-labelledby="creator-title"><header><p class="eyebrow">角色創建</p><h2 id="creator-title">從一個概念，寫成可互動的人。</h2><p>生成不會自動儲存；完成審核後才會保存到你的帳號角色庫。</p></header><ol class="creator-steps"><li class="active">1 創作簡報</li><li>2 審核草稿</li><li>3 儲存角色</li></ol><form id="creator-brief" class="creator-card"><label>角色概念<textarea id="creator-keywords" rows="5" placeholder="例如：台南老街的古董修復師，外冷內熱，對失物有特殊直覺。" required></textarea></label><label><input id="creator-search" type="checkbox" checked> 使用網路參考</label><label><input id="creator-adult" type="checkbox"> 成人虛構分類</label><label>生成模型<select id="creator-model" required disabled><option>正在讀取可用模型…</option></select></label><button class="primary-button" type="submit">生成角色草稿</button><p id="creator-status" aria-live="polite"></p></form><section id="creator-result" class="creator-result" hidden></section></section>
       </section>
     </template>
     <template id="character-import-panel"
@@ -570,7 +572,7 @@
         <button class="google-login-close" data-google-login-close type="button" aria-label="關閉登入視窗"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
         <p class="eyebrow">DIJI 帳號</p>
         <h2 id="google-login-title">登入後保存你的角色世界</h2>
-        <p>以 Google 登入後，角色、對話與記憶會保存到你的 DIJI 帳號。模型服務綁定會在之後的設定中處理。</p>
+        <p>以 Google 登入後，角色、對話與記憶會保存到你的 DIJI 帳號。可在左側「模型連線」連接自己的模型額度。</p>
         <button class="google-login-button" id="google-login" type="button"><span class="google-login-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/></svg></span><span>使用 Google 登入</span></button>
         <p class="google-login-status" id="google-login-status" aria-live="polite"></p>
       </section>
@@ -615,10 +617,10 @@
     </dialog>
     <div class="toast" id="toast" role="status"></div>
     <script src="age-confirmation.js?v=20261028-age-gate-2"></script>
-    <script src="app.js?v=20261101-creator-lock-1"></script>
+    <script src="app.js?v=20261101-onboarding-2"></script>
     <script src="jailbreak-studio.js?v=20261011-model-jailbreak-1"></script>
-    <script src="character-creator.js?v=20261030-openrouter-1"></script>
+    <script src="character-creator.js?v=20261101-onboarding-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>
-    <script src="openrouter-connection.js?v=20261101-disconnect-1"></script>
+    <script src="openrouter-connection.js?v=20261101-onboarding-1"></script>
   </body>
 </html>

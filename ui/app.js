@@ -16,12 +16,44 @@ function showToast(message) {
   window.setTimeout(() => toast.classList.remove("show"), 2200);
 }
 function showScreen(name) {
+  const previous = document.querySelector('.screen.active')?.dataset.screen;
+  if (name === 'connections' && ['chat', 'create-character'].includes(previous)) rememberPendingTask(previous);
+  if (document.querySelector(`[data-screen="${name}"]`) && window.location.hash !== `#${name}`) history.pushState(null, '', `#${name}`);
   document.querySelectorAll(".screen").forEach((screen) => screen.classList.toggle("active", screen.dataset.screen === name));
   document.querySelectorAll(".rail-button[data-view]").forEach((button) => button.classList.toggle("active", button.dataset.view === name));
   if (name !== "chat") setChatList(false);
   else if (!compactChatList.matches) setChatList(isChatListAvailable());
   if (name === "memory" && requireLogin()) loadMemories();
   if (name === "chat" || name === "create-character") refreshChatProviderState();
+}
+
+function rememberPendingTask(name) {
+  try { sessionStorage.setItem('diji-pending-task', name); } catch {}
+  window.dispatchEvent(new Event('diji-task-changed'));
+}
+function pendingTask() {
+  try { const task = sessionStorage.getItem('diji-pending-task'); return ['chat','create-character'].includes(task) ? task : null; } catch { return null; }
+}
+function resumePendingTask() {
+  const task = pendingTask() || 'chat';
+  try { sessionStorage.removeItem('diji-pending-task'); } catch {}
+  if (task === 'chat') openRolePicker(); else showScreen(task);
+  window.dispatchEvent(new Event('diji-task-changed'));
+}
+async function updateHomeJourney() {
+  const button = document.querySelector('#home-start');
+  const note = document.querySelector('.home-note');
+  const steps = document.querySelectorAll('#home-journey li');
+  const signedIn = Boolean(authenticatedUser);
+  let connected = false;
+  if (signedIn) {
+    try { const response = await fetch('/api/connections/priority', {cache:'no-store'}); if (response.ok) connected = (await response.json()).connected.length > 0; } catch {}
+  }
+  const stage = !signedIn ? 0 : !connected ? 1 : 2;
+  steps.forEach((step,index) => { step.classList.toggle('complete', index < stage); if (index === stage) step.setAttribute('aria-current','step'); else step.removeAttribute('aria-current'); });
+  button.textContent = ['登入，保存我的角色世界', '連接模型商，開始使用', '選擇角色開始對話'][stage];
+  button.dataset.next = ['login','connections','chat'][stage];
+  note.textContent = ['登入後，角色、對話與記憶會保存到你的 DIJI 帳號。', '選擇 BazaarLink 或 OpenRouter，連接自己的模型額度。', '已準備完成。選一位角色，開始第一段對話。'][stage];
 }
 
 function setChatProviderLocked(locked, title = '尚未連接模型商') {
@@ -388,7 +420,12 @@ async function loadChatMemories() {
 }
 
 document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => { showScreen(button.dataset.view); if (compactMobileNav.matches) setMobileNav(false); }));
-document.querySelector("#home-start").addEventListener("click", openRolePicker);
+document.querySelector("#home-start").addEventListener("click", () => {
+  const next = document.querySelector('#home-start').dataset.next;
+  if (!authenticatedUser) { rememberPendingTask('chat'); openLoginDialog(); }
+  else if (next !== 'chat') { rememberPendingTask('chat'); showScreen('connections'); }
+  else openRolePicker();
+});
 document.querySelector(".logo").addEventListener("click", (event) => {
   event.preventDefault();
   showScreen("home");
@@ -511,17 +548,18 @@ const accountStatus = document.querySelector("#account-status");
 let authenticatedUser = null;
 
 function updateAccountAccess() {
+  updateHomeJourney();
   const signedIn = Boolean(authenticatedUser);
   accountLogin.hidden = signedIn;
   document.querySelectorAll("[data-auth-logout]").forEach((button) => { button.hidden = !signedIn; });
   if (signedIn) {
     const name = authenticatedUser.display_name || "Google 使用者";
     accountLoginLabel.textContent = name;
-    accountStatus.textContent = `已登入為 ${name}；角色、對話與記憶會保存到你的 DIJI 帳號。模型連線將在後續設定中處理。`;
+    accountStatus.textContent = `已登入為 ${name}；角色、對話與記憶會保存到你的 DIJI 帳號。可在左側「模型連線」管理自己的額度。`;
     return;
   }
   accountLoginLabel.textContent = "登入";
-  accountStatus.textContent = "登入後可建立並保存角色對話與記憶。模型連線設定將在後續提供。";
+  accountStatus.textContent = "登入後可建立並保存角色對話與記憶，並在「模型連線」連接自己的額度。";
 }
 function openLoginDialog(message = "") {
   loginStatus.textContent = message;
@@ -561,6 +599,7 @@ document.querySelector("#google-login").addEventListener("click", () => {
     return;
   }
   loginStatus.textContent = "正在前往 Google…";
+  try { sessionStorage.setItem('diji-login-return', '1'); } catch {}
   window.location.assign("/api/auth/google/start");
 });
 document.querySelectorAll("[data-auth-logout]").forEach((button) => button.addEventListener("click", async () => {
@@ -603,5 +642,14 @@ loadAuthentication().then((signedIn) => {
   loadInteractionModels();
   if (signedIn) loadConversations();
   else renderConversationHistory();
+  const destination = window.location.hash.slice(1);
+  if (['home','chat','characters','memory','jailbreak','settings','connections','create-character'].includes(destination)) showScreen(destination);
+  try {
+    if (signedIn && sessionStorage.getItem('diji-login-return') === '1') {
+      sessionStorage.removeItem('diji-login-return');
+      if (pendingTask()) showScreen('connections');
+    }
+  } catch {}
 });
+window.addEventListener('popstate', () => showScreen(window.location.hash.slice(1) || 'home'));
 document.querySelector('#model-input').addEventListener('change', refreshChatProviderState);

@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, SecretStr
 
 from .local_catalog import CatalogSnapshot, CharacterSpec, FlowSpec, LocalCatalog
+from .character_generation.service import GeneratedCharacter
 from .conversation_store import ConversationMessage, ConversationRecord, ConversationStore, ConversationSummary
 from .character_import import CharacterImporter, CharacterImportPreview, CharacterImportRequest, CharacterImportResult
 from .memory_store import LocalMemoryStore, MemoryRecord
@@ -404,6 +405,9 @@ def create_app(
         if character_id != character.id:
             raise HTTPException(status_code=400, detail="Character id must match the URL")
         target = private_catalog(http_request)
+        if character.source.get("generated_file") == "DIJI character creator":
+            profile = {**character.profile, "character_name": character.name}
+            character = character.model_copy(update={"profile": profile, "full_prompt": CharacterGenerationService._full_prompt(GeneratedCharacter.model_validate(profile), character.style_guide)})
         if auth.required:
             if any(item.id == character_id for item in local_catalog.snapshot().characters):
                 raise HTTPException(status_code=409, detail="請使用新的角色識別碼建立個人角色")

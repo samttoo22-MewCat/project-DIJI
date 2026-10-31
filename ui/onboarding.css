@@ -1,0 +1,18 @@
+.home-journey { display: flex; flex-wrap: wrap; gap: 10px; list-style: none; margin: 26px 0; padding: 0; }
+.home-journey li { padding: 9px 13px; border: 1px solid #3c5166; border-radius: 10px; color: #abbfd0; font-size: 15px; }
+.home-journey li[aria-current="step"] { border-color: #75aeb6; background: #203d49; color: #e0f3f3; }
+.home-journey li.complete { border-color: #4e786c; color: #b6d9ca; }
+.resume-task { margin-top: 20px; min-height: 48px; padding: 10px 18px; font-size: 17px; }
+.resume-task[hidden] { display: none; }
+.creator-card label:has(input[type="checkbox"]) { display: flex; align-items: center; gap: 12px; min-height: 44px; cursor: pointer; }
+.creator-card input[type="checkbox"] { flex: 0 0 22px; width: 22px; height: 22px; margin: 0; accent-color: #87c8ce; }
+.character-review { display: grid; gap: 20px; min-width: 0; }
+.character-review label { display: grid; gap: 9px; color: #d7e3ed; font-size: 16px; }
+.character-review input, .character-review textarea { box-sizing: border-box; width: 100%; min-width: 0; padding: 12px; border: 1px solid #48647a; border-radius: 10px; background: #101d2c; color: #e7f0f6; font: inherit; line-height: 1.7; }
+.character-review textarea { resize: vertical; min-height: 100px; }
+.character-review input:focus-visible, .character-review textarea:focus-visible { outline: 2px solid #87c8ce; outline-offset: 2px; }
+.character-review details { padding: 16px; border: 1px solid #354e63; border-radius: 12px; min-width: 0; }
+.character-review details[open] > label, .character-review details[open] > details { margin-top: 16px; }
+.character-review summary { cursor: pointer; color: #c5e0e4; font-size: 17px; }
+.creator-result > button { margin: 8px 12px 0 0; min-height: 44px; }
+@media(max-width:760px) { .home-journey { display: grid; } .character-review details { padding: 12px; } }
