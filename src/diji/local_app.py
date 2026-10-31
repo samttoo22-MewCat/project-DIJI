@@ -121,6 +121,11 @@ class DraftTrialRequest(BaseModel):
     is_nsfw: bool = False
 
 
+class DraftRollbackRequest(BaseModel):
+    revision: int = Field(ge=0)
+    target_revision: int = Field(ge=0)
+
+
 def create_app(
     catalog: LocalCatalog | None = None,
     memory_store: LocalMemoryStore | None = None,
@@ -706,6 +711,31 @@ def create_app(
         except ValueError as error:
             raise HTTPException(status_code=409, detail=str(error)) from error
 
+    @app.get('/api/character-generations/{run_id}/versions')
+    def draft_versions(run_id: str, http_request: Request, response: Response, before: int | None = Query(default=None,ge=0)):
+        response.headers['Cache-Control']='private, no-store'
+        try:
+            return activity_for(current_user(http_request)).versions(run_id,before)
+        except LookupError as error:
+            raise HTTPException(status_code=404,detail='草稿不存在') from error
+
+    @app.get('/api/character-generations/{run_id}/versions/{revision}')
+    def draft_version(run_id: str, revision: int, http_request: Request, response: Response):
+        response.headers['Cache-Control']='private, no-store'
+        try:
+            return activity_for(current_user(http_request)).version(run_id,revision)
+        except LookupError as error:
+            raise HTTPException(status_code=404,detail='版本不存在') from error
+
+    @app.post('/api/character-generations/{run_id}/rollback', response_model=CharacterGenerationResult)
+    def rollback_draft(run_id: str, request: DraftRollbackRequest, http_request: Request):
+        try:
+            return activity_for(current_user(http_request)).restore_version(run_id,request.target_revision,request.revision)
+        except LookupError as error:
+            raise HTTPException(status_code=404,detail='草稿或版本不存在') from error
+        except ValueError as error:
+            raise HTTPException(status_code=409,detail=str(error)) from error
+
     @app.post('/api/character-generations/{run_id}/revise')
     async def revise_draft(run_id: str, request: DraftRevisionRequest, http_request: Request):
         user = current_user(http_request)
@@ -732,7 +762,7 @@ def create_app(
             proposed, summary, paths = apply_proposal(before,raw)
             activity.finish(revision_id,'running',{'proposed':proposed.model_dump(),'summary':summary,'changed_fields':paths})
             try:
-                saved = activity.save_draft(run_id,request.revision,proposed.model_dump())
+                saved = activity.save_draft(run_id,request.revision,proposed.model_dump(),source='ai',note=summary)
             except ValueError as error:
                 raise HTTPException(status_code=409, detail='修改期間草稿已變更，這次結果未覆蓋新版本，請重新讀取') from error
             activity.finish(revision_id,'completed',{'result_revision':saved['revision']})

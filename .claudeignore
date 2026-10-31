@@ -20,4 +20,5 @@ coverage/
 .creator-ux/
 .draft-trial-checks/
 .draft-revision-checks/
+.draft-version-checks/
 *.sqlite3*

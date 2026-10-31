@@ -30,6 +30,7 @@
   let editVersion = 0;
   let creatorEpoch = 0;
   let revising = false;
+  let restoringVersion = false;
   const assistantMedia = window.matchMedia?.('(min-width:1100px)');
   let assistantOpen = assistantMedia?.matches || false;
   let assistantDraftId = null;
@@ -41,7 +42,7 @@
   const assistantHistory=document.createElement('details'); assistantHistory.className='creator-ai-history'; assistantHistory.open=assistantMedia?.matches || false;
   const historyTitle=document.createElement('summary'); historyTitle.textContent='本次修改紀錄'; assistantLog.replaceWith(assistantHistory); assistantHistory.append(historyTitle,assistantLog);
   function updateAssistant() {
-    const visible=Boolean(draft?.generation_id && !savedCharacter && !generating && workspaceAvailable && creationPage.classList.contains('active') && !creationPage.classList.contains('provider-locked') && result.querySelector('.character-review') && !result.querySelector('.character-review').hidden);
+    const visible=Boolean(draft?.generation_id && !savedCharacter && !generating && !restoringVersion && workspaceAvailable && creationPage.classList.contains('active') && !creationPage.classList.contains('provider-locked') && result.querySelector('.character-review') && !result.querySelector('.character-review').hidden);
     assistant.hidden=!visible; assistantPanel.hidden=!assistantOpen; assistantLauncher.hidden=assistantOpen;
     assistantLauncher.setAttribute('aria-expanded',String(assistantOpen));
     creationPage.classList.toggle('creator-ai-visible',visible && assistantOpen);
@@ -63,7 +64,7 @@
   assistant.querySelector('form').addEventListener('submit',async event=>{
     event.preventDefault();
     const instruction=assistantInput.value.trim();
-    if (!instruction || revising || saving || generating || !draft?.generation_id) return;
+    if (!instruction || revising || saving || generating || restoringVersion || !draft?.generation_id) return;
     if (!result.querySelector('.character-review')?.reportValidity()) return;
     const current=draft, epoch=creatorEpoch;
     const submit=assistant.querySelector('button[type="submit"]');
@@ -113,7 +114,8 @@
         if (draft !== current) return;
         current.revision = stored.revision;
         if (editVersion === version) draftDirty = false;
-        storageStatus(draftDirty ? '正在同步修改至伺服器…' : '草稿已保存至伺服器。按下儲存角色才會加入角色庫。');
+        storageStatus(draftDirty ? '正在同步修改至伺服器…' : `草稿已保存至伺服器，版本 ${current.revision+1}。可從版本歷史還原；按下儲存角色才會加入角色庫。`);
+        result.querySelector('.creator-version-history')?.dispatchEvent(new Event('draft-saved'));
       } catch {
         storageStatus('草稿修改尚未同步，請保留此頁並重試，或直接儲存角色。');
       }
@@ -126,17 +128,17 @@
     try {
       const response = await fetch('/api/character-generations', {cache:'no-store'});
       if (!response.ok) throw new Error('history unavailable');
-      const rows = (await response.json()).filter(row => row.status === 'completed' && !row.saved_character_id);
+      const rows = (await response.json()).filter(row => row.status === 'completed');
       if (epoch !== creatorEpoch) return;
       historyPanel.replaceChildren(); historyPanel.hidden = !rows.length;
       if (!rows.length) return;
-      const label = document.createElement('label'); label.textContent = '伺服器保存的未完成草稿';
+      const label = document.createElement('label'); label.textContent = '已保存的草稿與版本歷史';
       const select = document.createElement('select');
-      select.append(...rows.map(row => new Option(`${row.name} · ${new Date(row.updated).toLocaleString('zh-TW')}`,row.id)));
+      select.append(...rows.map(row => new Option(`${row.name}${row.saved_character_id ? ' · 已儲存角色' : ' · 草稿'} · ${new Date(row.updated).toLocaleString('zh-TW')}`,row.id)));
       label.append(select);
       const restore = document.createElement('button'); restore.type='button'; restore.className='ghost-button'; restore.textContent='繼續審核草稿';
       restore.addEventListener('click', async () => {
-        if (generating || saving || revising) return;
+        if (generating || saving || revising || restoringVersion) return;
         await syncDraft();
         if (draftDirty && !window.confirm('目前修改尚未同步，仍要切換草稿嗎？')) return;
         restore.disabled=true;
@@ -145,8 +147,8 @@
           if (!response.ok) throw new Error('無法讀取草稿');
           const record = await response.json();
           if (epoch !== creatorEpoch) return;
-          if (!record.data.draft || record.data.saved_character_id) throw new Error('此草稿已保存或無法恢復');
-          draft={...record.data.draft,revision:record.revision}; draftId=draft.generation_id; savedCharacter=null; draftDirty=false;
+          if (!record.data.draft) throw new Error('此紀錄沒有可恢復的草稿');
+          draft={...record.data.draft,revision:record.revision}; draftId=draft.generation_id; savedCharacter=record.data.saved_character_id ? {id:record.data.saved_character_id} : null; draftDirty=false;
           const brief=record.data.request;
           if (brief) {
             panel.querySelector('#creator-keywords').value=brief.keywords || '';
@@ -155,7 +157,7 @@
             if ([...model.options].some(option=>option.value===brief.model)) model.value=brief.model;
             persistBrief();
           }
-          form.hidden=false; renderDraft(); setStep(1); creatorStatus.textContent='已恢復伺服器草稿，不會重新呼叫模型。';
+          form.hidden=Boolean(savedCharacter); renderDraft(); setStep(1); creatorStatus.textContent=savedCharacter ? '已開啟已儲存角色的草稿紀錄，可從版本歷史還原為新草稿。' : '已恢復伺服器草稿，不會重新呼叫模型。';
         } catch(error) { creatorStatus.textContent=error.message; }
         finally { restore.disabled=false; }
       });
@@ -183,7 +185,7 @@
   form.addEventListener('change', persistBrief);
   window.addEventListener('beforeunload', event => {
     persistBrief();
-    if (generating || revising || draftDirty || (draft && !draft.generation_id && !savedCharacter)) { event.preventDefault(); event.returnValue = ''; }
+    if (generating || revising || restoringVersion || draftDirty || (draft && !draft.generation_id && !savedCharacter)) { event.preventDefault(); event.returnValue = ''; }
   });
   function setStep(index) {
     panel.querySelectorAll('.creator-steps li').forEach((step,i) => {
@@ -240,11 +242,11 @@
   }
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (generating || revising) return;
+    if (generating || revising || restoringVersion) return;
     const button = form.querySelector("button");
     const keywords = panel.querySelector("#creator-keywords").value.trim();
     if (!keywords || model.disabled) return;
-    if (draft && !savedCharacter && !window.confirm('重新生成會取代尚未儲存的草稿，確定繼續嗎？')) return;
+    if (draft && !savedCharacter && !window.confirm('重新生成會建立另一份草稿，原草稿與已同步的版本仍會保留，確定繼續嗎？')) return;
     generating = true;
     updateAssistant();
     button.disabled = true; button.textContent = "生成中…";
@@ -272,8 +274,8 @@
   function renderDraft() {
     panel.classList.remove('creator-trial-active');
     result.hidden = false; result.replaceChildren();
-    const title = document.createElement('h2'); title.textContent = '審核你的角色';
-    const draftWarning = document.createElement('p'); draftWarning.className = 'creator-draft-warning'; draftWarning.setAttribute('role','status'); draftWarning.textContent = draft.generation_id ? '草稿已保存至伺服器。修改會自動同步；按下儲存角色才會加入角色庫。' : '草稿尚未儲存，請先審核並儲存。';
+    const title = document.createElement('h2'); title.textContent = savedCharacter ? '已儲存角色的草稿紀錄' : '審核你的角色';
+    const draftWarning = document.createElement('p'); draftWarning.className = 'creator-draft-warning'; draftWarning.setAttribute('role','status'); draftWarning.textContent = savedCharacter ? '這份角色已保存。查看舊版本並還原時，會建立新草稿，不會修改已保存的角色。' : draft.generation_id ? `目前版本 ${draft.revision+1}。修改成功同步後會另存一版，可從下方版本歷史還原；按下儲存角色才會加入角色庫。` : '草稿尚未儲存，請先審核並儲存。';
     const review = document.createElement('form'); review.className = 'character-review';
     review.addEventListener('input',()=>{draftDirty=true;editVersion++;storageStatus('正在同步修改至伺服器…');clearTimeout(syncTimer);syncTimer=setTimeout(syncDraft,700);});
     const labels = {character_name:'角色名稱',basic_info:'基本資料',age:'年齡',gender:'性別',occupation:'職業',personality:'個性',backstory:'背景故事',language_style:'說話方式',appearance:'外貌',motivations:'動機與目標',relationships:'人際關係',core_theme:'角色主題',abilities:'能力',weaknesses:'弱點',interaction_context:'互動情境',cultural_details:'文化背景',psychological_evolution:'關係發展',behavioral_boundaries:'互動界線',evolution_requirements:'發展條件',core_traits:'核心特質'};
@@ -311,7 +313,7 @@
     const test = document.createElement('button'); test.type='button'; test.className='ghost-button creator-test-button'; test.textContent='測試對話';
     const actions = document.createElement('div'); actions.className='creator-review-actions'; actions.append(test,save);
     test.addEventListener('click', async () => {
-      if (saving || generating || revising || test.disabled || !review.reportValidity()) return;
+      if (saving || generating || revising || restoringVersion || test.disabled || !review.reportValidity()) return;
       test.disabled=true; test.textContent='準備測試對話…';
       try {
         await syncDraft();
@@ -321,8 +323,86 @@
       finally { test.disabled=false; test.textContent='測試對話'; }
     });
     review.addEventListener('submit', event => { event.preventDefault(); saveDraft(save); });
-    review.append(presentation,advanced,actions); result.append(title,draftWarning,review);
+    review.append(presentation,advanced,actions); result.append(title,draftWarning);
+    if (draft.generation_id) result.append(versionHistory(labels));
+    result.append(review);
+    if (savedCharacter) { review.querySelectorAll('input,textarea,button').forEach(el=>el.disabled=true); actions.hidden=true; }
     updateAssistant();
+  }
+  function versionHistory(labels) {
+    const id=draft.generation_id, epoch=creatorEpoch;
+    const details=document.createElement('details'); details.className='creator-version-history';
+    const heading=document.createElement('summary'); heading.textContent='版本歷史與回滾';
+    const note=document.createElement('p'); note.textContent='停止輸入約 0.7 秒後自動同步並保存一版。還原會建立新版本，保留目前內容。功能上線前缺少快照的中間版本無法補回。';
+    const label=document.createElement('label'); label.textContent='選擇草稿版本'; const select=document.createElement('select'); label.append(select);
+    const controls=document.createElement('div'); controls.className='creator-version-actions';
+    const view=document.createElement('button'); view.type='button'; view.className='ghost-button'; view.textContent='查看這一版';
+    const more=document.createElement('button'); more.type='button'; more.className='ghost-button'; more.textContent='載入更早版本'; more.hidden=true;
+    const preview=document.createElement('section'); preview.className='creator-version-preview'; preview.hidden=true;
+    const status=document.createElement('p'); status.setAttribute('role','status');
+    let nextBefore=null, selected=null, loading=false;
+    const valid=()=>draft?.generation_id===id && epoch===creatorEpoch && details.isConnected;
+    async function load(append=false) {
+      if (loading || !valid()) return;
+      loading=true; view.disabled=true; more.disabled=true;
+      try {
+        if (!append) { await syncDraft(); if (draftDirty) throw new Error('目前修改尚未同步，請稍後再試'); }
+        const response=await fetch(`/api/character-generations/${id}/versions${append ? `?before=${nextBefore}` : ''}`,{cache:'no-store'});
+        if (!response.ok) throw new Error('無法讀取版本歷史');
+        const data=await response.json(); if (!valid()) return;
+        if (!append) { select.replaceChildren();selected=null;preview.hidden=true; }
+        const names={generated:'首次生成',manual:'手動修改',ai:'AI 修改',rollback:'版本還原',recovered:'歷史快照',confirmed:'確認儲存'};
+        select.append(...data.versions.map(item=>new Option(`版本 ${item.revision+1} · ${names[item.source] || '草稿'} · ${new Date(item.created).toLocaleString('zh-TW')}`,String(item.revision))));
+        nextBefore=data.next_before; more.hidden=!data.has_more; status.textContent=`目前保存至版本 ${data.current_revision+1}，已列出 ${select.options.length} 個版本。`;
+      } catch(error) { status.textContent=error.message; }
+      finally { loading=false; view.disabled=!select.options.length; more.disabled=false; }
+    }
+    details.addEventListener('toggle',()=>{if(details.open)load();});
+    details.addEventListener('draft-saved',()=>{if(details.open)load();});
+    more.addEventListener('click',()=>load(true));
+    select.addEventListener('change',()=>{selected=null;preview.hidden=true;});
+    const restore=document.createElement('button'); restore.type='button'; restore.className='primary-button'; restore.textContent='還原這一版';
+    view.addEventListener('click',async()=>{
+      if (revising || saving || restoringVersion) return;
+      view.disabled=true;
+      try {
+        const response=await fetch(`/api/character-generations/${id}/versions/${select.value}`,{cache:'no-store'});
+        if (!response.ok) throw new Error('無法讀取這個版本');
+        const data=await response.json(); if (!valid() || String(data.revision)!==select.value) return;
+        selected=data;
+        const title=document.createElement('h3'); title.textContent=`版本 ${data.revision+1}：${data.draft.character.character_name}`;
+        const intro=document.createElement('p'); intro.textContent=data.draft.description_for_app || data.draft.brief_description;
+        const content=document.createElement('details'); const caption=document.createElement('summary'); caption.textContent='完整人設、說話風格與其他設定';
+        function describe(value,depth=0) {
+          if(Array.isArray(value))return value.map(item=>'  '.repeat(depth)+'・'+String(item)).join('\n');
+          if(value && typeof value==='object')return Object.entries(value).map(([key,item])=>'  '.repeat(depth)+(labels[key] || key.replaceAll('_',' '))+'：'+(item && typeof item==='object' ? '\n'+describe(item,depth+1) : String(item ?? '未設定'))).join('\n');
+          return String(value ?? '未設定');
+        }
+        const copy=document.createElement('pre'); copy.textContent=describe(data.draft.character)+'\n\n說話風格\n'+data.draft.style_guide+'\n\n嗜好\n'+data.draft.hobbies;
+        content.append(caption,copy); const explain=document.createElement('p'); explain.textContent=savedCharacter ? '已儲存角色不會改動；還原會建立一份新的可編輯草稿。' : '目前內容會保留在版本歷史，之後仍可再還原回來。';
+        preview.replaceChildren(title,intro,content,explain,restore); preview.hidden=false;
+      } catch(error) { status.textContent=error.message; }
+      finally { view.disabled=false; }
+    });
+    restore.addEventListener('click',async()=>{
+      if (!selected || revising || saving || generating || restoringVersion) return;
+      const targetRevision=selected.revision;
+      const locked=[...panel.querySelectorAll('input,textarea,select,button')].filter(el=>!el.disabled);
+      restoringVersion=true;locked.forEach(el=>el.disabled=true);updateAssistant();
+      try {
+        await syncDraft(); if (draftDirty) throw new Error('目前修改尚未同步，這次未還原');
+        const response=await fetch(`/api/character-generations/${id}/rollback`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision:draft.revision,target_revision:targetRevision})});
+        const data=await response.json(); if (!valid()) return;
+        if (!response.ok) throw new Error(typeof data.detail==='string' ? data.detail : '還原未完成');
+        const fork=data.generation_id!==id;
+        assistantLog.replaceChildren();assistantInput.value='';assistantStatus.textContent='草稿已還原，下一次 AI 修改會使用還原後的內容。';
+        draft=data;draftId=data.generation_id;savedCharacter=null;draftDirty=false;form.hidden=false;renderDraft();setStep(1);loadDraftHistory();
+        creatorStatus.textContent=fork ? '已從舊版本建立新草稿，原角色保持不變。' : `已還原版本 ${targetRevision+1}，並另存為版本 ${data.revision+1}；目前內容仍在歷史中。`;
+        storageStatus(creatorStatus.textContent);result.querySelector('.creator-version-history').open=true;result.scrollIntoView({block:'start'});
+      } catch(error) { if(valid())status.textContent=`還原失敗：${error.message}`; }
+      finally { restoringVersion=false;locked.forEach(el=>el.disabled=false);updateAssistant(); }
+    });
+    controls.append(view,more);details.append(heading,note,label,controls,preview,status);return details;
   }
   function openTrial(review, testButton, title, warning) {
     result.querySelector('.draft-trial')?.remove();
@@ -379,7 +459,7 @@
     trial.scrollIntoView({block:'start'}); back.focus();
   }
   async function saveDraft(button) {
-    if (saving || revising) return;
+    if (saving || revising || restoringVersion) return;
     saving = true; button.disabled = true; button.textContent = '正在儲存…';
     await syncDraft();
     const id = draftId;
@@ -403,6 +483,15 @@
       const library = document.createElement('button'); library.className = 'ghost-button'; library.textContent = '回到角色庫'; library.addEventListener('click', () => {search.value='';window.dijiRenderCharacterLibrary();document.querySelector('.rail-button[data-view="characters"]').click();grid.querySelector(`[data-character-id="${saved.id}"]`)?.scrollIntoView({block:'nearest'});});
       const another = document.createElement('button'); another.className='ghost-button'; another.textContent='建立另一位角色'; another.addEventListener('click',()=>{const selectedModel=model.value;savedCharacter=null;draft=null;draftId=null;form.reset();model.value=selectedModel;form.hidden=false;result.hidden=true;result.replaceChildren();setStep(0);creatorStatus.textContent='描述新的角色概念，再開始生成。';persistBrief();panel.querySelector('#creator-keywords').focus();});
       result.append(title,note,chat,library,another); creatorStatus.textContent = '儲存完成。';
+      if (draft.generation_id) {
+        const history=document.createElement('button');history.className='ghost-button';history.textContent='查看草稿版本';
+        history.addEventListener('click',async()=>{
+          try {
+            const response=await fetch(`/api/character-generations/${draft.generation_id}`,{cache:'no-store'});
+            if(!response.ok)throw new Error('無法讀取版本');const record=await response.json();draft={...record.data.draft,revision:record.revision};renderDraft();result.querySelector('.creator-version-history').open=true;
+          }catch(error){creatorStatus.textContent=error.message;}
+        });result.append(history);
+      }
       result.scrollIntoView({block:'start'});
     } catch (error) { creatorStatus.textContent = `儲存失敗：${error.message}。修改內容仍保留，可再次儲存。`; }
     finally { saving = false; button.disabled = false; button.textContent = '儲存角色 · 僅自己可見'; }
