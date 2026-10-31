@@ -29,6 +29,27 @@ class FakeGoogleOAuthClient:
         return "google-subject-123", "玩家", "player@example.com"
 
 
+def test_public_introduction_requires_login_for_all_workspace_apis(tmp_path: Path) -> None:
+    settings = AuthSettings(required=True, callback_url='http://testserver/callback', encryption_key=Fernet.generate_key().decode())
+    accounts = AccountStore(tmp_path / "accounts.sqlite3", settings.encryption_key)
+    client = TestClient(create_app(LocalCatalog(tmp_path / "catalog.json"), account_store=accounts, auth_settings=settings))
+    assert client.get('/').status_code == 200
+    assert client.get('/app.js').status_code == 200
+    assert client.get('/api/auth/session').json()['auth_required'] is True
+    endpoints = ['/api/bootstrap', '/api/characters', '/api/characters/yelan', '/api/flows', '/api/jailbreaks', '/api/connections/priority', '/api/conversations', '/openapi.json']
+    for path in endpoints:
+        response = client.get(path)
+        assert response.status_code == 401, path
+        assert response.headers['cache-control'] == 'no-store'
+    user = accounts.upsert_google_user('test-player', '玩家', 'player@example.test')
+    from diji.auth import SESSION_COOKIE
+    client.cookies.set(SESSION_COOKIE, accounts.create_google_session(user.id))
+    assert client.get('/api/bootstrap').status_code == 200
+    assert client.get('/api/characters').status_code == 200
+    assert client.post('/api/auth/logout').status_code == 204
+    assert client.get('/api/characters').status_code == 401
+
+
 def test_openrouter_exchange_sends_complete_pkce_payload() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/api/v1/auth/keys"

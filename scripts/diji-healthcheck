@@ -6,7 +6,7 @@ python3 - "$base_url" <<'PY'
 import json
 import sys
 import time
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
 base_url = sys.argv[1].rstrip("/")
@@ -22,7 +22,16 @@ def read_when_ready(path: str) -> bytes:
             time.sleep(0.5)
 
 
+requires_login = json.loads(read_when_ready('/api/auth/session')).get('auth_required', False)
 for path in ("/", "/api/bootstrap", "/api/characters", "/api/jailbreaks"):
+    if requires_login and path.startswith('/api/'):
+        try:
+            urlopen(base_url + path, timeout=2)
+        except HTTPError as error:
+            assert error.code == 401, f'{path}: expected 401, got {error.code}'
+            print(f"ok {path} (login required)")
+            continue
+        raise AssertionError(f'{path}: anonymous access must be denied')
     body = read_when_ready(path)
     if path == "/":
         assert b'id="model-input"' in body, "聊天模型選單不存在"

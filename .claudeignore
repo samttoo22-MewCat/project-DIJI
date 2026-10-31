@@ -8,3 +8,6 @@ artifacts/
 generated_*/
 datasets/
 .DS_Store
+.git/
+node_modules/
+*.sqlite3

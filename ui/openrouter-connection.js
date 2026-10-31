@@ -42,6 +42,7 @@
   const updateRouterDisconnect = addDisconnect('openrouter', connect);
   const money = value => typeof value === 'number' ? `$${value.toFixed(4)}` : '—';
   async function load() {
+    if (!workspaceAvailable) return;
     refresh.disabled = true;
     try {
       const response = await fetch('/api/connections/openrouter', {cache:'no-store'});
@@ -69,13 +70,14 @@
     total.textContent = '—'; daily.textContent = '連接後顯示用量'; status.textContent = '';
   }));
   setInterval(() => { if (!document.hidden) load(); }, 60000);
-  load();
+  window.addEventListener('diji-workspace-ready', load);
   const bazaar = document.querySelector('#connect-bazaarlink');
   const updateBazaarDisconnect = addDisconnect('bazaarlink', bazaar);
   const bazaarStatus = document.querySelector('#bazaarlink-status');
   const priority = document.querySelector('#provider-priority');
   const priorityStatus = document.querySelector('#provider-priority-status');
   async function loadPriority() {
+    if (!workspaceAvailable) return;
     try {
       const response = await fetch('/api/connections/priority', {cache:'no-store'});
       if (response.status === 401) { bazaarStatus.textContent = '請先登入 DIJI 再連接。'; return; }
@@ -103,9 +105,10 @@
       priorityStatus.textContent = '已儲存，下一次模型請求開始套用。';
     } catch { priorityStatus.textContent = '儲存失敗，請稍後再試。'; }
   });
-  loadPriority();
+  window.addEventListener('diji-workspace-ready', loadPriority);
   let usageLoading = false;
   async function loadBazaarUsage() {
+    if (!workspaceAvailable) return;
     if (usageLoading) return;
     usageLoading = true;
     try {
@@ -125,7 +128,7 @@
     if (!document.hidden && document.querySelector('[data-screen="connections"]').classList.contains('active')) loadBazaarUsage();
   }, 3000);
   document.querySelectorAll('[data-view="connections"]').forEach(button => button.addEventListener('click', loadBazaarUsage));
-  loadBazaarUsage();
+  window.addEventListener('diji-workspace-ready', loadBazaarUsage);
   if (new URLSearchParams(window.location.search).get('openrouter') === 'connected') {
     document.querySelector('.rail-button[data-view="connections"]').click();
     const clean = new URL(window.location.href);

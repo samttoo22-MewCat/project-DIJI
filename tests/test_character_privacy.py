@@ -20,10 +20,13 @@ def test_private_characters_are_visible_only_to_their_owner(tmp_path, monkeypatc
     assert saved.json()["source"]["visibility"] == "private"
     assert owner.get("/api/characters/private-example").status_code == 200
     assert len(owner.get("/api/characters").json()) == 3
-    for client in (other, anonymous):
+    for client in (other,):
         assert len(client.get("/api/characters").json()) == 2
         assert len(client.get("/api/bootstrap").json()["characters"]) == 2
         assert client.get("/api/characters/private-example").status_code == 404
+    assert anonymous.get("/api/characters").status_code == 401
+    assert anonymous.get("/api/bootstrap").status_code == 401
+    assert anonymous.get("/api/characters/private-example").status_code == 401
     assert anonymous.put("/api/characters/private-example", json=character).status_code == 401
     assert other.post("/api/conversations", json={"chat_id": "private-chat", "character_id": "private-example", "character_name": "測試角色"}).status_code == 404
     assert other.put("/api/characters/yelan", json={**character, "id": "yelan"}).status_code == 409

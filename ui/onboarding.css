@@ -16,3 +16,9 @@
 .character-review summary { cursor: pointer; color: #c5e0e4; font-size: 17px; }
 .creator-result > button { margin: 8px 12px 0 0; min-height: 44px; }
 @media(max-width:760px) { .home-journey { display: grid; } .character-review details { padding: 12px; } }
+.guest-mode .rail, .guest-mode #toggle-mobile-nav, .guest-mode #chat-list,
+.guest-mode #mobile-nav-backdrop, .guest-mode #chat-list-backdrop,
+.guest-mode .screen:not([data-screen="home"]) { display: none !important; }
+.guest-mode .app { grid-template-columns: minmax(0, 1fr) !important; }
+.guest-mode .home-screen { display: block !important; }
+.guest-mode .home-install { display: none !important; }

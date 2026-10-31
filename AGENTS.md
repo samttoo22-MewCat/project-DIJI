@@ -143,6 +143,12 @@ pytest -q
 - AWS 主機上的 `diji-ui.service` 維持只綁定 `127.0.0.1:8080`。公開 HTTPS 由使用者層 `diji-cloudflared.service` 提供，unit 來源為 `deploy/diji-cloudflared.service`；它使用 `~/.local/bin/cloudflared` 與 `~/.config/diji/cloudflared.token`。token 檔必須維持 `0600`、父目錄 `0700`，不得輸出、提交或複製到本機。
 - `diji.mewcat.me` 經 Cloudflare Tunnel 轉送到 loopback；每次修改公開部署後，先驗證 user service 為 `active`，再以 `https://diji.mewcat.me/api/auth/session` 回傳 DIJI JSON 作為公開讀回。Google OAuth 的 callback 必須維持相同公開 HTTPS 網域，並確認 `/api/auth/google/start` 導向 Google 而不是回 `503`。
 
+## Google 登入優先（2026-11-01）
+
+- 公開部署的訪客只看專案介紹與 Google 登入；前端以 `guest-mode` 預設隱藏工作區並使非首頁 inert，session 驗證成功才解鎖。未登入的直接 hash 路由回首頁，不自動彈出登入。登出後立即收回工作區並清空聊天畫面。
+- `DIJI_AUTH_REQUIRED=true` 時 middleware 對所有非登入 API 與 OpenAPI 要求 session，未登入回 401/no-store；Google 授權、回呼、session、登出與舊登入相容端點保留。本機模式維持免登入；`/api/auth/session` 的 `auth_required` 明確區分兩模式。健康檢查在公開模式驗證匿名 API 為 401。
+- 子介面資料在 `diji-workspace-ready` 後才載入；角色與聊天仍須另行連接模型商。變更入口流程時驗證匿名、Google 回呼後、登出及直接 hash 路由，維持公開介紹頁可讀。
+
 ## 年齡確認
 
 - 新手流程：首頁按登入／模型連接狀態顯示下一步。`diji-pending-task` 僅暫存 chat/create-character 目的地，授權後由使用者按繼續返回；建立概念以 sessionStorage 暫存於目前分頁，憑證不進前端。切頁同步 hash，返回鍵依 hash 切換。

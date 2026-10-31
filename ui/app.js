@@ -4,6 +4,7 @@ window.dijiState = {
   experimentId: null, chatMode: "story", characters: [], conversations: [],
 };
 const state = window.dijiState;
+let workspaceAvailable = false;
 const conversations = document.querySelector("#conversation");
 const toast = document.querySelector("#toast");
 const chatMemoryBackfill = document.querySelector("#chat-memory-backfill");
@@ -16,6 +17,7 @@ function showToast(message) {
   window.setTimeout(() => toast.classList.remove("show"), 2200);
 }
 function showScreen(name) {
+  if (!workspaceAvailable && name !== 'home') name = 'home';
   const previous = document.querySelector('.screen.active')?.dataset.screen;
   if (name === 'connections' && ['chat', 'create-character'].includes(previous)) rememberPendingTask(previous);
   if (document.querySelector(`[data-screen="${name}"]`) && window.location.hash !== `#${name}`) history.pushState(null, '', `#${name}`);
@@ -51,7 +53,7 @@ async function updateHomeJourney() {
   }
   const stage = !signedIn ? 0 : !connected ? 1 : 2;
   steps.forEach((step,index) => { step.classList.toggle('complete', index < stage); if (index === stage) step.setAttribute('aria-current','step'); else step.removeAttribute('aria-current'); });
-  button.textContent = ['登入，保存我的角色世界', '連接模型商，開始使用', '選擇角色開始對話'][stage];
+  button.textContent = ['使用 Google 登入', '連接模型商，開始使用', '選擇角色開始對話'][stage];
   button.dataset.next = ['login','connections','chat'][stage];
   note.textContent = ['登入後，角色、對話與記憶會保存到你的 DIJI 帳號。', '選擇 BazaarLink 或 OpenRouter，連接自己的模型額度。', '已準備完成。選一位角色，開始第一段對話。'][stage];
 }
@@ -548,6 +550,10 @@ const accountStatus = document.querySelector("#account-status");
 let authenticatedUser = null;
 
 function updateAccountAccess() {
+  document.body.classList.toggle('guest-mode', !workspaceAvailable);
+  for (const screen of document.querySelectorAll('.screen:not([data-screen="home"])')) screen.inert = !workspaceAvailable;
+  document.querySelector('.rail').inert = !workspaceAvailable;
+  if (!workspaceAvailable) { setMobileNav(false); setDetails(false); setChatList(false); showScreen('home'); }
   updateHomeJourney();
   const signedIn = Boolean(authenticatedUser);
   accountLogin.hidden = signedIn;
@@ -558,7 +564,7 @@ function updateAccountAccess() {
     accountStatus.textContent = `已登入為 ${name}；角色、對話與記憶會保存到你的 DIJI 帳號。可在左側「模型連線」管理自己的額度。`;
     return;
   }
-  accountLoginLabel.textContent = "登入";
+  accountLoginLabel.textContent = "Google 登入";
   accountStatus.textContent = "登入後可建立並保存角色對話與記憶，並在「模型連線」連接自己的額度。";
 }
 function openLoginDialog(message = "") {
@@ -581,10 +587,13 @@ async function loadAuthentication() {
     if (!response.ok) throw new Error("無法確認登入狀態");
     const data = await response.json();
     authenticatedUser = data.user;
+    workspaceAvailable = Boolean(data.authenticated) || data.auth_required === false;
     updateAccountAccess();
+    if (workspaceAvailable) window.dispatchEvent(new Event('diji-workspace-ready'));
     return Boolean(data.authenticated);
   } catch (error) {
     authenticatedUser = null;
+    workspaceAvailable = false;
     updateAccountAccess();
     loginStatus.textContent = `無法確認登入狀態：${error.message}`;
     return false;
@@ -605,9 +614,13 @@ document.querySelector("#google-login").addEventListener("click", () => {
 document.querySelectorAll("[data-auth-logout]").forEach((button) => button.addEventListener("click", async () => {
   await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
   authenticatedUser = null;
+  workspaceAvailable = false;
   updateAccountAccess();
   state.characters = [];
-  await loadLocalCatalog();
+  state.conversations = [];
+  state.history = [];
+  conversations.replaceChildren();
+  renderConversationHistory();
   setChatReady(false);
   showToast("你已登出此裝置。");
 }));
@@ -637,6 +650,7 @@ document.querySelector("#chat-input").addEventListener("input", (event) => { eve
 document.querySelectorAll("[data-chat-mode]").forEach((button) => button.addEventListener("click", () => saveChatMode(button.dataset.chatMode)));
 setChatProviderLocked(true, '正在確認模型商連接狀態…');
 loadAuthentication().then((signedIn) => {
+  if (!workspaceAvailable) return;
   refreshChatProviderState();
   loadLocalCatalog();
   loadInteractionModels();

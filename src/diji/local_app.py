@@ -8,7 +8,7 @@ from typing import Literal
 
 import httpx
 from fastapi import Body, FastAPI, HTTPException, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, SecretStr
 
@@ -141,6 +141,18 @@ def create_app(
     google_oauth = google_oauth_client or GoogleOAuthClient()
     app = FastAPI(title="DIJI Local Workbench", docs_url=None, redoc_url=None)
 
+    @app.middleware("http")
+    async def protect_workspace(request: Request, call_next):
+        public_auth = {
+            "/api/auth/session", "/api/auth/google/start", "/api/auth/google/callback",
+            "/api/auth/logout", "/api/auth/openrouter/start", "/api/auth/openrouter/callback",
+        }
+        path = request.url.path
+        if auth.required and (path.startswith("/api/") or path == "/openapi.json") and path not in public_auth:
+            if not accounts.user_for_session(request.cookies.get(SESSION_COOKIE)):
+                return JSONResponse({"detail": "請先使用 Google 登入 DIJI"}, status_code=401, headers={"Cache-Control": "no-store"})
+        return await call_next(request)
+
     def current_user(request: Request) -> AuthenticatedUser:
         user = accounts.user_for_session(request.cookies.get(SESSION_COOKIE))
         if auth.required and not user:
@@ -181,6 +193,7 @@ def create_app(
         response.headers["Cache-Control"] = "no-store"
         user = accounts.user_for_session(request.cookies.get(SESSION_COOKIE))
         return {
+            "auth_required": auth.required,
             "authenticated": bool(user),
             "user": user.model_dump() if user else None,
             "google_login_available": auth.google_login_available,

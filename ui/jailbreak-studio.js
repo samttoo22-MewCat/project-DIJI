@@ -60,6 +60,7 @@
     show(selected());
   }
   async function load() {
+    if (!workspaceAvailable) return;
     status("正在讀取本機目錄…");
     try {
       const response = await fetch("/api/jailbreaks");
@@ -204,5 +205,5 @@
   document
     .querySelector('[data-view="jailbreak"]')
     .addEventListener("click", load);
-  load();
+  window.addEventListener('diji-workspace-ready', load);
 })();

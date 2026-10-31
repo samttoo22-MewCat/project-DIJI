@@ -75,6 +75,7 @@
   });
 
   async function loadModels() {
+    if (!workspaceAvailable) return;
     try {
       const response = await fetch("/api/jailbreaks");
       if (!response.ok) throw new Error("jailbreak unavailable");
@@ -161,6 +162,7 @@
     finally { saving = false; button.disabled = false; button.textContent = '儲存角色 · 僅自己可見'; }
   }
   async function refreshCharacterLibrary() {
+    if (!workspaceAvailable) return;
     try {
       const response = await fetch("/api/characters");
       if (!response.ok) throw new Error("catalog unavailable");
@@ -170,6 +172,5 @@
       status.textContent = `角色庫無法載入：${error.message}`;
     }
   }
-  loadModels();
-  refreshCharacterLibrary();
+  window.addEventListener('diji-workspace-ready', () => { loadModels(); refreshCharacterLibrary(); });
 })();

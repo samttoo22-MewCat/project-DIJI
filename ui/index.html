@@ -34,9 +34,9 @@
     <link rel="stylesheet" href="account-access.css?v=20261101-creator-lock-1" />
     <link rel="stylesheet" href="age-confirmation.css?v=20261028-age-gate-1" />
     <link rel="stylesheet" href="connection-layout.css?v=20261101-disconnect-1" />
-    <link rel="stylesheet" href="onboarding.css?v=20261101-1" />
+    <link rel="stylesheet" href="onboarding.css?v=20261101-google-first-1" />
   </head>
-  <body>
+  <body class="guest-mode">
     <header class="account-access" aria-label="帳號操作">
       <button class="square-button mobile-nav-toggle" id="toggle-mobile-nav" aria-expanded="false" aria-controls="mobile-navigation" aria-label="開啟主要導覽">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" /></svg>
@@ -44,7 +44,7 @@
       <a class="logo" href="#home" aria-label="DIJI 首頁"><img src="/icons/diji-192.png" width="44" height="44" alt="DIJI" /></a>
       <button class="account-login" id="account-login" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5.5 19c.7-3 2.9-4.5 6.5-4.5s5.8 1.5 6.5 4.5"/></svg>
-        <span id="account-login-label">登入</span>
+        <span id="account-login-label">Google 登入</span>
       </button>
       <button class="account-logout" data-auth-logout type="button" hidden>登出</button>
     </header>
@@ -171,12 +171,12 @@
               <p class="home-kicker">DIJI · 角色互動工作台</p>
               <h1 id="home-title">讓角色的每一次對話，都留在脈絡裡。</h1>
               <p class="home-summary">DIJI 是一個非商業、可自架的角色互動專案。它把角色人設、逐字對話、事件記憶與互動設定放在同一個清楚且可檢查的工作流程中。</p>
-              <ol id="home-journey" class="home-journey" aria-label="開始使用步驟"><li>1 登入帳號</li><li>2 連接模型商</li><li>3 選角開始對話</li></ol>
+              <ol id="home-journey" class="home-journey" aria-label="開始使用步驟"><li>1 Google 登入</li><li>2 連接模型商</li><li>3 選角開始對話</li></ol>
               <div class="home-actions">
-                <button class="home-start" id="home-start" type="button">選擇角色開始對話<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M14 7l5 5-5 5" /></svg></button>
+                <button class="home-start" id="home-start" type="button">使用 Google 登入</button>
                 <button class="pwa-install home-install" data-pwa-install type="button" hidden>安裝至裝置</button>
               </div>
-              <p class="home-note">開始前先選擇角色；每一段對話會維持各自的歷史與記憶脈絡。</p>
+              <p class="home-note">先使用 Google 登入，才能進入角色與對話工作區。登入後可連接自己的模型額度，角色、對話與記憶會保存到你的 DIJI 帳號。</p>
             </header>
             <section class="home-principles" aria-label="DIJI 的核心方式">
               <article class="home-principle"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5.5 19c.7-3 2.9-4.5 6.5-4.5s5.8 1.5 6.5 4.5"/></svg><h2>角色先行</h2><p>先選角色再開始對話，不以預設人格取代你的選擇。</p></article>
@@ -617,10 +617,10 @@
     </dialog>
     <div class="toast" id="toast" role="status"></div>
     <script src="age-confirmation.js?v=20261028-age-gate-2"></script>
-    <script src="app.js?v=20261101-onboarding-2"></script>
-    <script src="jailbreak-studio.js?v=20261011-model-jailbreak-1"></script>
-    <script src="character-creator.js?v=20261101-onboarding-1"></script>
+    <script src="app.js?v=20261101-google-first-1"></script>
+    <script src="jailbreak-studio.js?v=20261101-google-first-1"></script>
+    <script src="character-creator.js?v=20261101-google-first-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>
-    <script src="openrouter-connection.js?v=20261101-onboarding-1"></script>
+    <script src="openrouter-connection.js?v=20261101-google-first-1"></script>
   </body>
 </html>
