@@ -27,6 +27,7 @@ DIJI 是一個以色情為目的的、角色扮演用的、可自架的 Python �
 | `src/diji/local_app.py` | FastAPI 路由、請求驗證與應用程式組裝 |
 | `character_generation/` | 產生與修訂結構化角色草稿 |
 | `conversation_store.py` | 保存每段對話的完整逐字紀錄 |
+| `player_activity.py` | 按帳號保存四階段生成輸入／輸出、草稿、角色保存快照與對話回合；支援草稿恢復與 revision 衝突檢查 |
 | `memory_store.py`／`memory_extraction.py` | 將事件記憶與逐字對話分開保存、取回 |
 | `relationship.py`／`favorability_judge.py` | 維護關係階段、界線與選用好感度狀態 |
 | `prompt_assembly.py` | 建立可檢查的 prompt bundle，不直接呼叫 provider |

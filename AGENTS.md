@@ -48,7 +48,12 @@
 ## UI 設計約束
 
 - 角色建立已於 2026-11-01 以 Edge 真實走過：網路參考生成、審核修改、私人保存、開始聊天，修改後背景的唯一測試設定進入實際回覆。結果與限制見 `docs/creator-usability-test.md`。
-- 建立角色預設優先 DeepSeek V4.1 Flash，帳號選擇可覆寫。概念暫存鍵為 `diji-creator-brief:<account-id>`；登入完成後才恢復，忽略舊的不分帳號鍵，登出清空畫面。未保存草稿／生成中提供離頁提醒，沒有伺服器草稿備份，不可聲稱重整後完整草稿仍在。
+- 建立角色預設優先 DeepSeek V4.1 Flash，帳號選擇可覆寫。概念暫存鍵為 `diji-creator-brief:<account-id>`；登入完成後才恢復，忽略舊的不分帳號鍵，登出清空畫面。生成中／未同步修改提供離頁提醒；已完成草稿可由伺服器恢復，明確保存後才加入角色庫。
+
+- 玩家紀錄：`player_activity.py` 在 `runtime/users/<account>/player_activity.sqlite3` 保存生成簡報、模型／越獄版本、四階段實際 prompt／輸出、失敗類型、完整草稿與最終角色快照。每輪對話保存模型設定、模式、輸入／回覆及記憶／關係保存狀態；原有 conversations JSON 仍是逐字對話來源。不得保存 transport、供應商憑證或原始例外訊息。DB 0600、帳號資料夾 0700；runtime 與 SQLite 不提交。
+- 草稿 API 按登入帳號隔離；PATCH 使用 revision 防止舊頁覆蓋，已加入角色庫的草稿拒絕修改。UI 修改延遲 700ms 同步，只有同步完成才顯示已保存；網路失敗保留離頁警告。歷史階段未記錄者不能反推或偽造；程序意外終止時 running 紀錄僅代表未確認完成，不代表可自動續跑。
+- 修改對話保存時保持 `start`／`append`／`set_mode` 的跨程序檔案鎖與原子替換。驗證包括重開資料庫、不同帳號隔離、失敗階段、revision 衝突與並行訊息追加；見 `tests/test_player_activity.py`。
+- 2026-11-01 玩家紀錄驗證：本機與 AWS 97 項 pytest 通過。Edge 真實四階段生成測試角色「伺服器保存測試・紙舟」，修改名稱後同步 revision=1，重新整理可從伺服器恢復，不重做模型請求；明確保存後生成紀錄連結私人角色，資料庫權限 0600。測試角色與輸出只保留在 runtime，不提交 Git。
 - `character-creator.js` 除了監聽 `diji-workspace-ready`，載入時若 `workspaceAvailable` 已成立也必須立即初始化，避免登入事件先發出時模型選單永久卡住；此情境在 Edge 重整及隔離 DOM 測試均重現。
 - 生成成功先驗證再替換現有草稿，HTTP／非 JSON 失敗保留既有審核資料；顯示真實等待秒數，不假造階段進度。保存後隱藏已完成表單、清除該帳號概念暫存，提供聊天、回角色庫及建立另一位選項。
 - `CharacterSpec.generation_metadata` 保存一句話介紹、分類與嗜好，審核頁可在展開區修改；不改既有 `_full_prompt` 組裝或四階段生成提示。

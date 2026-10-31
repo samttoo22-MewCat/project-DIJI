@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+from contextlib import contextmanager
+import fcntl
 import json
+import os
 from pathlib import Path
+import tempfile
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -63,6 +67,10 @@ class ConversationStore:
         return ConversationRecord.model_validate_json(path.read_text(encoding="utf-8"))
 
     def start(self, chat_id: str, character_id: str, character_name: str, chat_mode: Literal["story", "dialog"] = "story") -> ConversationRecord:
+        with self._lock(chat_id):
+            return self._start(chat_id, character_id, character_name, chat_mode)
+
+    def _start(self, chat_id, character_id, character_name, chat_mode="story"):
         try:
             return self.get(chat_id)
         except StopIteration:
@@ -71,27 +79,51 @@ class ConversationStore:
             return record
 
     def append(self, chat_id: str, character_id: str, character_name: str, message: ConversationMessage) -> ConversationRecord:
-        record = self.start(chat_id, character_id, character_name)
-        record.messages.append(message)
-        record.updated_at = _now()
-        self._write(record)
-        return record
+        with self._lock(chat_id):
+            record = self._start(chat_id, character_id, character_name)
+            record.messages.append(message)
+            record.updated_at = _now()
+            self._write(record)
+            return record
 
     def set_mode(self, chat_id: str, chat_mode: Literal["story", "dialog"]) -> ConversationRecord:
-        record = self.get(chat_id)
-        record.chat_mode = chat_mode
-        record.updated_at = _now()
-        self._write(record)
-        return record
+        with self._lock(chat_id):
+            record = self.get(chat_id)
+            record.chat_mode = chat_mode
+            record.updated_at = _now()
+            self._write(record)
+            return record
+
+    @contextmanager
+    def _lock(self, chat_id):
+        path = self._path(chat_id)
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        path.parent.chmod(0o700)
+        with path.with_suffix('.lock').open('a') as lock:
+            os.chmod(lock.name, 0o600)
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
 
     def _write(self, record: ConversationRecord) -> None:
         path = self._path(record.chat_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.parent.chmod(0o700)
-        temporary = path.with_suffix(".tmp")
-        temporary.write_text(record.model_dump_json(indent=2) + "\n", encoding="utf-8")
-        temporary.chmod(0o600)
-        temporary.replace(path)
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent, delete=False) as output:
+            temporary = Path(output.name)
+            try:
+                output.write(record.model_dump_json(indent=2) + '\n')
+                output.flush()
+                os.fsync(output.fileno())
+            except BaseException:
+                temporary.unlink(missing_ok=True)
+                raise
+        try:
+            temporary.replace(path)
+        finally:
+            temporary.unlink(missing_ok=True)
         path.chmod(0o600)
 
     @staticmethod

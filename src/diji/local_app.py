@@ -17,6 +17,7 @@ from .character_generation.service import GeneratedCharacter
 from .conversation_store import ConversationMessage, ConversationRecord, ConversationStore, ConversationSummary
 from .character_import import CharacterImporter, CharacterImportPreview, CharacterImportRequest, CharacterImportResult
 from .memory_store import LocalMemoryStore, MemoryRecord
+from .player_activity import PlayerActivity, RecordedGenerationClient
 from .memory_extraction import MemoryExtractor, OpenRouterExtractionClient
 from .prompt_assembly import PromptBundle, PromptPreviewRequest, assemble_prompt
 from .domain import InteractionRequest, InteractionResponse
@@ -167,6 +168,10 @@ def create_app(
         if auth.required and not user:
             raise HTTPException(status_code=401, detail="請先登入 DIJI")
         return user or AuthenticatedUser(id="local-user", login_provider="local", display_name="本機使用者", openrouter_user_id="local-user")
+
+    def activity_for(user: AuthenticatedUser) -> PlayerActivity:
+        root = _user_directory(user.id) if auth.required else local_catalog.path.parent
+        return PlayerActivity(root / 'player_activity.sqlite3')
 
     def stores_for(user: AuthenticatedUser) -> tuple[LocalMemoryStore, ConversationStore, RelationshipStore, UserProfileStore, InteractionService, CharacterGenerationService]:
         if not auth.required:
@@ -434,7 +439,24 @@ def create_app(
             if any(item.id == character_id for item in local_catalog.snapshot().characters):
                 raise HTTPException(status_code=409, detail="請使用新的角色識別碼建立個人角色")
             character = character.model_copy(update={"source": {**character.source, "visibility": "private"}})
-        return target.save_character(character)
+        activity = activity_for(current_user(http_request))
+        if character.source.get('generation_id'):
+            try:
+                run = activity.get(character.source['generation_id'])
+                if run['kind'] != 'generation':
+                    raise LookupError('生成紀錄不存在')
+                if run['status'] != 'completed' or run['data'].get('saved_character_id') not in (None, character_id):
+                    raise HTTPException(status_code=409, detail='生成尚未完成或已保存為其他角色')
+            except LookupError as error:
+                raise HTTPException(status_code=404, detail="生成紀錄不存在") from error
+        save_id = activity.begin('character_save', {'character':character.model_dump()})
+        try:
+            saved = target.save_character(character)
+            activity.character_saved(saved, save_id)
+        except BaseException as error:
+            activity.finish(save_id, 'failed', {'error_type':type(error).__name__})
+            raise
+        return saved
 
     @app.get("/api/character-imports/preview", response_model=CharacterImportPreview)
     def preview_character_imports() -> CharacterImportPreview:
@@ -635,7 +657,42 @@ def create_app(
         preset = next((item for item in jailbreaks.list() if item.review_status == "approved" and model_id in item.openrouter_models), None)
         if not preset or not preset.prompt:
             raise HTTPException(status_code=400, detail="此模型沒有已核准的越獄，不能用於角色生成")
-        return await user_generator.generate(request.model_copy(update={"jailbreak_prompt": preset.prompt if preset else ""}))
+        activity = activity_for(user)
+        run_id = activity.begin('generation',{'request':request.model_dump(exclude={'jailbreak_prompt'}),'jailbreak':{'id':preset.id,'name':preset.name,'last_updated':preset.last_updated}})
+        traced = CharacterGenerationService(RecordedGenerationClient(user_generator.client,activity,run_id))
+        try:
+            result = await traced.generate(request.model_copy(update={"jailbreak_prompt":preset.prompt}))
+            result = result.model_copy(update={'generation_id':run_id})
+            activity.finish(run_id,'completed',{'draft':result.model_dump()})
+            return result
+        except BaseException as error:
+            activity.finish(run_id,'failed',{'error_type':type(error).__name__})
+            raise
+
+    @app.get('/api/character-generations')
+    def generation_history(http_request: Request, response: Response):
+        response.headers['Cache-Control']='private, no-store'
+        return activity_for(current_user(http_request)).list_generations()
+
+    @app.get('/api/character-generations/{run_id}')
+    def generation_record(run_id: str, http_request: Request, response: Response):
+        response.headers['Cache-Control']='private, no-store'
+        try:
+            return activity_for(current_user(http_request)).get(run_id)
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail='生成紀錄不存在') from error
+
+    @app.patch('/api/character-generations/{run_id}/draft', response_model=CharacterGenerationResult)
+    def save_generation_draft(run_id: str, draft: CharacterGenerationResult, http_request: Request):
+        if draft.generation_id != run_id:
+            raise HTTPException(status_code=400, detail='草稿識別碼不符')
+        try:
+            draft = draft.model_copy(update={'full_prompt':CharacterGenerationService._full_prompt(draft.character,draft.style_guide)})
+            return activity_for(current_user(http_request)).save_draft(run_id,draft.revision,draft.model_dump())
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail='草稿不存在') from error
+        except ValueError as error:
+            raise HTTPException(status_code=409, detail=str(error)) from error
 
     @app.post("/api/interactions", response_model=InteractionResponse)
     async def interact(request: InteractionRequest, http_request: Request) -> InteractionResponse:
@@ -682,6 +739,8 @@ def create_app(
             )
             request = request.model_copy(update={"experiment_id": experiment_id})
         try:
+            activity = activity_for(user)
+            turn_id = activity.begin('conversation_turn',{'chat_id':request.chat_id,'character_id':request.character.id,'model':request.llm.model_dump(exclude={'url'}),'message':request.message.text,'history_count':len(request.history),'chat_mode':request.user.persona.chat_mode,'is_nsfw':request.is_nsfw,'enable_favorability':request.enable_favorability})
             user_conversations.append(
                 request.chat_id,
                 request.character.id,
@@ -695,9 +754,14 @@ def create_app(
                 request.character.name,
                 ConversationMessage(sender_type=2, text=response.text),
             )
+            activity.finish(turn_id,'completed',{'reply':response.text,'memory_saved':response.memory_saved,'relationship_updated':response.relationship_updated})
             return response
         except ValueError as error:
+            if 'turn_id' in locals(): activity.finish(turn_id,'failed',{'error_type':type(error).__name__})
             raise HTTPException(status_code=400, detail=str(error)) from error
+        except BaseException as error:
+            if 'turn_id' in locals(): activity.finish(turn_id,'failed',{'error_type':type(error).__name__})
+            raise
 
     @app.get("/api/relationships/{chat_id}", response_model=RelationshipState)
     def relationship(chat_id: str, http_request: Request) -> RelationshipState:

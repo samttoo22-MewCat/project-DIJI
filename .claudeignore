@@ -18,3 +18,4 @@ visual-checks/
 coverage/
 *.lock
 .creator-ux/
+*.sqlite3*

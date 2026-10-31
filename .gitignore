@@ -12,3 +12,4 @@ artifacts/
 generated_*/
 datasets/
 *.log
+*.sqlite3*

@@ -28,6 +28,8 @@ class GeneratedCharacter(BaseModel):
 
 
 class CharacterGenerationResult(BaseModel):
+    generation_id: str | None = None
+    revision: int = 0
     character: GeneratedCharacter
     style_guide: str
     full_prompt: str
