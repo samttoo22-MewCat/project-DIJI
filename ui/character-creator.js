@@ -92,6 +92,7 @@
     const keywords = panel.querySelector("#creator-keywords").value.trim();
     if (!keywords || model.disabled) return;
     button.disabled = true; button.textContent = "生成中…";
+    form.setAttribute('aria-busy', 'true');
     creatorStatus.textContent = `正以 ${model.value} 與對應越獄生成草稿…`;
     try {
       const response = await fetch("/api/characters/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keywords, model: model.value, enable_search: panel.querySelector("#creator-search").checked, is_nsfw: panel.querySelector("#creator-adult").checked }) });
@@ -101,7 +102,7 @@
       renderDraft(); setStep(1); creatorStatus.textContent = "草稿已完成。你可以修改人設與說話風格，再儲存。";
       result.scrollIntoView({block:'start', behavior:'auto'});
     } catch (error) { creatorStatus.textContent = `生成失敗：${error.message}`; }
-    finally { button.disabled = false; button.textContent = "生成角色草稿"; }
+    finally { button.disabled = false; button.textContent = "生成角色草稿"; form.setAttribute('aria-busy', 'false'); }
   });
   function renderDraft() {
     result.hidden = false; result.replaceChildren();

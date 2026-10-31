@@ -39,6 +39,10 @@
 
 ## UI 設計約束
 
+- 全站精緻化與動態集中於最後載入的 `ui/ui-polish.css`、`ui/ui-polish.js`；深藍／低彩度青色、現有大字級與 44px 觸控目標維持。`showScreen` 發出 `diji-screen-changed` 更新頂欄頁名與 `aria-current`，展示層不得發模型請求或改帳號／模型路由。
+- 切頁、抽屜與面板進場使用 180–280ms 的 opacity/transform，首頁線條僅一次；hover 位移只在精準滑鼠與無減少動態設定下啟用。減少動態時停用 CSS 動畫並取消首頁 Web Animation；內容預設可見，不以 JS 或動畫作為顯示前提。設計規範見 `docs/ui-design.md`。
+- 手機從首頁開導覽時沒有 active rail item，焦點退回第一個導覽項目；requestAnimationFrame 執行時必須確認抽屜仍開啟，避免聚焦已隱藏內容。
+
 - 聊天尚未選角時僅顯示引導與「前往角色頁面」按鈕；角色清單及搜尋統一位於角色頁。此引導不受模型商遮罩限制，選角或恢復既有對話後才套用聊天連線 gate，帳號登入限制照常保留。
 
 - 2026-11-01 全站可見文字的明確 px 字級提高一級（+2px），小字下限 16px；既有斷點及 font shorthand 同步調整，繼承字級的控制項沿用父層。CSS 載入 URL 附 `type=20261101-larger-1`；未來調字級需驗證手機換行、窄側欄及登入視窗，不以頁面 zoom 取代文字放大。

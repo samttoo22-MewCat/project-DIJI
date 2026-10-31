@@ -35,6 +35,7 @@
     <link rel="stylesheet" href="connection-layout.css?v=20261101-disconnect-1&amp;type=20261101-larger-1" />
     <link rel="stylesheet" href="onboarding.css?v=20261101-google-first-1&amp;type=20261101-larger-1" />
     <link rel="stylesheet" href="home.css?v=20261101-story-home-1&amp;type=20261101-larger-1" />
+    <link rel="stylesheet" href="ui-polish.css?v=20261101-2" />
   </head>
   <body class="guest-mode">
     <header class="account-access" aria-label="帳號操作">
@@ -42,6 +43,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14" /></svg>
       </button>
       <a class="logo" href="#home" aria-label="DIJI 首頁"><img src="/icons/diji-192.png" width="44" height="44" alt="DIJI" /></a>
+      <div class="workspace-heading"><strong id="workspace-title">DIJI</strong><span id="workspace-subtitle">讓角色與故事，繼續發生。</span></div>
       <button class="account-login" id="account-login" type="button">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5.5 19c.7-3 2.9-4.5 6.5-4.5s5.8 1.5 6.5 4.5"/></svg>
         <span id="account-login-label">Google 登入</span>
@@ -473,8 +475,8 @@
           <header class="page-header">
             <div>
               <p class="eyebrow">記憶資料</p>
-              <h1>記憶必須看得到，也能追溯來源。</h1>
-              <p>資料以 chat_id 分檔，欄位與 ai-server 的事件記憶格式相容。</p>
+              <h1>回看你們的重要片刻。</h1>
+              <p>查看目前對話留下的事件記憶，讓每段關係都有脈絡可循。</p>
             </div>
           </header>
           <div class="empty-state" id="memory-empty">
@@ -485,7 +487,7 @@
               <path d="M8.5 9h7M8.5 13h5" />
             </svg>
             <h2>尚未有可顯示的記憶</h2>
-            <p>尚未接模型提取；不會自行製造或寫入記憶。</p>
+            <p>先開啟一段角色對話。有記憶紀錄後，便會顯示在這裡。</p>
           </div>
           <section
             class="memory-list"
@@ -520,10 +522,10 @@
     </main>
     <template id="character-creator">
       <section class="creator" aria-labelledby="character-library-title">
-        <header class="creator-header"><div><p class="eyebrow">角色庫</p><h1 id="character-library-title">選擇一位角色，開始對話。</h1><p>已匯入的人設保留原始完整 prompt、風格指南與來源資訊，保存到你的帳號。</p></div><button class="primary-button" id="open-character-creator" type="button">建立角色</button></header>
+        <header class="creator-header"><div><p class="eyebrow">角色庫</p><h1 id="character-library-title">選擇一位角色，開始對話。</h1><p>選擇一位角色認識，或創造只屬於你的人設。每段對話，都有自己的故事。</p></div><button class="primary-button" id="open-character-creator" type="button">建立角色</button></header>
         <div class="character-library-tools"><label class="search creator-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="4.5" /><path d="m14 14 4.5 4.5" /></svg><span class="sr-only">搜尋角色庫</span><input id="character-library-search" placeholder="搜尋角色名稱、人設或風格" /></label><p id="character-library-status" aria-live="polite">正在讀取角色庫…</p></div>
         <section id="character-library-grid" class="character-library-grid" aria-live="polite"></section>
-        <section id="character-creator-panel" class="creator-panel" hidden aria-labelledby="creator-title"><header><p class="eyebrow">角色創建</p><h2 id="creator-title">從一個概念，寫成可互動的人。</h2><p>生成不會自動儲存；完成審核後才會保存到你的帳號角色庫。</p></header><ol class="creator-steps"><li class="active">1 創作簡報</li><li>2 審核草稿</li><li>3 儲存角色</li></ol><form id="creator-brief" class="creator-card"><label>角色概念<textarea id="creator-keywords" rows="5" placeholder="例如：台南老街的古董修復師，外冷內熱，對失物有特殊直覺。" required></textarea></label><label><input id="creator-search" type="checkbox" checked> 使用網路參考</label><label><input id="creator-adult" type="checkbox"> 成人虛構分類</label><label>生成模型<select id="creator-model" required disabled><option>正在讀取可用模型…</option></select></label><button class="primary-button" type="submit">生成角色草稿</button><p id="creator-status" aria-live="polite"></p></form><section id="creator-result" class="creator-result" hidden></section></section>
+        <section id="character-creator-panel" class="creator-panel" hidden aria-labelledby="creator-title"><header><p class="eyebrow">角色創建</p><h2 id="creator-title">讓一個靈感，成為角色。</h2><p>先生成草稿，確認人設後，再保存到你的帳號。</p></header><ol class="creator-steps"><li class="active"><span class="creator-step-index" aria-hidden="true">01</span><strong>創作簡報</strong></li><li><span class="creator-step-index" aria-hidden="true">02</span><strong>審核草稿</strong></li><li><span class="creator-step-index" aria-hidden="true">03</span><strong>儲存角色</strong></li></ol><form id="creator-brief" class="creator-card"><label>角色概念<textarea id="creator-keywords" rows="5" placeholder="例如：台南老街的古董修復師，外冷內熱，對失物有特殊直覺。" required></textarea></label><label><input id="creator-search" type="checkbox" checked> 使用網路參考</label><label><input id="creator-adult" type="checkbox"> 成人虛構分類</label><label>生成模型<select id="creator-model" required disabled><option>正在讀取可用模型…</option></select></label><button class="primary-button" type="submit">生成角色草稿</button><p id="creator-status" aria-live="polite"></p></form><section id="creator-result" class="creator-result" hidden></section></section>
       </section>
     </template>
     <template id="character-import-panel"
@@ -624,10 +626,11 @@
     </dialog>
     <div class="toast" id="toast" role="status"></div>
     <script src="age-confirmation.js?v=20261028-age-gate-2"></script>
-    <script src="app.js?v=20261101-chat-entry-1"></script>
+    <script src="app.js?v=20261101-polish-2"></script>
     <script src="jailbreak-studio.js?v=20261101-google-first-1"></script>
-    <script src="character-creator.js?v=20261101-google-first-1"></script>
+    <script src="character-creator.js?v=20261101-polish-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>
-    <script src="openrouter-connection.js?v=20261101-google-first-1"></script>
+    <script src="openrouter-connection.js?v=20261101-polish-1"></script>
+    <script src="ui-polish.js?v=20261101-2"></script>
   </body>
 </html>

@@ -27,6 +27,7 @@ function showScreen(name) {
   else if (!compactChatList.matches) setChatList(isChatListAvailable());
   if (name === "memory" && requireLogin()) loadMemories();
   if (name === "chat" || name === "create-character") refreshChatProviderState();
+  window.dispatchEvent(new CustomEvent('diji-screen-changed', {detail: {name}}));
 }
 
 function rememberPendingTask(name) {
@@ -292,6 +293,7 @@ async function saveChatMode(mode) {
   }
 }
 function setComposerBusy(busy) {
+  document.querySelector('#chat-form').setAttribute('aria-busy', String(busy));
   const send = document.querySelector(".send-button"), input = document.querySelector("#chat-input");
   send.disabled = busy; input.disabled = busy; send.querySelector("span").textContent = busy ? "傳送中…" : "送出";
 }
@@ -454,7 +456,11 @@ function setMobileNav(open) {
   mobileNavToggle.setAttribute("aria-expanded", String(visible));
   mobileNavBackdrop.hidden = !visible;
   syncOverlayLock();
-  if (visible) window.requestAnimationFrame(() => document.querySelector(".rail-nav .rail-button.active").focus());
+  if (visible) window.requestAnimationFrame(() => {
+    if (!mobileNavIsOpen()) return;
+    const target = document.querySelector('.rail-nav .rail-button.active') || document.querySelector('.rail-nav .rail-button');
+    target?.focus();
+  });
 }
 function isChatListAvailable() {
   const chatScreen = document.querySelector('.screen[data-screen="chat"].active');

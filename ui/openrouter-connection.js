@@ -111,6 +111,9 @@
     if (!workspaceAvailable) return;
     if (usageLoading) return;
     usageLoading = true;
+    const refreshUsage = document.querySelector('#refresh-bazaarlink-usage');
+    refreshUsage.disabled = true;
+    refreshUsage.setAttribute('aria-busy', 'true');
     try {
       const response = await fetch('/api/connections/bazaarlink/usage', {cache:'no-store'});
       if (!response.ok) throw new Error();
@@ -121,7 +124,7 @@
       document.querySelector('#bazaarlink-usage-note').textContent = data.requests ? `已記錄 ${data.requests} 次請求；從啟用紀錄後累計，不含其他應用程式。` : '尚無費用紀錄；從啟用紀錄後開始累計，不含其他應用程式。';
     } catch {
       document.querySelector('#bazaarlink-usage-note').textContent = '無法讀取費用紀錄，請登入或稍後更新。';
-    } finally { usageLoading = false; }
+    } finally { usageLoading = false; refreshUsage.disabled = false; refreshUsage.setAttribute('aria-busy', 'false'); }
   }
   document.querySelector('#refresh-bazaarlink-usage').addEventListener('click', loadBazaarUsage);
   setInterval(() => {

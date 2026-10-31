@@ -1,0 +1,163 @@
+/* Shared visual finish. Keep geometry, readable type and authentication gates intact. */
+:root {
+  --ink: #eaf1f6;
+  --muted: #b5c5d4;
+  --faint: #a7bacb;
+  --line: #34495e;
+  --line-soft: #283b4e;
+  --ui-accent: #b4dcd4;
+  --ui-ease: cubic-bezier(.2, .7, .2, 1);
+  --ui-panel: linear-gradient(145deg, #1b2c3e, #142131 80%);
+}
+button, a, input, textarea, select, summary { -webkit-tap-highlight-color: transparent; }
+button, input, textarea, select, a, summary { scroll-margin: 16px; }
+button:not(:disabled), summary, select { cursor: pointer; }
+button, a, input, textarea, select { transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, color 180ms ease; }
+:is(button, a, input, textarea, select, summary):focus-visible { outline: 3px solid #abdcd7; outline-offset: 3px; }
+button:disabled { cursor: default; }
+button[aria-busy="true"] { cursor: wait; }
+input::placeholder, textarea::placeholder { color: #9bafc1; opacity: 1; }
+input[type="checkbox"], input[type="radio"] { accent-color: #99cdc6; }
+::selection { background: #3b6572; color: #f0faf8; }
+* { scrollbar-width: thin; scrollbar-color: #526e80 #101b29; }
+
+/* The top bar always occupies its own layout row; no floating account controls. */
+.account-access { min-height: 72px; background: #101c2a; border-bottom-color: #344b5e; box-shadow: 0 4px 24px #00000015; }
+.account-access .logo { margin-right: 0; }
+.workspace-heading { display: grid; gap: 1px; margin: 0 auto 0 8px; min-width: 0; }
+.workspace-heading strong { font-size: 18px; color: #e5f1f3; font-weight: 600; line-height: 1.5; }
+.workspace-heading > span { font-size: 16px; color: #b3c8d5; }
+.account-login, .account-logout { box-shadow: inset 0 1px #e0f7fa09; font-weight: 500; }
+.rail { background: #101b29; border-right-color: #314457; padding-top: 20px; }
+.rail-nav { gap: 12px; }
+.rail-button { border-radius: 13px; }
+.rail-button.active { color: #d3f0e9; background: #29434d; border-color: #5c8387; box-shadow: inset 2px 0 #b1dcd3, 0 4px 14px #00000016; }
+.rail-button svg { transition: transform 180ms var(--ui-ease); }
+.screen.studio-screen { background: radial-gradient(ellipse at 95% 0, #28404e38, transparent 50%), #101a28; }
+.page-header, .creator-header, .creator-panel > header, .connections-heading { padding-bottom: 24px; border-bottom: 1px solid #354b5c; }
+.page-header h1, .creator-header h1, .connections-heading h1 { letter-spacing: -.035em; line-height: 1.4; }
+.eyebrow, .panel-kicker { color: #b1d5d1; letter-spacing: .06em; }
+
+/* Consistent control surfaces, including the existing native mobile model pickers. */
+.primary-button, .send-button { border: 1px solid #8abbb9; border-radius: 12px; background: linear-gradient(145deg, #426c72, #315460); color: #f0faf7; box-shadow: inset 0 1px #e8fffa19, 0 4px 12px #00000018; }
+.primary-button:hover:not(:disabled), .send-button:hover:not(:disabled) { background: #4b7880; border-color: #c1e5dc; box-shadow: 0 5px 20px #85b9b51c; }
+.ghost-button { border-radius: 11px; border-color: #496477; background: #1b2b3b; color: #dce9f0; }
+.ghost-button:hover:not(:disabled) { border-color: #82acb1; background: #253d4c; }
+.provider-card > .provider-disconnect:hover:not(:disabled) { background: #382632; border-color: #ad788b; color: #f1cdd7; }
+.square-button:hover, .chat-side-control:hover { border-color: #6d929c; background: #253d4c; }
+.primary-button, .ghost-button, .send-button, .account-login, .account-logout { min-height: 44px; }
+.creator-card :is(textarea, select, input:not([type="checkbox"])), .jailbreak-editor :is(input, textarea, select), .connection-field :is(input, select), .character-review :is(input, textarea), .prompt-preview input { background: #101c2b; border-color: #496275; border-radius: 11px; padding: 12px 14px; }
+.creator-card :is(textarea, select, input):focus-visible, .jailbreak-editor :is(input, textarea, select):focus-visible, .connection-field :is(input, select):focus-visible { outline: 3px solid #97cdc580; outline-offset: 2px; border-color: #abd8cf; box-shadow: none; }
+.creator-card textarea, .jailbreak-editor textarea, .character-review textarea { line-height: 1.8; }
+.search, .creator-search, .role-picker-search { border-color: #486071; border-radius: 12px; background: #111e2c; }
+.search:focus-within, .role-picker-search:focus-within { border-color: #9ac9c5; box-shadow: 0 0 0 3px #8cc8c015; }
+.creator-result[hidden] { display: none; }
+
+/* Role cards read as people to meet rather than a wall of identical utility panels. */
+.character-library-grid { gap: 18px; }
+.character-library-card { position: relative; min-height: 176px; padding: 22px 18px; border: 1px solid #415b6f; border-radius: 20px; background: var(--ui-panel); box-shadow: inset 0 1px #d6eef607, 0 8px 24px #00000012; transition: transform 200ms var(--ui-ease), border-color 180ms ease, box-shadow 180ms ease; }
+.character-library-initial { border-radius: 15px; width: 42px; height: 46px; background: linear-gradient(135deg, #355967, #203c4b); border-color: #769ca4; color: #ddf1ed; }
+.character-library-copy strong { font-size: 18px; line-height: 1.65; color: #f0f5f7; }
+.character-library-copy small { margin-top: 10px; color: #b9cbd8; line-height: 1.8; }
+.character-library-arrow { display: grid; place-items: center; width: 28px; height: 32px; color: #b1dcd3; transition: transform 200ms var(--ui-ease); }
+.character-library-card.personal-character { background: linear-gradient(145deg, #302f46, #20283b); border-color: #7c769e; }
+.character-create-card { border-style: dashed; background: #162a35; }
+.character-create-card .character-library-initial { border-style: dashed; background: transparent; }
+.character-library-tools { gap: 16px; flex-wrap: wrap; }
+
+/* One material palette across generation, memory, prompts and connections. */
+.creator-card, .creator-result, .editor-card, .template-card, .jailbreak-library, .jailbreak-editor, .prompt-preview, .settings-card, .memory-card, .memory-item { border-color: #3e586d; border-radius: 18px; background: var(--ui-panel); box-shadow: inset 0 1px #d6eef607, 0 8px 24px #00000012; }
+.creator-steps { gap: 12px; counter-reset: creator-step; }
+.creator-steps li { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 14px; border-radius: 12px; background: #152535; line-height: 1.6; }
+.creator-step-index { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 30px; border: 1px solid #6a8796; border-radius: 9px; color: #c6e1dd; font: 16px/1 'DM Mono', monospace; }
+.creator-steps strong { font-size: 16px; font-weight: 500; }
+.creator-steps li.active { color: #d8efe8; border-color: #86b5af; background: #29454d; box-shadow: inset 0 2px #abd7c9; }
+.character-review details { background: #122031; border-color: #425b6d; }
+.character-review details[open] { border-color: #739d9f; }
+.character-review summary { padding-block: 4px; line-height: 1.7; }
+.jailbreak-library select { border-radius: 12px; background: #101d2c; padding: 10px; line-height: 1.8; }
+.jailbreak-library select option { padding: 10px; border-radius: 7px; }
+.jailbreak-library select option:checked { background: #2c4e59; color: #eef8f3; }
+.jailbreak-editor-actions { padding-top: 18px; border-top: 1px solid #40566a; }
+.jailbreak-editor-actions > button { min-height: 48px; }
+.empty-state { max-width: 700px; padding: 36px; border: 1px dashed #527080; border-radius: 22px; background: radial-gradient(ellipse at 50% 0, #2e4b5c38, transparent 80%), #142232; }
+.empty-icon { border-radius: 20px; color: #b4dcd4; }
+.empty-state > svg { width: 44px; height: 44px; padding: 9px; border: 1px solid #769a9f; border-radius: 14px; background: #263f4b; color: #c6e7df; }
+.creator-panel.creator { width: min(100%, 1040px); margin-inline: auto; }
+[data-screen="connections"] .settings-card { background: var(--ui-panel); border-color: #456174; border-radius: 22px; box-shadow: inset 0 1px #e8f7fc09, 0 14px 30px #00000017; }
+.provider-symbol { background: #2c4954; border-radius: 15px; box-shadow: inset 0 1px #ccece30d; }
+.openrouter-spend { font-variant-numeric: tabular-nums; }
+.openrouter-spend strong { color: #d2ebe4; letter-spacing: -.03em; }
+.provider-status, #creator-status, .jailbreak-editor-status { line-height: 1.8; }
+
+/* Calm chat surfaces: readable text, a defined composer and meaningful selected states. */
+.chat-header { background: #152434; border-bottom-color: #3a5265; }
+.chat-list, .details { background: #132030; border-color: #364d61; }
+.chat-row.selected { border-color: #71969f; background: #284350; }
+.chat-mode-card { border-radius: 16px; border-color: #4d6c7e; background: #182d3c; }
+.chat-mode-card.active { border-color: #afd8d0; background: #294a54; box-shadow: inset 0 0 0 1px #a2cfc55e; }
+.chat-mode-card.active .chat-mode-icon { background: #355f66; border-color: #9ec6c3; }
+.composer { border-color: #526e81; border-radius: 18px; background: #182b3b; box-shadow: 0 6px 24px #0000001a; }
+.composer:focus-within { border-color: #a0cac6; box-shadow: 0 0 0 3px #98d0c311, 0 6px 24px #0000001a; }
+.message.user > p { border-color: #557b87; background: #254350; border-radius: 18px 18px 5px 18px; }
+.typing-bubble { background: #213a49; border-color: #567b87; }
+.chat-memory-item { border-color: #3d576a; border-radius: 12px; background: #192b3a; }
+.chat-memory-item p { color: #b3c7d4; }
+.chat-provider-gate > div { border-color: #5a7e8e; border-radius: 24px; background: linear-gradient(145deg, #203746, #142333); box-shadow: 0 24px 70px #00000040, inset 0 1px #d6eef610; }
+.chat-welcome { position: relative; }
+.chat-welcome .role-picker-header { border-left: 3px solid #89bcb7; padding-left: 22px; }
+.chat-welcome-button { margin-left: 25px; }
+.toast { border: 1px solid #7caaa8; border-radius: 14px; background: #223e49; color: #ecf6f1; box-shadow: 0 12px 38px #00000040; max-width: calc(100vw - 32px); line-height: 1.7; }
+.google-login-dialog, .age-confirmation, .pwa-guide { border-color: #668b98; border-radius: 24px; box-shadow: 0 30px 90px #00000080; }
+
+/* Motion is finite; reading and long-running model work never depend on decoration. */
+@keyframes diji-screen-in { from { opacity: .65; } to { opacity: 1; } }
+@keyframes diji-panel-in { from { opacity: .65; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes diji-drawer-in { from { opacity: .6; transform: translateX(-16px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes diji-line-in { from { stroke-dashoffset: 600; opacity: 0; } to { stroke-dashoffset: 0; opacity: 1; } }
+@keyframes diji-busy { to { transform: rotate(360deg); } }
+.screen.active { animation: diji-screen-in 240ms var(--ui-ease); }
+.home-screen.active .home-story { animation: diji-panel-in 280ms var(--ui-ease); }
+.home-screen.active .home-story-art svg path { stroke-dasharray: 600; animation: diji-line-in 1400ms ease-out both; }
+dialog[open] > section { animation: diji-panel-in 220ms var(--ui-ease); }
+.message:last-child { animation: diji-panel-in 200ms ease-out; }
+.app.mobile-nav-open .rail, .app.chat-list-open .chat-list { animation: diji-drawer-in 240ms var(--ui-ease); }
+.details-open .details { animation: diji-panel-in 240ms var(--ui-ease); }
+#creator-brief[aria-busy="true"] button[type="submit"]::after, #refresh-openrouter:disabled::after, #refresh-bazaarlink-usage[aria-busy="true"]::after { display: inline-block; content: ""; width: 14px; height: 14px; margin-left: 10px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; vertical-align: middle; animation: diji-busy 800ms linear infinite; }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .character-library-card:hover { transform: translateY(-3px); border-color: #91bebc; box-shadow: 0 14px 28px #0000002b; }
+  .character-library-card:hover .character-library-arrow { transform: translateX(3px); }
+  .rail-button:hover svg { transform: translateY(-1px); }
+  .primary-button:active:not(:disabled), .ghost-button:active:not(:disabled), .home-start:active { transform: translateY(1px); }
+}
+@media (max-width: 760px) {
+  .account-access { min-height: 64px; gap: 8px; }
+  .workspace-heading { margin-left: 0; }
+  .workspace-heading strong { font-size: 16px; white-space: nowrap; }
+  .workspace-heading > span { display: none; }
+  .guest-mode .workspace-heading { display: none; }
+  .guest-mode .account-access .logo { margin-right: auto; }
+  .account-logout, .account-login { padding-inline: 12px; }
+  .page-header, .creator-header, .creator-panel > header, .connections-heading { padding-bottom: 18px; }
+  .character-library-grid { gap: 14px; }
+  .character-library-card { padding: 20px 16px; min-height: 146px; border-radius: 18px; }
+  .character-library-card { grid-template-columns: 42px minmax(0, 1fr) 24px; gap: 10px; }
+  .character-library-arrow { width: 24px; }
+  .empty-state { padding: 26px 20px; }
+  .chat-welcome-button { margin-left: 0; }
+  .creator-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .creator-steps li { flex-direction: column; align-items: flex-start; gap: 8px; padding: 10px 8px; }
+  .creator-step-index { width: 26px; height: 26px; flex-basis: 26px; }
+  .app.mobile-nav-open .rail { background: #122132; border-radius: 0 24px 24px 0; }
+  .app.mobile-nav-open .rail-nav { gap: 10px; }
+  .app.mobile-nav-open .rail-button { min-height: 48px; }
+  .details-open .details { border-radius: 24px 24px 0 0; }
+}
+@media (min-width: 761px) and (max-width: 1050px) {
+  .jailbreak-workbench { grid-template-columns: minmax(0, 1fr); }
+  .jailbreak-library { grid-template-rows: auto auto; }
+  .jailbreak-library select { min-height: 180px; max-height: 260px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
