@@ -27,23 +27,24 @@ function showScreen(name) {
 async function refreshChatProviderState() {
   const status = document.querySelector('#chat-provider-status');
   const config = document.querySelector('#chat-provider-config');
-  const setup = document.querySelector('#chat-provider-setup');
+  const controls = document.querySelector('#chat-provider-controls');
+  const explain = '角色回覆需要由模型商提供 AI 模型。連接後才能開始聊天，費用會使用你自己的額度。請前往左側「模型連線」完成設定。';
   const names = {openrouter: 'OpenRouter', bazaarlink: 'BazaarLink'};
   try {
     const response = await fetch('/api/connections/priority', {cache:'no-store'});
     if (response.status === 401) {
-      status.textContent = '尚未登入及連接模型商'; config.textContent = ''; setup.hidden = false; return false;
+      status.textContent = '尚未連接模型商'; config.textContent = explain; controls.hidden = true; return false;
     }
     if (!response.ok) throw new Error();
     const data = await response.json();
     const providers = data.priority.filter(id => data.connected.includes(id));
-    setup.hidden = providers.length > 0;
+    controls.hidden = providers.length === 0;
     status.textContent = providers.length ? `已連接模型商：${providers.map(id => names[id]).join('、')}` : '尚未連接模型商';
     const model = document.querySelector('#model-input').value;
-    config.textContent = providers.length ? `額度順序：${providers.map(id => names[id]).join(' → ')}。目前模型：${model || '尚未選擇'}。` : '';
+    config.textContent = providers.length ? `額度順序：${providers.map(id => names[id]).join(' → ')}。目前模型：${model || '尚未選擇'}。` : explain;
     return providers.length > 0;
   } catch {
-    status.textContent = '無法確認模型商連接狀態，請稍後重試'; config.textContent = ''; setup.hidden = false; return false;
+    status.textContent = '無法確認模型商連接狀態，請稍後重試'; config.textContent = explain; controls.hidden = true; return false;
   }
 }
 function openRolePicker() {
