@@ -18,6 +18,7 @@ DIJI 是把既有 ai-server 的可開源核心拆成可檢查模組，而不是�
 
 - 記憶注入模式使用 `MEM0_INJECT_MODE` 的 `system`、`user`、`none`；請求的 `inject_memory` 覆寫此設定。
 - 常規記憶以 `<MEM>` 放入最近 20 筆；目前使用者訊息會以提取後的 `keywords` 值搜尋，另放入 `<RELEVANT_MEM>`。分類搜尋命中數只作 metadata，排序仍依時間新到舊。
+- OpenRouter 相容的記憶抽取明確停用推理 `reasoning.enabled=false`，讓既有 1000-token 輸出預算用於 JSON；這是模型供應商相容性修正，不改 ai-server 的記憶格式、提示與檢索方式。
 - 已有完整逐字對話但尚未建立事件記憶時，登入者可從該對話的右側面板主動回填；回填只處理自己的一個 `chat_id`、最多最近 80 則訊息、每 8 則獨立抽取。所有批次成功前不寫入任何記憶，已有事件記憶的對話不重複回填。
 - 模型路由順序為 DIGI/Joi 的 vLLM、ORPO 遠端 `/api/generate`、Skylark、其餘 OpenRouter 相容端點。未設定必要金鑰時必須在網路請求前失敗。
 - 輸出清理先移除時間、處理文字換行與內部標籤，再正規化標點；不可將提示詞內部標籤輸出給使用者。

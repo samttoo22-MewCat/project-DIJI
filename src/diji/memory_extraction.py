@@ -73,6 +73,7 @@ class MemoryExtractor:
                 top_p=0.6,
                 messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"},
+                extra_body={"reasoning": {"enabled": False}},
             )
             match = re.search(r"\{.*\}", content, re.DOTALL)
             if not match:

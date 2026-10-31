@@ -6,6 +6,10 @@
 
 ## 架構原則
 
+- 2026-11-01 Edge 實測：記憶抽取的 DeepSeek V4.1 Flash 預設推理可耗盡 1000 token，導致空正文與回退記憶。抽取請求固定 `reasoning.enabled=false`，保留模型、1000-token 上限、JSON schema、提示與 ai-server 查詢語義。`tests/test_memory_reasoning.py` 重現空正文並防止回歸。
+- 記憶頁只在 sessionStorage 保存所查看對話的帳號 ID、chat_id 與角色名稱；重新載入時可恢復該記憶頁的範圍，不自動打開聊天。帳號不符時忽略，登出清除；實際記憶與對話仍在伺服器。
+- 記憶驗證結果見 `docs/memory-verification.md`：Edge 實際抽取、顯示與重整保存，以及無逐字歷史的真實模型回憶通過；84 項測試通過。保留原回退事件、不改 ai-server 關鍵字字串比對；不可宣稱短詞能命中多值關鍵字或已有語意搜尋。
+
 - `character_generation`：以 ai-server 邏輯執行「概念 → JSON 人設 → 對話風格 → App 摘要／分類 → 嗜好 → 完整 prompt」。角色生成只產生可審核草稿；只有 UI 明確儲存時才寫入角色庫。`OpenRouterGenerationClient` 只在 `POST /api/characters/generate` 時發送請求。
 - `interaction`：組裝互動上下文、依 ai-server 路由模型、清理輸出、保存記憶並更新關係狀態。
 - `experiments`：可重現的內部組裝設定與越獄參照；成人虛構請求才可使用其中的越獄欄位，不能內嵌在核心模組。

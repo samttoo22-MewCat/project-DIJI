@@ -355,8 +355,19 @@ async function loadInteractionModels() {
 }
 async function loadMemories() {
   const list = document.querySelector("#memory-list"), empty = document.querySelector("#memory-empty");
+  let context = null;
   try {
-    const response = await fetch(`/api/memories/${state.chatId}`);
+    if (state.chatId !== 'preview') {
+      context = {userId: authenticatedUser?.id, chatId: state.chatId, character: state.character};
+      sessionStorage.setItem('diji-memory-context', JSON.stringify(context));
+    } else {
+      const saved = JSON.parse(sessionStorage.getItem('diji-memory-context') || 'null');
+      if (saved?.userId === authenticatedUser?.id && authenticatedUser) context = saved;
+    }
+  } catch {}
+  document.querySelector('#memory-context').textContent = context ? `記憶所屬對話：${context.character}` : '請先開啟一段角色對話，再查看記憶。';
+  try {
+    const response = await fetch(`/api/memories/${context?.chatId || state.chatId}`);
     if (!response.ok) throw new Error("memory unavailable");
     const memories = await response.json();
     list.replaceChildren(...memories.map((memory) => {
@@ -597,6 +608,7 @@ document.querySelectorAll("[data-auth-logout]").forEach((button) => button.addEv
   authenticatedUser = null;
   workspaceAvailable = false;
   updateAccountAccess();
+  try { sessionStorage.removeItem('diji-memory-context'); } catch {}
   state.characters = [];
   state.conversations = [];
   state.history = [];
