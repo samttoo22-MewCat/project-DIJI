@@ -145,6 +145,8 @@ pytest -q
 
 ## Google 登入優先（2026-11-01）
 
+- 初始頁以 `ui/home.css` 作最後載入的首頁樣式：桌面雙欄大標／情境示意，手機先顯示主標與 Google CTA，再顯示示意與介紹。`home-start-label` 保留動態登入／連線／選角文案，箭頭獨立保留；示意固定標示非模型回覆或使用者資料。首頁修改須驗證 375／768／1024／1440px、不橫向溢位、登入入口與匿名 gate，並更新資源版本。
+
 - 公開部署的訪客只看專案介紹與 Google 登入；前端以 `guest-mode` 預設隱藏工作區並使非首頁 inert，session 驗證成功才解鎖。未登入的直接 hash 路由回首頁，不自動彈出登入。登出後立即收回工作區並清空聊天畫面。
 - `DIJI_AUTH_REQUIRED=true` 時 middleware 對所有非登入 API 與 OpenAPI 要求 session，未登入回 401/no-store；Google 授權、回呼、session、登出與舊登入相容端點保留。本機模式維持免登入；`/api/auth/session` 的 `auth_required` 明確區分兩模式。健康檢查在公開模式驗證匿名 API 為 401。
 - 子介面資料在 `diji-workspace-ready` 後才載入；角色與聊天仍須另行連接模型商。變更入口流程時驗證匿名、Google 回呼後、登出及直接 hash 路由，維持公開介紹頁可讀。

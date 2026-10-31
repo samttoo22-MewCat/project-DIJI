@@ -28,13 +28,13 @@
     <link rel="stylesheet" href="conversation-history.css?v=20261011-persistent-chats-1" />
     <link rel="stylesheet" href="settings.css?v=20261018-auth-gate-hidden-1" />
     <link rel="stylesheet" href="character-creator.css" />
-    <link rel="stylesheet" href="home.css?v=20261020-project-home-1" />
     <link rel="stylesheet" href="responsive.css?v=20261030-openrouter-1" />
     <link rel="stylesheet" href="pwa.css?v=20261021-pwa-2" />
     <link rel="stylesheet" href="account-access.css?v=20261101-creator-lock-1" />
     <link rel="stylesheet" href="age-confirmation.css?v=20261028-age-gate-1" />
     <link rel="stylesheet" href="connection-layout.css?v=20261101-disconnect-1" />
     <link rel="stylesheet" href="onboarding.css?v=20261101-google-first-1" />
+    <link rel="stylesheet" href="home.css?v=20261101-story-home-1" />
   </head>
   <body class="guest-mode">
     <header class="account-access" aria-label="帳號操作">
@@ -167,23 +167,38 @@
       <section class="content">
         <section class="screen home-screen active" data-screen="home" aria-labelledby="home-title">
           <div class="home-shell">
+            <div class="home-opening">
             <header class="home-hero">
-              <p class="home-kicker">DIJI · 角色互動工作台</p>
-              <h1 id="home-title">讓角色的每一次對話，都留在脈絡裡。</h1>
-              <p class="home-summary">DIJI 是一個非商業、可自架的角色互動專案。它把角色人設、逐字對話、事件記憶與互動設定放在同一個清楚且可檢查的工作流程中。</p>
-              <ol id="home-journey" class="home-journey" aria-label="開始使用步驟"><li>1 Google 登入</li><li>2 連接模型商</li><li>3 選角開始對話</li></ol>
+              <p class="home-kicker"><span class="home-wordmark">DIJI</span><span>角色互動 · 故事由此展開</span></p>
+              <h1 id="home-title">故事的下一句，<br /><span>由你開始。</span></h1>
+              <p class="home-summary">遇見一個角色，或親手創造一個。<br />從一句話開始，延續你們的故事。</p>
               <div class="home-actions">
-                <button class="home-start" id="home-start" type="button">使用 Google 登入</button>
+                <button class="home-start" id="home-start" type="button"><span class="home-start-label">使用 Google 登入</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 5l7 7-7 7" /></svg></button>
                 <button class="pwa-install home-install" data-pwa-install type="button" hidden>安裝至裝置</button>
               </div>
-              <p class="home-note">先使用 Google 登入，才能進入角色與對話工作區。登入後可連接自己的模型額度，角色、對話與記憶會保存到你的 DIJI 帳號。</p>
+              <p class="home-note">Google 登入後開啟工作區，再連接自己的模型額度。</p>
+              <ol id="home-journey" class="home-journey" aria-label="開始使用步驟"><li>1 Google 登入</li><li>2 連接模型商</li><li>3 選角開始對話</li></ol>
             </header>
+            <figure class="home-story" aria-labelledby="home-story-title">
+              <div class="home-story-orbit" aria-hidden="true"></div>
+              <div class="home-story-heading"><span>一段故事的可能</span><span class="home-example-label">情境示意</span></div>
+              <div class="home-story-art" aria-hidden="true"><span>DIJI</span><svg viewBox="0 0 400 100"><path d="M0 90Q100 5 200 50T400 10M0 70Q100 100 200 35T400 45" /></svg></div>
+              <figcaption id="home-story-title"><span>第一章</span>雨夜的重逢</figcaption>
+              <div class="home-story-dialogue">
+                <p class="home-example-you"><span>你</span>「還記得我們上次的約定嗎？」</p>
+                <p class="home-example-character"><span>角色</span>她收起傘，在門口停了一下。<br /><strong>「記得。所以我來了。」</strong></p>
+              </div>
+              <div class="home-story-memory"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10a2 2 0 0 1 2 2v14l-7-4-7 4V6a2 2 0 0 1 2-2Z"/></svg><p><strong>讓故事有前後文</strong><span>角色人設、對話歷史與事件記憶，各自保留脈絡。</span></p></div>
+              <p class="home-example-note">文案示意，非實際模型回覆或使用者資料。</p>
+            </figure>
+            </div>
+            <section class="home-about" aria-labelledby="home-about-title"><p class="home-section-label">ABOUT THE PROJECT</p><h2 id="home-about-title">不只是聊天，是一起續寫。</h2><p>DIJI 是一個非商業、可自架的角色互動專案。從人設創作到長短對話，將角色、對話與記憶串在一起，讓每段互動都能繼續。</p></section>
             <section class="home-principles" aria-label="DIJI 的核心方式">
-              <article class="home-principle"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5.5 19c.7-3 2.9-4.5 6.5-4.5s5.8 1.5 6.5 4.5"/></svg><h2>角色先行</h2><p>先選角色再開始對話，不以預設人格取代你的選擇。</p></article>
-              <article class="home-principle"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5h10a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2Z"/><path d="M8.5 9h7M8.5 13h5"/></svg><h2>對話可續</h2><p>逐字歷史與事件記憶分開保存，讓後續互動有可追溯的前後文。</p></article>
-              <article class="home-principle"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v2M12 18.5v2M20.5 12h-2M5.5 12h-2M18 6l-1.4 1.4M7.4 16.6 6 18M18 18l-1.4-1.4M7.4 7.4 6 6"/><circle cx="12" cy="12" r="3"/></svg><h2>設定透明</h2><p>模型、內容與互動設定都在對話內明確呈現，由你決定是否啟用。</p></article>
+              <article class="home-principle"><span class="home-feature-number">01 / 創作</span><h3>有性格的角色</h3><p>從角色庫選擇，或從一個靈感生成並編輯自己的人設。</p></article>
+              <article class="home-principle"><span class="home-feature-number">02 / 延續</span><h3>接得上的對話</h3><p>長對話鋪陳故事，短對話輕鬆來回；登入後保存對話與記憶。</p></article>
+              <article class="home-principle"><span class="home-feature-number">03 / 選擇</span><h3>自己的模型額度</h3><p>連接 BazaarLink 或 OpenRouter，自選模型與額度使用順序。</p></article>
             </section>
-            <p class="home-footer">非商業實驗專案 · 角色、歷史與設定依你選擇的流程保存。</p>
+            <p class="home-footer"><span>DIJI · 非商業開源專案</span><span>使用前須確認已滿 18 歲 · 模型費用使用自備額度</span></p>
           </div>
         </section>
         <section class="screen awaiting-character" data-screen="chat">
@@ -617,7 +632,7 @@
     </dialog>
     <div class="toast" id="toast" role="status"></div>
     <script src="age-confirmation.js?v=20261028-age-gate-2"></script>
-    <script src="app.js?v=20261101-google-first-1"></script>
+    <script src="app.js?v=20261101-story-home-1"></script>
     <script src="jailbreak-studio.js?v=20261101-google-first-1"></script>
     <script src="character-creator.js?v=20261101-google-first-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>

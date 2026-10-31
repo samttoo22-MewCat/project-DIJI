@@ -11,3 +11,5 @@ datasets/
 .git/
 node_modules/
 *.sqlite3
+playwright-report/
+test-results/

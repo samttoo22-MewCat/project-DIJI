@@ -53,9 +53,9 @@ async function updateHomeJourney() {
   }
   const stage = !signedIn ? 0 : !connected ? 1 : 2;
   steps.forEach((step,index) => { step.classList.toggle('complete', index < stage); if (index === stage) step.setAttribute('aria-current','step'); else step.removeAttribute('aria-current'); });
-  button.textContent = ['使用 Google 登入', '連接模型商，開始使用', '選擇角色開始對話'][stage];
+  button.querySelector('.home-start-label').textContent = ['使用 Google 登入', '連接模型商，開始使用', '選擇角色開始對話'][stage];
   button.dataset.next = ['login','connections','chat'][stage];
-  note.textContent = ['登入後，角色、對話與記憶會保存到你的 DIJI 帳號。', '選擇 BazaarLink 或 OpenRouter，連接自己的模型額度。', '已準備完成。選一位角色，開始第一段對話。'][stage];
+  note.textContent = ['Google 登入後開啟工作區，再連接自己的模型額度。', '選擇 BazaarLink 或 OpenRouter，連接自己的模型額度。', '已準備完成。選一位角色，開始第一段對話。'][stage];
 }
 
 function setChatProviderLocked(locked, title = '尚未連接模型商') {
