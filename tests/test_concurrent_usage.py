@@ -16,6 +16,7 @@ from diji.local_catalog import LocalCatalog, CharacterSpec
 from diji.provider_routing import provider_client, provider_session
 from diji.experiments import ExperimentStore, JailbreakStore
 from diji.work_limits import WorkLimits
+from diji.player_personas import PlayerPersonaStore, PlayerPersonaInput
 
 
 @pytest.fixture
@@ -37,6 +38,7 @@ def concurrent_app(tmp_path, monkeypatch):
         user=accounts.upsert_google_user(f'qa-{index}',f'QA {index}',f'qa-{index}@example.test')
         accounts.save_provider_key(user.id,f'isolated-fake-key-{index}')
         players.append((user,accounts.create_google_session(user.id)))
+        PlayerPersonaStore(tmp_path/'users'/user.id/'player_personas.sqlite3').save(PlayerPersonaInput(label='測試身分',name='玩家'))
     catalog=LocalCatalog(tmp_path/'catalog.json')
     catalog.save_character(CharacterSpec(id='qa-role',name='多人測試',premise='測試',voice='簡短'))
     calls={'active':0,'peak':0,'total':0,'started':None,'release':None}

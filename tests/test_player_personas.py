@@ -2,6 +2,7 @@ import json
 
 import pytest
 from diji.conversation_store import ConversationStore
+from diji.conversation_store import ConversationMessage
 from diji.player_personas import PlayerPersonaInput, PlayerPersonaStore
 from test_draft_trial import trial
 from test_message_edit import normal_chat
@@ -25,8 +26,8 @@ def test_personas_are_private_and_require_login(trial):
     assert anonymous.get('/api/player-personas').status_code==401
     saved=owner.post('/api/player-personas',json=persona()).json()
     assert saved['id'].startswith('player-')
-    assert len(owner.get('/api/player-personas').json())==1
-    assert other.get('/api/player-personas').json()==[]
+    assert len(owner.get('/api/player-personas').json())==2
+    assert saved['id'] not in [item['id'] for item in other.get('/api/player-personas').json()]
     assert other.put('/api/player-personas/'+saved['id'],json=persona('冒用')).status_code==404
     for field in ['label','name']:
         assert owner.post('/api/player-personas',json={**persona(),field:'   '}).status_code==422
@@ -75,3 +76,26 @@ def test_message_edit_branch_retains_persona_snapshot(trial,monkeypatch):
     assert response.status_code==200
     branch=response.json()['conversation']
     assert branch['player_persona']==source['player_persona'] and branch['player_persona_id']==saved['id']
+
+
+def test_chat_and_trial_require_persona_before_model_call(trial):
+    owner,_,_,_,root,run_id,trial_payload,calls=trial
+    with PlayerPersonaStore(root/'player_personas.sqlite3').connect() as db:
+        db.execute('DELETE FROM personas')
+    assert owner.put('/api/characters/persona-role',json={'id':'persona-role','name':'角色','premise':'背景','voice':'簡短'}).status_code==200
+    start={'chat_id':'requires-player','character_id':'persona-role','character_name':'角色'}
+    payload={'chat_id':'requires-player','llm':{'model':'test/model'},'character':{'id':'persona-role','name':'角色','description':'背景'},'user':{'id':'local-user','persona':{'name':'自行偽造'}},'message':{'sender_id':'local-user','text':'你好'},'enable_favorability':False}
+    assert owner.post('/api/conversations',json=start).status_code==409
+    assert owner.post('/api/interactions',json=payload).status_code==409
+    assert owner.post(f'/api/character-generations/{run_id}/test-interactions',json=trial_payload).status_code==409
+    assert calls==[] and owner.get('/api/conversations').json()==[]
+    saved=owner.post('/api/player-personas',json=persona()).json()
+    assert owner.post('/api/conversations',json=start).json()['player_persona_id']==saved['id']
+    second=owner.post('/api/player-personas',json=persona('另一份')).json()
+    assert owner.post('/api/conversations',json={**start,'chat_id':'must-choose'}).status_code==409
+    assert owner.post('/api/conversations',json={**start,'chat_id':'must-choose','player_persona_id':second['id']}).status_code==200
+    chats=ConversationStore(root/'conversations')
+    chats.append('legacy-no-persona','persona-role','角色',ConversationMessage(sender_type=1,text='既有內容'))
+    original=chats.get('legacy-no-persona')
+    assert owner.post('/api/interactions',json={**payload,'chat_id':'legacy-no-persona'}).status_code==409
+    assert chats.get('legacy-no-persona')==original and calls==[]

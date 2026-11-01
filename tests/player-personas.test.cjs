@@ -3,13 +3,13 @@ const root=path.resolve(__dirname,'..');
 const dom=new JSDOM(fs.readFileSync(path.join(root,'ui/index.html'),'utf8'),{url:'https://example.test/',runScripts:'outside-only'}),w=dom.window;
 w.matchMedia=()=>({matches:false,addEventListener(){}});w.HTMLDialogElement.prototype.showModal=function(){this.open=true};
 const records=[{id:'player-first',label:'旅行者',name:'霧川',sex:'女',age:'28',description:'海邊的調香師'},{id:'player-second',label:'醫師',name:'清河',description:'山城醫師'}];
-let chats=[],saved=[];w.crypto.randomUUID=()=>`00000000-0000-4000-8000-${String(chats.length).padStart(12,'0')}`;
+let chats=[],saved=[],available=[];w.crypto.randomUUID=()=>`00000000-0000-4000-8000-${String(chats.length).padStart(12,'0')}`;
 w.fetch=async(url,options={})=>{
  let data=[];
  if(url==='/api/auth/session')data={authenticated:true,auth_required:true,user:{id:'test-owner',display_name:'測試'}};
  else if(url==='/api/connections/priority')data={priority:['openrouter'],connected:['openrouter']};
  else if(url==='/api/bootstrap')data={characters:[],flows:[]};
- else if(url==='/api/player-personas') {if(options.method==='POST'){saved.push(JSON.parse(options.body));data={id:'new',...saved.at(-1)}}else data=records;}
+ else if(url==='/api/player-personas') {if(options.method==='POST'){saved.push(JSON.parse(options.body));data={id:'new',...saved.at(-1)}}else data=available;}
  else if(url==='/api/conversations' && options.method==='POST') {const body=JSON.parse(options.body),p=records.find(r=>r.id===body.player_persona_id);data={...body,player_persona:p ? {name:p.name,sex:p.sex || '',age:p.age || '',description:p.description,chat_mode:'story'} : {name:'使用者',chat_mode:'story'},messages:[]};chats.push(data);}
  else if(url==='/api/conversations')data=chats;
  return {ok:true,status:200,json:async()=>data};
@@ -18,6 +18,10 @@ w.eval(fs.readFileSync(path.join(root,'ui/app.js'),'utf8')+'\n'+fs.readFileSync(
 const d=w.document,tick=()=>new Promise(r=>setTimeout(r,30));
 (async()=>{
  await tick();assert.equal(d.querySelector('[data-view=characters]').nextElementSibling.dataset.view,'player-personas');
+ w.dijiState.characters=[{id:'role-one',name:'角色',profile:{}}];
+ await w.dijiSelectCharacter(w.dijiState.characters[0]);await tick();
+ assert.equal(chats.length,0);assert.equal(d.querySelector('.screen.active').dataset.screen,'player-personas');
+ available=records;w.dijiState.characters=[];w.dijiState.characterId=null;w.dispatchEvent(new w.Event('diji-workspace-ready'));await tick();
  assert.equal(d.querySelectorAll('.player-card').length,2);
  d.querySelector('.player-card .primary-button').click();await tick();
  assert.equal(w.dijiState.playerPersonaId,'player-first');assert.equal(chats.length,0);

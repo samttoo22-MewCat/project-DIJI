@@ -18,6 +18,8 @@ def normal_chat(trial,monkeypatch):
     monkeypatch.setattr(module,'AiServerCompatibleAdapter',lambda key=None:Adapter())
     character={'id':'edit-role','name':'編輯測試','premise':'測試','voice':'簡短','profile':{'backstory':'角色背景'}}
     assert owner.put('/api/characters/edit-role',json=character).status_code==200
+    if not owner.get('/api/player-personas').json():
+        assert owner.post('/api/player-personas',json={'label':'測試身分','name':'玩家'}).status_code==200
     assert owner.post('/api/conversations',json={'chat_id':'original','character_id':'edit-role','character_name':'編輯測試','chat_mode':'dialog'}).status_code==200
     payload={'chat_id':'original','llm':{'model':'test/model'},'character':{'id':'edit-role','name':'編輯測試','description':'角色背景'},'user':{'id':'local-user','persona':{'name':'玩家','chat_mode':'dialog'}},'message':{'sender_id':'local-user','text':'第一句'},'is_nsfw':False,'enable_favorability':False}
     return owner,other,anonymous,activity,root,payload,calls
@@ -27,7 +29,7 @@ def test_edit_regenerates_from_target_and_restores_prior_state(trial,monkeypatch
     owner,_,_,activity,root,payload,calls=normal_chat(trial,monkeypatch)
     assert owner.post('/api/interactions',json=payload).status_code==200
     uid=owner.get('/api/auth/session').json()['user']['id']
-    profiles=UserProfileStore(root/'user_profiles');profiles.restore_snapshot(uid,{'preference':'當時偏好'})
+    profiles=UserProfileStore(root/'branch_profiles'/'original');profiles.restore_snapshot(uid,{'preference':'當時偏好'})
     relationships=RelationshipStore(root/'relationships');relationships.restore_snapshot('original',RelationshipState(current_score=12).model_dump())
     second={**payload,'message':{'sender_id':'local-user','text':'舊第二句'}}
     assert owner.post('/api/interactions',json=second).status_code==200

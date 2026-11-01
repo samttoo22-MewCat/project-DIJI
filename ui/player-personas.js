@@ -8,11 +8,13 @@
   }
   function render() {
     const current=state.playerPersonaId || '';
-    select.replaceChildren(new Option('使用者 · 預設設定',''));
+    select.replaceChildren(new Option('請先選擇玩家設定',''));
+    select.options[0].disabled=true;
     for(const record of records) select.add(new Option(`${record.label} · ${record.name}`,record.id));
     if(current && !records.some(record=>record.id===current)) select.add(new Option(`${state.playerPersona?.name || '玩家'} · 此對話保存版本`,current));
     select.value=current;select.disabled=busy();
     document.querySelector('#chat-player-summary').textContent=summary(state.playerPersona);
+    document.querySelector('#chat-choose-character').textContent=current ? '前往角色頁面 →' : '先設定玩家身分 →';
     list.replaceChildren();
     for(const record of records) {
       const card=document.createElement('article');card.className='player-card';card.classList.toggle('selected',current===record.id);
@@ -32,9 +34,17 @@
       const response=await fetch('/api/player-personas',{cache:'no-store'});
       if(!response.ok)throw new Error('無法載入玩家設定，請稍後重試。');
       const data=await response.json();if(epoch!==loading)return;
-      records=data;status.textContent='';render();
+      records=data;status.textContent='';render();return true;
     }catch(error){if(epoch===loading)status.textContent=error.message;}
+    return false;
   }
+  window.dijiEnsurePlayerPersona=async()=>{
+    if(!await load()){showScreen('player-personas');return false;}
+    if(state.playerPersonaId && records.length)return true;
+    showScreen('player-personas');
+    status.textContent=records.length ? '聊天前請先選擇「使用此設定」。選用後會開啟新對話。' : '聊天前，請先新增至少一份玩家個人設定，並選擇「使用此設定」。';
+    showToast('請先建立並選用玩家設定，再開始聊天。');return false;
+  };
   function openForm(record=null) {
     editing=record?.id || null;form.reset();
     for(const key of ['label','name','sex','age','description'])form.elements.namedItem(key).value=record?.[key] || '';
@@ -47,7 +57,7 @@
     switching=true;setComposerBusy(true);render();
     try {
       const character=selectedCharacter();
-      if(character && state.chatId!=='preview') {
+      if(character) {
         if(!await startConversation(character,id || null))return;
         setChatReady(true);showScreen('chat');
         showToast('已使用選擇的玩家設定開啟新對話，原對話仍保留。');
@@ -71,7 +81,7 @@
       const response=await fetch(editing ? `/api/player-personas/${encodeURIComponent(editing)}` : '/api/player-personas',{method:editing ? 'PUT' : 'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});
       if(!response.ok)throw new Error('儲存失敗，請確認內容後再試。');
       if(owner!==authenticatedUser?.id || !workspaceAvailable)return;
-      form.hidden=true;await load();status.textContent='已儲存。選擇「使用此設定」即可開始；已開始的對話不會變更。';showToast('玩家設定已儲存');
+      form.hidden=true;await load();updateHomeJourney();status.textContent='已儲存。選擇「使用此設定」即可開始；已開始的對話不會變更。';showToast('玩家設定已儲存');
     }catch(error){status.textContent=error.message;}
     finally{submit.disabled=false;}
   });

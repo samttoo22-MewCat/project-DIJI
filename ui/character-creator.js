@@ -414,6 +414,7 @@
     const trial = document.createElement('section'); trial.className='draft-trial'; trial.setAttribute('aria-label','草稿測試對話');
     const generationId=draft.generation_id, revision=draft.revision, epoch=creatorEpoch;
     let chatId=`trial-${crypto.randomUUID()}`;
+    let trialPersonaId=window.dijiState?.playerPersonaId || null;
     const selectedModel=model.value, adult=panel.querySelector('#creator-adult').checked;
     const header=document.createElement('header'); header.className='draft-trial-header';
     const back=document.createElement('button'); back.type='button'; back.className='primary-button'; back.textContent='返回審核草稿';
@@ -441,7 +442,7 @@
       log.querySelectorAll('.message-edit-button').forEach(button=>button.disabled=value);
     }
     function showRecord(record) {
-      chatId=record.chat_id;log.replaceChildren();
+      chatId=record.chat_id;trialPersonaId=record.player_persona_id || null;log.replaceChildren();
       if(record.parent_chat_id) {
         const notice=document.createElement('div');notice.className='conversation-branch-notice';notice.textContent='已從編輯處重新生成，原試聊仍保留。'+(record.state_checkpoint_available===false?' 舊試聊缺少狀態快照，記憶將重新累積。':'');
         const original=document.createElement('button');original.type='button';original.className='ghost-button';original.textContent='查看編輯前對話';
@@ -458,7 +459,7 @@
         const sourceResponse=await fetch(`/api/character-generations/${generationId}/test-conversations/${sourceId}`,{cache:'no-store'});
         if(!sourceResponse.ok)throw new Error('無法讀取已保存的試聊');const source=await sourceResponse.json();
         if(source.messages[index]?.sender_type!==1 || source.messages[index]?.text!==original)throw new Error('試聊已變更，請重新讀取後再編輯');
-        const response=await fetch(`/api/character-generations/${generationId}/test-interactions/edit`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:sourceId,revision,model:selectedModel,text,chat_mode:mode.value,is_nsfw:adult,message_index:index,expected_revision:source.revision})});
+        const response=await fetch(`/api/character-generations/${generationId}/test-interactions/edit`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:sourceId,revision,model:selectedModel,text,chat_mode:mode.value,is_nsfw:adult,player_persona_id:trialPersonaId,message_index:index,expected_revision:source.revision})});
         const data=await response.json();if(epoch!==creatorEpoch || !trial.isConnected)return;
         if(data.conversation)showRecord(data.conversation);
         if(!response.ok)throw new Error(data.detail || '重新生成未完成');
@@ -469,6 +470,9 @@
     composer.addEventListener('submit',async event=>{
       event.preventDefault();
       const text=input.value.trim(); if (busy || !text) return;
+      if(window.dijiEnsurePlayerPersona && !await window.dijiEnsurePlayerPersona())return;
+      const chosen=window.dijiState?.playerPersonaId || null;
+      if(chosen!==trialPersonaId){chatId=`trial-${crypto.randomUUID()}`;trialPersonaId=chosen;log.replaceChildren();}
       setBusy(true);
       const pending=appendMessage('你',text,'user'); input.value='';
       const waiting=appendMessage('角色','正在生成回覆…','assistant draft-trial-waiting');
@@ -476,7 +480,7 @@
       for (let i=0;i<3;i++) { const dot=document.createElement('span'); dot.textContent='●'; dot.setAttribute('aria-hidden','true'); dots.append(dot); }
       status.textContent='可隨時返回審核草稿；已開始的模型請求仍可能計費。';
       try {
-        const response=await fetch(`/api/character-generations/${generationId}/test-interactions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,revision,model:selectedModel,text,chat_mode:mode.value,is_nsfw:adult})});
+        const response=await fetch(`/api/character-generations/${generationId}/test-interactions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,revision,model:selectedModel,text,chat_mode:mode.value,is_nsfw:adult,player_persona_id:trialPersonaId})});
         const data=await response.json();
         if (!response.ok) {
           const error=new Error(typeof data.detail==='string' ? data.detail : `測試未完成（HTTP ${response.status}）`);

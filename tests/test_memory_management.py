@@ -19,6 +19,7 @@ def test_memory_edit_delete_are_account_scoped_and_preserve_source(tmp_path, mon
     for client, subject in [(owner, 'owner'), (other, 'other')]:
         user = accounts.upsert_google_user(subject, subject, f'{subject}@example.test')
         client.cookies.set(SESSION_COOKIE, accounts.create_google_session(user.id))
+        assert client.post('/api/player-personas',json={'label':'測試身分','name':'玩家'}).status_code==200
         assert client.post('/api/conversations', json={'chat_id':'edit-test','character_id':'yelan','character_name':'夜蘭'}).status_code == 200
     original = {'summary':'原摘要','type':'事件','keywords':{'人物':'青禾'},'user_message':'原始訊息','key_points':['約定'],'extraction_status':'extracted'}
     assert owner.put('/api/memories/edit-test', json=original).status_code == 200

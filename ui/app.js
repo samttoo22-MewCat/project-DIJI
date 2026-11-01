@@ -49,25 +49,31 @@ async function updateHomeJourney() {
   const note = document.querySelector('.home-note');
   const steps = document.querySelectorAll('#home-journey li');
   const signedIn = Boolean(authenticatedUser);
-  let connected = false;
+  let connected = false, hasPersona = false;
   if (signedIn) {
     try { const response = await fetch('/api/connections/priority', {cache:'no-store'}); if (response.ok) connected = (await response.json()).connected.length > 0; } catch {}
+    try { const response = await fetch('/api/player-personas', {cache:'no-store'}); if (response.ok) hasPersona = (await response.json()).length > 0; } catch {}
   }
-  const stage = !signedIn ? 0 : !connected ? 1 : 2;
+  const stage = !signedIn ? 0 : !connected ? 1 : !hasPersona ? 2 : 3;
   steps.forEach((step,index) => { step.classList.toggle('complete', index < stage); if (index === stage) step.setAttribute('aria-current','step'); else step.removeAttribute('aria-current'); });
-  button.querySelector('.home-start-label').textContent = ['使用 Google 登入', '連接模型商，開始使用', '選擇角色開始對話'][stage];
-  button.dataset.next = ['login','connections','chat'][stage];
-  note.textContent = ['Google 登入後開啟工作區，再連接自己的模型額度。', '選擇 BazaarLink 或 OpenRouter，連接自己的模型額度。', '已準備完成。選一位角色，開始第一段對話。'][stage];
+  button.querySelector('.home-start-label').textContent = ['使用 Google 登入', '連接模型商，開始使用', '建立你的玩家身分', '選擇角色開始對話'][stage];
+  button.dataset.next = ['login','connections','player-personas','chat'][stage];
+  note.textContent = ['Google 登入後開啟工作區，再連接自己的模型額度。', '選擇 BazaarLink 或 OpenRouter，連接自己的模型額度。', '至少建立一份玩家個人設定，讓角色知道你是誰。', '已準備完成。選用玩家設定，再選一位角色開始對話。'][stage];
 }
 
-function setChatProviderLocked(locked, title = '尚未連接模型商') {
+function setChatProviderLocked(locked, title = '尚未連接模型商', personaMissing = false) {
   for (const name of ['chat', 'create-character']) {
     const screen = document.querySelector(`[data-screen="${name}"]`);
     const gate = screen.querySelector('.chat-provider-gate');
-    const screenLocked = locked && !(name === 'chat' && screen.classList.contains('awaiting-character'));
+    const needsPersona = name === 'chat' && personaMissing;
+    const screenLocked = (locked || needsPersona) && !(name === 'chat' && screen.classList.contains('awaiting-character'));
     screen.classList.toggle('provider-locked', screenLocked);
     gate.hidden = !screenLocked;
-    gate.querySelector('h2').textContent = title;
+    gate.querySelector('h2').textContent = needsPersona ? '請先設定你的玩家身分' : title;
+    const description=gate.querySelector('p');
+    if(!description.dataset.original)description.dataset.original=description.textContent;
+    description.textContent=needsPersona ? '聊天前需要至少一份玩家個人設定，讓角色知道你是誰。請先建立並選用；舊對話會保留，選用後另開新對話。' : description.dataset.original;
+    const setup=gate.querySelector('[data-view="player-personas"]');if(setup)setup.hidden=!needsPersona;
     for (const child of screen.children) {
       if (child === gate) continue;
       child.inert = screenLocked;
@@ -92,7 +98,7 @@ async function refreshChatProviderState() {
     if (!response.ok) throw new Error();
     const data = await response.json();
     const providers = data.priority.filter(id => data.connected.includes(id));
-    setChatProviderLocked(providers.length === 0);
+    setChatProviderLocked(providers.length === 0, '尚未連接模型商', providers.length > 0 && !state.playerPersonaId);
     controls.hidden = providers.length === 0;
     status.textContent = providers.length ? `已連接模型商：${providers.map(id => names[id]).join('、')}` : '尚未連接模型商';
     const model = document.querySelector('#model-input').value;
@@ -132,6 +138,8 @@ function resetTranscript(label = "新的本機對話已開始") {
 }
 async function startConversation(character, playerPersonaId = state.playerPersonaId) {
   if (!requireLogin()) return false;
+  if (!playerPersonaId && window.dijiEnsurePlayerPersona && !await window.dijiEnsurePlayerPersona()) return false;
+  if (!await refreshChatProviderState()) { rememberPendingTask('chat'); showScreen('connections'); return false; }
   const chatId = `chat-${crypto.randomUUID()}`;
   const response = await fetch("/api/conversations", {
     method: "POST", headers: { "Content-Type": "application/json" },
@@ -429,7 +437,7 @@ document.querySelectorAll("[data-view]").forEach((button) => button.addEventList
 document.querySelector("#home-start").addEventListener("click", () => {
   const next = document.querySelector('#home-start').dataset.next;
   if (!authenticatedUser) { rememberPendingTask('chat'); openLoginDialog(); }
-  else if (next !== 'chat') { rememberPendingTask('chat'); showScreen('connections'); }
+  else if (next !== 'chat') { rememberPendingTask('chat'); showScreen(next === 'player-personas' ? next : 'connections'); }
   else openRolePicker();
 });
 document.querySelector(".logo").addEventListener("click", (event) => {
@@ -548,7 +556,11 @@ document.querySelector("#new-chat").addEventListener("click", () => { setChatRea
 document.querySelector("#new-session").addEventListener("click", () => { const character = selectedCharacter(); if (character) startConversation(character).catch((error) => showToast(`無法建立對話：${error.message}`)); });
 document.querySelector("#clear-chat").addEventListener("click", () => { const character = selectedCharacter(); if (character) startConversation(character).catch((error) => showToast(`無法建立對話：${error.message}`)); });
 document.querySelector("#search-input").addEventListener("input", (event) => renderConversationHistory(event.target.value));
-document.querySelector("#chat-choose-character").addEventListener("click", () => showScreen("characters"));
+document.querySelector("#chat-choose-character").addEventListener("click", async () => {
+  if (!await refreshChatProviderState()) { rememberPendingTask('chat'); showScreen('connections'); return; }
+  if (window.dijiEnsurePlayerPersona && !await window.dijiEnsurePlayerPersona()) return;
+  showScreen("characters");
+});
 const loginDialog = document.querySelector("#google-login-dialog");
 const loginStatus = document.querySelector("#google-login-status");
 const loginAgreement=document.querySelector('#login-terms-agreed');
@@ -656,6 +668,7 @@ document.querySelector("#chat-form").addEventListener("submit", async (event) =>
   const input = document.querySelector("#chat-input"), text = input.value.trim();
   if (!text) return;
   if (!requireLogin()) return;
+  if (window.dijiEnsurePlayerPersona && !await window.dijiEnsurePlayerPersona()) return;
   if (!await refreshChatProviderState()) { showToast("請先設定模型商連線，再傳送訊息。"); showScreen("connections"); return; }
   const payload = interactionPayload(text);
   if (!state.liveSession) { conversations.innerHTML = '<div class="date-divider"><span>本機互動</span></div>'; state.liveSession = true; }

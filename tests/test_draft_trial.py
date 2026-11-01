@@ -35,6 +35,7 @@ def trial(tmp_path, monkeypatch):
     for client,sub in [(owner,'owner'),(other,'other')]:
         user=accounts.upsert_google_user(sub,sub,f'{sub}@example.test')
         client.cookies.set(SESSION_COOKIE,accounts.create_google_session(user.id))
+        assert client.post('/api/player-personas',json={'label':'測試身分','name':'玩家'}).status_code==200
         if sub=='owner':
             root=module._user_directory(user.id)
             accounts.save_provider_key(user.id,'fake-provider-key')

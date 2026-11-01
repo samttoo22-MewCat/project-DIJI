@@ -191,7 +191,7 @@
                 <button class="pwa-install home-install" data-pwa-install type="button" hidden>安裝至裝置</button>
               </div>
               <p class="home-note">Google 登入後開啟工作區，再連接自己的模型額度。</p>
-              <ol id="home-journey" class="home-journey" aria-label="開始使用步驟"><li>1 Google 登入</li><li>2 連接模型商</li><li>3 選角開始對話</li></ol>
+              <ol id="home-journey" class="home-journey" aria-label="開始使用步驟"><li>1 Google 登入</li><li>2 連接模型商</li><li>3 玩家個人設定</li><li>4 選角開始對話</li></ol>
             </header>
             <figure class="home-story" aria-labelledby="home-story-title">
               <div class="home-story-orbit" aria-hidden="true"></div>
@@ -225,7 +225,7 @@
             <header class="role-picker-header">
               <p class="eyebrow">開始對話</p>
               <h1 id="role-picker-title">想和誰聊聊？</h1>
-              <p>前往角色頁面，選擇一位角色後，就能在這裡開始對話。</p>
+              <p>先連接模型商、建立並選用玩家個人設定，再選擇角色開始對話。</p>
             </header>
             <button class="primary-button chat-welcome-button" id="chat-choose-character" type="button">前往角色頁面<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 5l7 7-7 7"/></svg></button>
           </section>
@@ -360,7 +360,7 @@
             <section class="chat-player-section" aria-labelledby="chat-player-title">
               <p class="panel-kicker" id="chat-player-title">我的玩家設定</p>
               <label for="chat-player-select">這段對話中的你</label>
-              <select id="chat-player-select"><option value="">使用者 · 預設設定</option></select>
+              <select id="chat-player-select"><option value="" disabled selected>請先選擇玩家設定</option></select>
               <p id="chat-player-summary">尚未設定玩家人設。</p>
               <p class="player-switch-note">切換設定會開啟全新對話，原對話與記憶仍保留。修改設定不會影響已開始的對話。</p>
               <button class="ghost-button" data-view="player-personas" type="button">管理玩家個人設定</button>
@@ -437,7 +437,7 @@
               </button>
             </section>
           </aside>
-          <div class="chat-provider-gate" id="chat-provider-gate" role="region" aria-labelledby="chat-provider-gate-title" hidden><div><h2 id="chat-provider-gate-title">尚未連接模型商</h2><p id="chat-provider-gate-description">角色生成與回覆需要由模型商提供 AI 模型。連接後才能建立角色及聊天，費用會使用你自己的額度。請前往左側「模型連線」完成設定。</p></div></div>
+          <div class="chat-provider-gate" id="chat-provider-gate" role="region" aria-labelledby="chat-provider-gate-title" hidden><div><h2 id="chat-provider-gate-title">尚未連接模型商</h2><p id="chat-provider-gate-description">角色生成與回覆需要由模型商提供 AI 模型。連接後才能建立角色及聊天，費用會使用你自己的額度。請前往左側「模型連線」完成設定。</p><button class="primary-button" data-view="player-personas" type="button" hidden>前往玩家個人設定</button></div></div>
         </section>
         <section class="screen studio-screen" data-screen="characters">
           <header class="page-header">
@@ -488,7 +488,7 @@
         <section class="screen studio-screen" data-screen="player-personas" aria-labelledby="player-personas-title">
           <div class="player-workspace">
             <header class="player-heading"><div><p class="panel-kicker">你的故事身分</p><h1 id="player-personas-title">玩家個人設定</h1><p>設定你在故事中的名字與人設，讓角色認識你。僅自己的帳號可見。</p></div><button class="primary-button" id="player-new" type="button">新增玩家設定</button></header>
-            <p class="player-info">選擇一份設定，再到角色頁開始聊天。對話中切換會另開新對話；舊對話會保留當時的設定與記憶。</p>
+            <p class="player-info">聊天前必須至少建立一份玩家設定，並選擇「使用此設定」。對話中切換會另開新對話；舊對話會保留當時的設定與記憶。</p>
             <div id="player-persona-list" class="player-grid" aria-label="已儲存的玩家設定"></div>
             <p id="player-status" role="status" aria-live="polite"></p>
             <form id="player-persona-form" class="player-form" hidden>
@@ -674,10 +674,10 @@
     <div class="toast" id="toast" role="status"></div>
     <script src="age-confirmation.js?v=20261028-age-gate-2"></script>
     <script src="message-editor.js?v=20261101-1"></script>
-    <script src="app.js?v=20261101-player-personas-1"></script>
-    <script src="player-personas.js?v=20261101-1"></script>
+    <script src="app.js?v=20261101-player-personas-3"></script>
+    <script src="player-personas.js?v=20261101-3"></script>
     <script src="jailbreak-studio.js?v=20261101-personal-1"></script>
-    <script src="character-creator.js?v=20261101-public-security-1"></script>
+    <script src="character-creator.js?v=20261101-player-required-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>
     <script src="openrouter-connection.js?v=20261101-polish-1"></script>
     <script src="ui-polish.js?v=20261101-player-personas-1"></script>

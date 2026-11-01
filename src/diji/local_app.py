@@ -135,6 +135,7 @@ class DraftTrialRequest(BaseModel):
     text: str = Field(min_length=1, max_length=16_000)
     chat_mode: Literal['story', 'dialog'] = 'dialog'
     is_nsfw: bool = False
+    player_persona_id: str | None = Field(default=None, max_length=64)
 
 
 class DraftRollbackRequest(BaseModel):
@@ -263,6 +264,18 @@ def create_app(
     def personas_for(user):
         root = _user_directory(user.id) if auth.required else local_catalog.path.parent
         return cached(('personas', user.id), lambda: PlayerPersonaStore(root / 'player_personas.sqlite3'))
+
+    def selected_player_persona(user, persona_id=None):
+        store = personas_for(user)
+        if persona_id:
+            try:
+                return store.get(persona_id)
+            except LookupError as error:
+                raise HTTPException(status_code=404, detail='玩家設定不存在') from error
+        available = store.list()
+        if len(available) == 1:
+            return available[0]
+        raise HTTPException(status_code=409, detail='聊天前請先建立並選用一份玩家個人設定')
 
     @app.get('/api/player-personas')
     def list_player_personas(http_request: Request):
@@ -708,15 +721,14 @@ def create_app(
         if auth.required:
             visible_character(http_request, request.character_id)
         _memories, user_conversations, _relationships, _profiles, _interactions, _generator = stores_for(current_user(http_request))
-        try:
-            selected = personas_for(current_user(http_request)).get(request.player_persona_id) if request.player_persona_id else None
-        except LookupError as error:
-            raise HTTPException(status_code=404, detail='玩家設定不存在') from error
+        user = current_user(http_request)
+        selected = selected_player_persona(user, request.player_persona_id) if auth.required or request.player_persona_id else None
+        selected_id = selected.id if selected else None
         try:
             existing = user_conversations.get(request.chat_id)
         except StopIteration:
             existing = None
-        if existing is not None and (existing.character_id != request.character_id or existing.player_persona_id != request.player_persona_id):
+        if existing is not None and (existing.character_id != request.character_id or existing.player_persona_id != selected_id):
             raise HTTPException(status_code=409, detail='切換角色或玩家設定請開啟新對話')
         try:
             return user_conversations.start(request.chat_id, request.character_id, request.character_name, request.chat_mode,
@@ -1033,6 +1045,7 @@ def create_app(
         except LookupError as error:
             raise HTTPException(status_code=404, detail='草稿不存在') from error
         check_model(user,trial.model)
+        selected = selected_player_persona(user, trial.player_persona_id) if auth.required else None
         if run['kind'] != 'generation' or run['status'] != 'completed' or run['data'].get('saved_character_id'):
             raise HTTPException(status_code=409, detail='請使用尚未加入角色庫的完整草稿試聊')
         if run['revision'] != trial.revision:
@@ -1058,7 +1071,7 @@ def create_app(
                 'description':CharacterGenerationService._full_prompt(draft.character,draft.style_guide),
                 'sample_dialog':[{'sender_type':2,'text':str(line)[:800]} for line in samples[:10]] if isinstance(samples,list) else [],
                 **{key:profile.get(key) for key in ('psychological_evolution','behavioral_boundaries','evolution_requirements')}},
-            'user':{'id':'local-user', 'persona':{'name':'使用者','chat_mode':trial.chat_mode}},
+            'user':{'id':'local-user', 'persona':{**(selected.persona().model_dump() if selected else {'name':'使用者'}),'chat_mode':trial.chat_mode}},
             'message':{'sender_id':user.id,'text':trial.text},
             'style_prompt':draft.style_guide, 'is_nsfw':trial.is_nsfw, 'enable_favorability':False,
         })
@@ -1075,7 +1088,7 @@ def create_app(
         except StopIteration:
             pass
         try:
-            response=await execute_interaction(request, http_request, trial_data={'generation_id':run_id,'revision':trial.revision,'character':profile})
+            response=await execute_interaction(request, http_request, trial_data={'generation_id':run_id,'revision':trial.revision,'character':profile,'player_persona_id':selected.id if selected else None})
             return {'conversation':chats.get(branch.chat_id).model_dump(),'response':response.model_dump()} if branch else response
         except Exception:
             if branch:return JSONResponse({'detail':'重新生成未完成，修改與新分支已保留','conversation':chats.get(branch.chat_id).model_dump()},status_code=502)
@@ -1100,6 +1113,15 @@ def create_app(
         user_memories, user_conversations, user_relationships, _profiles, user_interactions, _generator = stores_for(user, trial=trial_data is not None)
         try:existing=user_conversations.get(request.chat_id)
         except StopIteration:existing=None
+        if auth.required:
+            if existing is not None and existing.player_persona_id is None:
+                raise HTTPException(status_code=409, detail='此舊對話尚未選用玩家設定；請選用設定開啟新對話，原對話仍保留')
+            if existing is None:
+                selected = selected_player_persona(user, trial_data.get('player_persona_id') if trial_data else None)
+                existing = user_conversations.start(request.chat_id,request.character.id,request.character.name,request.user.persona.chat_mode,
+                    player_persona_id=selected.id,player_persona=selected.persona())
+            elif not personas_for(user).list():
+                raise HTTPException(status_code=409, detail='聊天前請先建立一份玩家個人設定')
         if existing is not None and (existing.parent_chat_id or existing.player_persona_id is not None):
             user_memories,user_conversations,user_relationships,_profiles,user_interactions,_generator=stores_for(user,trial=trial_data is not None,profile_chat_id=request.chat_id)
         if existing is not None and existing.character_id != request.character.id:
