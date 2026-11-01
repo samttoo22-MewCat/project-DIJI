@@ -416,7 +416,7 @@ def test_project_home_introduces_diji_before_the_role_picker() -> None:
     assert "if (!workspaceAvailable && name !== 'home') name = 'home';" in script
     assert "非商業、可自架的角色互動專案" in markup
     assert 'href="#home" aria-label="DIJI 首頁"' in markup
-    assert 'home.css?v=20261101-story-home-1' in markup
+    assert 'home.css?v=20261101-author-footer-1' in markup
     assert "function openRolePicker()" in script
     assert 'async function updateHomeJourney()' in script
     assert "rememberPendingTask('chat')" in script
