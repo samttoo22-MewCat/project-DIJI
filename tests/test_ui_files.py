@@ -75,7 +75,11 @@ listeners.beforeinstallprompt({ preventDefault() {}, prompt: async () => {}, use
   if (guide.open) throw new Error("fallback instructions opened before installation had time to finish");
   if (buttons.some(item => item.section.hidden)) throw new Error("installation explanation is hidden");
   listeners.appinstalled();
-  if (buttons.some(item => !item.section.hidden)) throw new Error("installation explanation remained after install");
+  if (buttons.some(item => item.hidden || item.section.hidden || item.textContent !== "已安裝 DIJI" || !item.disabled)) throw new Error("installed status disappeared or remained clickable");
+  window.matchMedia = () => ({ matches: true });
+  buttons.forEach(item => { item.hidden = true; item.section.hidden = true; item.disabled = false; });
+  vm.runInNewContext(fs.readFileSync("ui/pwa.js", "utf8"), { window, document, navigator, Promise, Set, console });
+  if (buttons.some(item => item.hidden || item.section.hidden || item.textContent !== "已安裝 DIJI" || !item.disabled)) throw new Error("standalone app did not restore installed status");
 })().catch((error) => { console.error(error.message); process.exit(1); });
 '''
     result = subprocess.run(["node", "-e", harness], cwd=ROOT, text=True, capture_output=True)

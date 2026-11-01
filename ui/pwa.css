@@ -17,7 +17,7 @@
 }
 .pwa-install[hidden] { display: none; }
 .pwa-install:hover { border-color: #9ce5e8; background: #21485b; }
-.pwa-install:disabled { cursor: wait; opacity: .72; }
+.pwa-install:disabled { cursor: default; opacity: .85; }
 .pwa-install:focus-visible, .pwa-guide-close:focus-visible { outline: 3px solid #9ce5e8; outline-offset: 3px; }
 .auth-card .pwa-install { width: 100%; margin-top: 10px; }
 .home-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }

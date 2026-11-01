@@ -58,8 +58,10 @@
           }, 2500);
         }
       } catch {
-        setInstallButtons("安裝 DIJI", true);
-        openGuide("browser");
+        if (!appInstalled) {
+          setInstallButtons("安裝 DIJI", true);
+          openGuide("browser");
+        }
       }
       return;
     }
@@ -81,16 +83,19 @@
   window.addEventListener("appinstalled", () => {
     appInstalled = true;
     deferredInstallPrompt = null;
-    setInstallButtons("已安裝 DIJI", false);
+    setInstallButtons("已安裝 DIJI", true, true);
     closeGuide();
   });
 
-  if (isAppleMobile() && !isStandalone()) setInstallButtons("加入主畫面", true);
+  if (isStandalone()) {
+    appInstalled = true;
+    setInstallButtons("已安裝 DIJI", true, true);
+  } else if (isAppleMobile()) setInstallButtons("加入主畫面", true);
 
   if ("serviceWorker" in navigator && window.location.protocol !== "file:") {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("/service-worker.js", { scope: "/" }).catch(() => {
-        setInstallButtons("安裝暫時無法使用", false);
+        if (!appInstalled) setInstallButtons("安裝暫時無法使用", false);
       });
     });
   }
