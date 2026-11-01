@@ -6,7 +6,6 @@ import os
 from typing import Protocol
 
 import httpx
-from openai import AsyncOpenAI
 from .provider_routing import provider_client
 
 from .domain import ModelConfiguration
@@ -57,7 +56,7 @@ class AiServerCompatibleAdapter:
 
     async def _vllm(self, config: ModelConfiguration, messages: list[dict[str, str]]) -> str:
         base_url = os.getenv("VLLM_API_URL", "http://100.108.209.35:8000").rstrip("/") + "/v1"
-        client = AsyncOpenAI(base_url=base_url, api_key=os.getenv("VLLM_API_KEY", "EMPTY"))
+        client = provider_client(base_url=base_url, api_key=os.getenv("VLLM_API_KEY", "EMPTY"))
         response = await client.chat.completions.create(
             model="/models/orpo_merged_qwen35_gptq",
             messages=messages,

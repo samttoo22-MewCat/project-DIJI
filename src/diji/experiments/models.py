@@ -80,6 +80,7 @@ class JailbreakPreset(BaseModel):
     source_url: str = Field(min_length=1, max_length=2_000)
     review_status: Literal["metadata_only", "approved"] = "metadata_only"
     prompt: str = Field(default="", max_length=20_000)
+    storage_scope: Literal['local','default','personal'] = 'local'
 
 
 GUIDE_SOURCE_URL = "https://github.com/Goochbeater/Spiritual-Spell-Red-Teaming/tree/main/Jailbreak-Guide"

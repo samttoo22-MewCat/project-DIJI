@@ -339,7 +339,7 @@ def test_jailbreak_has_an_independent_editor() -> None:
 
     assert 'data-view="jailbreak"' in markup
     assert 'fetch(`/api/jailbreaks/${record.id}`' in script
-    assert '建立本機越獄' in script
+    assert '建立個人越獄' in script
     assert 'method: "DELETE"' in script
     assert "jailbreak-studio.css?v=20261018-actions-aligned-1" in markup
     assert "grid-template-columns:repeat(3,max-content)" in styles

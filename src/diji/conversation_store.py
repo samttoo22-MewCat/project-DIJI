@@ -19,6 +19,10 @@ def _now() -> int:
     return int(datetime.now().timestamp() * 1000)
 
 
+class ConversationBusy(Exception):
+    pass
+
+
 class ConversationMessage(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -59,6 +63,21 @@ class ConversationStore:
 
     def __init__(self, directory: Path) -> None:
         self.directory = directory
+
+    @contextmanager
+    def turn(self, chat_id):
+        path = self._path(chat_id).with_suffix('.turn.lock')
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        with path.open('a') as lock:
+            os.chmod(lock.name, 0o600)
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as error:
+                raise ConversationBusy('此對話正在生成，請等候本回合完成後再送出') from error
+            try:
+                yield
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
 
     def list(self) -> list[ConversationSummary]:
         if not self.directory.exists():

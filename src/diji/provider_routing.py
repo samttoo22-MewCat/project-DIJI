@@ -1,9 +1,28 @@
 """Route each model call using the account's ordered, encrypted credentials."""
 import httpx
 import json
+import asyncio
+from anyio import CancelScope
+from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from openai import AsyncOpenAI
 
 BASES = {"openrouter": "https://openrouter.ai/api/v1", "bazaarlink": "https://api.bazaarlink.ai/v1"}
+_request_clients = ContextVar('diji_provider_clients', default=None)
+
+
+@asynccontextmanager
+async def provider_session():
+    clients = {}
+    token = _request_clients.set(clients)
+    try:
+        yield
+    finally:
+        try:
+            with CancelScope(shield=True):
+                await asyncio.gather(*(client.close() for client in clients.values()), return_exceptions=True)
+        finally:
+            _request_clients.reset(token)
 
 
 class ProviderCredentials(list):
@@ -47,7 +66,15 @@ class CreditRoutingTransport(httpx.AsyncBaseTransport):
 
 
 def provider_client(api_key, base_url="https://openrouter.ai/api/v1"):
+    clients = _request_clients.get()
+    key = (base_url, tuple(api_key) if isinstance(api_key, list) else api_key)
+    if clients is not None and key in clients:
+        return clients[key]
     if isinstance(api_key, list):
-        return AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key="server-routed", max_retries=0,
+        client = AsyncOpenAI(base_url="https://openrouter.ai/api/v1", api_key="server-routed", max_retries=0,
                            http_client=httpx.AsyncClient(transport=CreditRoutingTransport(api_key)))
-    return AsyncOpenAI(base_url=base_url, api_key=api_key)
+    else:
+        client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+    if clients is not None:
+        clients[key] = client
+    return client

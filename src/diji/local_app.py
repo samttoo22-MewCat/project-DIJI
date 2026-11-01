@@ -5,18 +5,21 @@ from __future__ import annotations
 from pathlib import Path
 import os
 import uuid
+from contextvars import ContextVar
 from typing import Literal
 
 import httpx
 from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field, SecretStr
 
 from .local_catalog import CatalogSnapshot, CharacterSpec, FlowSpec, LocalCatalog
 from .character_generation.service import GeneratedCharacter
 from .character_generation.revision import DraftRevisionRequest, revision_prompt, apply_proposal
-from .conversation_store import ConversationMessage, ConversationRecord, ConversationStore, ConversationSummary
+from .conversation_store import ConversationBusy, ConversationMessage, ConversationRecord, ConversationStore, ConversationSummary
+from .provider_routing import provider_session
 from .character_import import CharacterImporter, CharacterImportPreview, CharacterImportRequest, CharacterImportResult
 from .memory_store import LocalMemoryStore, MemoryRecord
 from .player_activity import PlayerActivity, RecordedGenerationClient
@@ -24,6 +27,7 @@ from .memory_extraction import MemoryExtractor, OpenRouterExtractionClient
 from .prompt_assembly import PromptBundle, PromptPreviewRequest, assemble_prompt
 from .domain import InteractionRequest, InteractionResponse
 from .experiments import ExperimentStore, JailbreakPreset, JailbreakStore, PromptExperiment
+from .experiments.account_store import AccountPresetStore
 from .interaction import InteractionService
 from .model_adapter import AiServerCompatibleAdapter
 from .relationship import RelationshipStore, RelationshipState
@@ -177,6 +181,18 @@ def create_app(
     oauth = oauth_client or OpenRouterOAuthClient()
     google_oauth = google_oauth_client or GoogleOAuthClient()
     app = FastAPI(title="DIJI Local Workbench", docs_url=None, redoc_url=None)
+    request_cache = ContextVar('diji_request_cache', default=None)
+
+    def cached(key, factory):
+        cache = request_cache.get()
+        if cache is None:
+            return factory()
+        if key not in cache:
+            cache[key] = factory()
+        return cache[key]
+
+    def credentials_for(user_id):
+        return cached(('credentials', user_id), lambda: accounts.provider_credentials(user_id))
 
     @app.middleware("http")
     async def protect_workspace(request: Request, call_next):
@@ -185,22 +201,44 @@ def create_app(
             "/api/auth/logout", "/api/auth/openrouter/start", "/api/auth/openrouter/callback",
         }
         path = request.url.path
-        if auth.required and (path.startswith("/api/") or path == "/openapi.json") and path not in public_auth:
-            if not accounts.user_for_session(request.cookies.get(SESSION_COOKIE)):
-                return JSONResponse({"detail": "請先使用 Google 登入 DIJI"}, status_code=401, headers={"Cache-Control": "no-store"})
-        return await call_next(request)
+        token = request_cache.set({})
+        try:
+            if path.startswith('/api/') or path == '/openapi.json':
+                request.state.diji_user = await run_in_threadpool(accounts.user_for_session, request.cookies.get(SESSION_COOKIE))
+                if auth.required and path not in public_auth and not request.state.diji_user:
+                    return JSONResponse({"detail": "請先使用 Google 登入 DIJI"}, status_code=401, headers={"Cache-Control": "no-store"})
+            async with provider_session():
+                return await call_next(request)
+        finally:
+            request_cache.reset(token)
+
+    def session_user(request):
+        if hasattr(request.state, 'diji_user'):
+            return request.state.diji_user
+        return accounts.user_for_session(request.cookies.get(SESSION_COOKIE))
 
     def current_user(request: Request) -> AuthenticatedUser:
-        user = accounts.user_for_session(request.cookies.get(SESSION_COOKIE))
+        user = session_user(request)
         if auth.required and not user:
             raise HTTPException(status_code=401, detail="請先登入 DIJI")
         return user or AuthenticatedUser(id="local-user", login_provider="local", display_name="本機使用者", openrouter_user_id="local-user")
 
     def activity_for(user: AuthenticatedUser) -> PlayerActivity:
         root = _user_directory(user.id) if auth.required else local_catalog.path.parent
-        return PlayerActivity(root / 'player_activity.sqlite3')
+        return cached(('activity', user.id), lambda: PlayerActivity(root / 'player_activity.sqlite3'))
+
+    def jailbreaks_for(user):
+        if not auth.required:return jailbreaks
+        return cached(('jailbreaks',user.id),lambda: AccountPresetStore(jailbreaks,JailbreakStore(_user_directory(user.id)/'jailbreaks.json')))
+
+    def experiments_for(user):
+        if not auth.required:return experiments
+        return cached(('experiments',user.id),lambda: AccountPresetStore(experiments,ExperimentStore(_user_directory(user.id)/'experiments.json')))
 
     def stores_for(user: AuthenticatedUser, *, trial: bool = False, profile_chat_id: str | None = None) -> tuple[LocalMemoryStore, ConversationStore, RelationshipStore, UserProfileStore, InteractionService, CharacterGenerationService]:
+        return cached(('stores',user.id,trial,profile_chat_id),lambda: make_stores(user,trial=trial,profile_chat_id=profile_chat_id))
+
+    def make_stores(user, *, trial=False, profile_chat_id=None):
         if not auth.required and not trial and profile_chat_id is None:
             return local_memories, conversations, relationships, profiles, interactions, generator
         root = _user_directory(user.id) if auth.required else local_catalog.path.parent
@@ -211,15 +249,15 @@ def create_app(
         user_memories = LocalMemoryStore(root / "memories")
         user_relationships = RelationshipStore(root / "relationships")
         user_profiles = UserProfileStore(root / 'branch_profiles' / profile_chat_id if profile_chat_id else root / 'user_profiles')
-        api_key = accounts.provider_credentials(user.id)
+        api_key = credentials_for(user.id)
         user_interactions = InteractionService(
             AiServerCompatibleAdapter(api_key),
             user_memories,
             MemoryExtractor(OpenRouterExtractionClient(api_key)),
             user_relationships,
-            experiments,
+            experiments_for(user),
             OpenRouterFavorabilityJudge(api_key),
-            jailbreaks,
+            jailbreaks_for(user),
             user_profiles,
         )
         return (
@@ -234,7 +272,7 @@ def create_app(
     @app.get("/api/auth/session")
     def session(request: Request, response: Response) -> dict:
         response.headers["Cache-Control"] = "no-store"
-        user = accounts.user_for_session(request.cookies.get(SESSION_COOKIE))
+        user = session_user(request)
         return {
             "auth_required": auth.required,
             "authenticated": bool(user),
@@ -379,7 +417,7 @@ def create_app(
     def provider_priority(http_request: Request, response: Response) -> dict:
         user = current_user(http_request)
         response.headers["Cache-Control"] = "private, no-store"
-        return {"priority": accounts.provider_priority(user.id), "connected": [p for p, _ in accounts.provider_credentials(user.id)]}
+        return {"priority": accounts.provider_priority(user.id), "connected": [p for p, _ in credentials_for(user.id)]}
 
     @app.delete("/api/connections/{provider}", status_code=204, response_model=None)
     def disconnect_provider(provider: Literal["openrouter", "bazaarlink"], http_request: Request, response: Response) -> None:
@@ -430,7 +468,7 @@ def create_app(
 
     def visible_catalog(request: Request) -> CatalogSnapshot:
         snapshot = local_catalog.snapshot()
-        user = accounts.user_for_session(request.cookies.get(SESSION_COOKIE))
+        user = session_user(request)
         if auth.required and user:
             snapshot.characters += private_catalog(request).snapshot().characters
         return snapshot
@@ -616,8 +654,8 @@ def create_app(
             raise HTTPException(status_code=400,detail='對話與角色不符')
         if auth.required:
             visible_character(http_request,source.character_id)
-            if not accounts.provider_credentials(user.id):raise HTTPException(status_code=409,detail='此帳號尚未設定模型連線')
-        if request.interaction.is_nsfw and not any(p.review_status=='approved' and p.prompt and request.interaction.llm.model.removesuffix(':online') in p.openrouter_models for p in jailbreaks.list()):
+            if not credentials_for(user.id):raise HTTPException(status_code=409,detail='此帳號尚未設定模型連線')
+        if request.interaction.is_nsfw and not any(p.review_status=='approved' and p.prompt and request.interaction.llm.model.removesuffix(':online') in p.openrouter_models for p in jailbreaks_for(user).list()):
             raise HTTPException(status_code=400,detail='此模型沒有已核准的越獄')
         branch=edited_branch(user,chat_id,request.message_index,request.expected_revision,request.interaction.message.text)
         if branch.chat_mode!=request.interaction.user.persona.chat_mode:
@@ -656,7 +694,7 @@ def create_app(
             raise HTTPException(status_code=400, detail="Conversation must not be empty")
         user = current_user(http_request)
         user_memories, _conversations, _relationships, _profiles, _interactions, _generator = stores_for(user)
-        api_key = accounts.provider_credentials(user.id) if auth.required else None
+        api_key = credentials_for(user.id) if auth.required else None
         if auth.required and not api_key:
             raise HTTPException(status_code=409, detail="此帳號尚未設定模型連線")
         records = await (extractor if not auth.required else MemoryExtractor(OpenRouterExtractionClient(api_key))).extract(conversation)
@@ -680,7 +718,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="找不到這段對話") from error
         if not record.messages:
             return {"created": 0, "skipped": True}
-        if auth.required and not accounts.provider_credentials(user.id):
+        if auth.required and not credentials_for(user.id):
             raise HTTPException(status_code=409, detail="此帳號尚未設定模型連線")
         generated: list[MemoryRecord] = []
         recent_messages = record.messages[-80:]
@@ -697,44 +735,48 @@ def create_app(
         return {"created": len(generated), "skipped": False}
 
     @app.get("/api/experiments", response_model=list[PromptExperiment])
-    def list_experiments() -> list[PromptExperiment]:
-        return experiments.list()
+    def list_experiments(http_request: Request, response: Response) -> list[PromptExperiment]:
+        response.headers['Cache-Control']='private, no-store'
+        return experiments_for(current_user(http_request)).list()
 
     @app.put("/api/experiments/{experiment_id}", response_model=PromptExperiment)
-    def save_experiment(experiment_id: str, experiment: PromptExperiment) -> PromptExperiment:
+    def save_experiment(experiment_id: str, experiment: PromptExperiment, http_request: Request) -> PromptExperiment:
         if experiment_id != experiment.id:
             raise HTTPException(status_code=400, detail="Experiment id must match the URL")
-        return experiments.save(experiment)
+        return experiments_for(current_user(http_request)).save(experiment)
 
     @app.get("/api/jailbreaks", response_model=list[JailbreakPreset])
-    def list_jailbreaks() -> list[JailbreakPreset]:
-        return jailbreaks.list()
+    def list_jailbreaks(http_request: Request, response: Response) -> list[JailbreakPreset]:
+        response.headers['Cache-Control']='private, no-store'
+        return jailbreaks_for(current_user(http_request)).list()
 
     @app.post("/api/jailbreaks/import-recent", response_model=list[JailbreakPreset])
-    def import_recent_jailbreak_metadata() -> list[JailbreakPreset]:
-        return jailbreaks.import_recent_catalog()
+    def import_recent_jailbreak_metadata(http_request: Request) -> list[JailbreakPreset]:
+        return jailbreaks_for(current_user(http_request)).import_recent_catalog()
 
     @app.put("/api/jailbreaks/{preset_id}", response_model=JailbreakPreset)
-    def save_jailbreak(preset_id: str, preset: JailbreakPreset) -> JailbreakPreset:
+    def save_jailbreak(preset_id: str, preset: JailbreakPreset, http_request: Request) -> JailbreakPreset:
         if preset_id != preset.id:
             raise HTTPException(status_code=400, detail="Jailbreak id must match the URL")
-        return jailbreaks.save(preset)
+        return jailbreaks_for(current_user(http_request)).save(preset)
 
     @app.delete("/api/jailbreaks/{preset_id}", response_model=JailbreakPreset)
-    def delete_jailbreak(preset_id: str) -> JailbreakPreset:
+    def delete_jailbreak(preset_id: str, http_request: Request) -> JailbreakPreset:
         try:
-            return jailbreaks.delete(preset_id)
+            return jailbreaks_for(current_user(http_request)).delete(preset_id)
         except StopIteration as error:
             raise HTTPException(status_code=404, detail="Jailbreak not found") from error
+        except ValueError as error:
+            raise HTTPException(status_code=403, detail=str(error)) from error
 
     @app.post("/api/characters/generate", response_model=CharacterGenerationResult)
     async def generate_character(request: CharacterGenerationRequest, http_request: Request) -> CharacterGenerationResult:
         user = current_user(http_request)
-        if auth.required and not accounts.provider_credentials(user.id):
+        if auth.required and not credentials_for(user.id):
             raise HTTPException(status_code=409, detail="此帳號尚未設定模型連線")
         _memories, _conversations, _relationships, _profiles, _interactions, user_generator = stores_for(user)
         model_id = request.model.removesuffix(":online")
-        preset = next((item for item in jailbreaks.list() if item.review_status == "approved" and model_id in item.openrouter_models), None)
+        preset = next((item for item in jailbreaks_for(user).list() if item.review_status == "approved" and model_id in item.openrouter_models), None)
         if not preset or not preset.prompt:
             raise HTTPException(status_code=400, detail="此模型沒有已核准的越獄，不能用於角色生成")
         activity = activity_for(user)
@@ -809,9 +851,9 @@ def create_app(
             raise HTTPException(status_code=404, detail='草稿不存在') from error
         if run['kind'] != 'generation' or run['status'] != 'completed' or run['data'].get('saved_character_id') or run['revision'] != request.revision:
             raise HTTPException(status_code=409, detail='草稿已變更或已儲存為角色，請重新讀取')
-        if auth.required and not accounts.provider_credentials(user.id):
+        if auth.required and not credentials_for(user.id):
             raise HTTPException(status_code=409, detail='此帳號尚未設定模型連線')
-        preset = next((p for p in jailbreaks.list() if p.review_status == 'approved' and p.prompt and request.model.removesuffix(':online') in p.openrouter_models),None)
+        preset = next((p for p in jailbreaks_for(user).list() if p.review_status == 'approved' and p.prompt and request.model.removesuffix(':online') in p.openrouter_models),None)
         if preset is None:
             raise HTTPException(status_code=400, detail='請選擇有已核准越獄的模型')
         try:
@@ -875,12 +917,12 @@ def create_app(
             raise HTTPException(status_code=409, detail='請使用尚未加入角色庫的完整草稿試聊')
         if run['revision'] != trial.revision:
             raise HTTPException(status_code=409, detail='草稿版本已變更，請返回審核並重新開啟測試對話')
-        if not any(p.review_status == 'approved' and p.prompt and trial.model.removesuffix(':online') in p.openrouter_models for p in jailbreaks.list()):
+        if not any(p.review_status == 'approved' and p.prompt and trial.model.removesuffix(':online') in p.openrouter_models for p in jailbreaks_for(user).list()):
             raise HTTPException(status_code=400, detail='請選擇有已核准越獄的模型')
         draft = CharacterGenerationResult.model_validate(run['data']['draft'])
         branch=None
         if edit is not None:
-            if auth.required and not accounts.provider_credentials(user.id):raise HTTPException(status_code=409,detail='此帳號尚未設定模型連線')
+            if auth.required and not credentials_for(user.id):raise HTTPException(status_code=409,detail='此帳號尚未設定模型連線')
             _,source_chats,*_=stores_for(user,trial=True)
             try:source=source_chats.get(trial.chat_id)
             except StopIteration as error:raise HTTPException(status_code=404,detail='測試對話不存在') from error
@@ -920,10 +962,19 @@ def create_app(
             raise
 
     async def execute_interaction(request: InteractionRequest, http_request: Request, trial_data: dict | None = None) -> InteractionResponse:
+        user=current_user(http_request)
+        _,chats,*_=stores_for(user,trial=trial_data is not None)
+        try:
+            with chats.turn(request.chat_id):
+                return await execute_turn(request,http_request,trial_data)
+        except ConversationBusy as error:
+            raise HTTPException(status_code=409,detail=str(error)) from error
+
+    async def execute_turn(request: InteractionRequest, http_request: Request, trial_data: dict | None = None) -> InteractionResponse:
         user = current_user(http_request)
         if auth.required and trial_data is None:
             visible_character(http_request, request.character.id)
-        if auth.required and not accounts.provider_credentials(user.id):
+        if auth.required and not credentials_for(user.id):
             raise HTTPException(status_code=409, detail="此帳號尚未設定模型連線")
         user_memories, user_conversations, user_relationships, _profiles, user_interactions, _generator = stores_for(user, trial=trial_data is not None)
         try:existing=user_conversations.get(request.chat_id)
@@ -950,7 +1001,7 @@ def create_app(
             preset = next(
                 (
                     item
-                    for item in jailbreaks.list()
+                    for item in jailbreaks_for(user).list()
                     if item.review_status == "approved" and item.prompt and model_id in item.openrouter_models
                 ),
                 None,
@@ -958,7 +1009,7 @@ def create_app(
             if not preset:
                 raise HTTPException(status_code=400, detail="此模型沒有已核准的越獄，不能用於成人虛構互動")
             experiment_id = f"interaction-{preset.id}"
-            experiments.save(
+            experiments_for(user).save(
                 PromptExperiment(
                     id=experiment_id,
                     name=f"{preset.name} 互動越獄",
@@ -968,27 +1019,24 @@ def create_app(
             request = request.model_copy(update={"experiment_id": experiment_id})
         try:
             activity = activity_for(user)
-            before=user_conversations.start(request.chat_id,request.character.id,request.character.name,request.user.persona.chat_mode)
-            activity.checkpoint(request.chat_id,len(before.messages),user_conversations.prefix_fingerprint(before.messages),
-                {'memories':user_memories.snapshot(request.chat_id),'relationship':user_relationships.get(request.chat_id).model_dump(),'profile':_profiles.get(user.id)})
-            turn_id = activity.begin('conversation_turn',{'chat_id':request.chat_id,'character_id':request.character.id,'model':request.llm.model_dump(exclude={'url'}),'message':request.message.text,'history_count':len(request.history),'chat_mode':request.user.persona.chat_mode,'is_nsfw':request.is_nsfw,'enable_favorability':request.enable_favorability})
-            if trial_data is not None:
-                activity.finish(turn_id,'running',{'purpose':'draft_trial',**trial_data})
-                user_conversations.start(request.chat_id,request.character.id,request.character.name,request.user.persona.chat_mode)
-            user_conversations.append(
-                request.chat_id,
-                request.character.id,
-                request.character.name,
-                ConversationMessage(sender_type=1, text=request.message.text),
-            )
+            def prepare_turn():
+                before=user_conversations.start(request.chat_id,request.character.id,request.character.name,request.user.persona.chat_mode)
+                activity.checkpoint(request.chat_id,len(before.messages),user_conversations.prefix_fingerprint(before.messages),
+                    {'memories':user_memories.snapshot(request.chat_id),'relationship':user_relationships.get(request.chat_id).model_dump(),'profile':_profiles.get(user.id)})
+                turn_id=activity.begin('conversation_turn',{'chat_id':request.chat_id,'character_id':request.character.id,'model':request.llm.model_dump(exclude={'url'}),'message':request.message.text,'history_count':len(request.history),'chat_mode':request.user.persona.chat_mode,'is_nsfw':request.is_nsfw,'enable_favorability':request.enable_favorability})
+                if trial_data is not None:
+                    activity.finish(turn_id,'running',{'purpose':'draft_trial',**trial_data})
+                user_conversations.append(request.chat_id,request.character.id,request.character.name,ConversationMessage(sender_type=1,text=request.message.text))
+                return turn_id
+            turn_id=await run_in_threadpool(prepare_turn)
             response = InteractionResponse.model_validate(await user_interactions.respond(request))
-            user_conversations.append(
+            await run_in_threadpool(user_conversations.append,
                 request.chat_id,
                 request.character.id,
                 request.character.name,
                 ConversationMessage(sender_type=2, text=response.text),
             )
-            activity.finish(turn_id,'completed',{'reply':response.text,'memory_saved':response.memory_saved,'relationship_updated':response.relationship_updated})
+            await run_in_threadpool(activity.finish,turn_id,'completed',{'reply':response.text,'memory_saved':response.memory_saved,'relationship_updated':response.relationship_updated})
             return response
         except ValueError as error:
             if 'turn_id' in locals(): activity.finish(turn_id,'failed',{'error_type':type(error).__name__})

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from base64 import urlsafe_b64encode
 from dataclasses import dataclass
+from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
 import os
@@ -128,13 +129,18 @@ class AccountStore:
         self.cipher = Fernet(encryption_key.encode("utf-8")) if encryption_key else None
         self._initialize()
 
-    def _connection(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connection(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.parent.chmod(0o700)
-        connection = sqlite3.connect(self.path)
+        connection = sqlite3.connect(self.path, timeout=30)
         self.path.chmod(0o600)
         connection.row_factory = sqlite3.Row
-        return connection
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
 
     def _initialize(self) -> None:
         with self._connection() as connection:

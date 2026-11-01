@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Protocol
+from starlette.concurrency import run_in_threadpool
 
 from ..domain import InteractionRequest, InteractionResponse
 from ..experiments import ExperimentStore, JailbreakStore, PromptExperiment
@@ -33,21 +34,21 @@ class InteractionService:
         self.profiles = profiles
 
     async def respond(self, request: InteractionRequest, current_time: datetime | None = None) -> InteractionResponse:
-        messages = self.build_messages(request, current_time or datetime.now(TZ_TAIPEI))
+        messages = await run_in_threadpool(self.build_messages, request, current_time or datetime.now(TZ_TAIPEI))
         text = clean_model_output(await self.adapter.generate(request.llm, messages), request.character.name)
         conversation = f"<user>{request.message.text}</user>\n<{request.character.name}>{text}</{request.character.name}>"
         records = await self.extractor.extract(conversation)
         if not records:
             records = [self._fallback_memory(request, text)]
         for record in records:
-            self.memories.add(request.chat_id, record)
+            await run_in_threadpool(self.memories.add, request.chat_id, record)
         relationship_updated = False
         if self.judge and self._relationship_enabled(request):
-            state = self.relationships.get(request.chat_id)
+            state = await run_in_threadpool(self.relationships.get, request.chat_id)
             result = await self.judge.judge(conversation, request, state)
-            self.relationships.apply(request.chat_id, result)
+            await run_in_threadpool(self.relationships.apply, request.chat_id, result)
             if self.profiles:
-                self.profiles.update(request.user.id, result.user_profile_update)
+                await run_in_threadpool(self.profiles.update, request.user.id, result.user_profile_update)
             relationship_updated = True
         return InteractionResponse(chat_id=request.chat_id, character_id=request.character.id, text=text, messages=messages, memory_saved=bool(records), relationship_updated=relationship_updated)
 

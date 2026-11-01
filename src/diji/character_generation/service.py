@@ -53,8 +53,7 @@ class OpenRouterGenerationClient:
     async def complete(self, *, model: str, temperature: float, prompt: str, json_mode: bool = False) -> str:
         if not self.api_key:
             raise RuntimeError("OPENROUTER_API_KEY is not configured")
-        if self.client is None:
-            self.client = provider_client(api_key=self.api_key)
+        client = self.client or provider_client(api_key=self.api_key)
         kwargs: dict[str, object] = {
             "model": model,
             "temperature": temperature,
@@ -62,7 +61,7 @@ class OpenRouterGenerationClient:
         }
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
-        response = await self.client.chat.completions.create(**kwargs)
+        response = await client.chat.completions.create(**kwargs)
         return response.choices[0].message.content or ""
 
 
