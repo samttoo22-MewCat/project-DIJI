@@ -470,7 +470,7 @@
       event.preventDefault();
       const text=input.value.trim(); if (busy || !text) return;
       setBusy(true);
-      appendMessage('你',text,'user'); input.value='';
+      const pending=appendMessage('你',text,'user'); input.value='';
       const waiting=appendMessage('角色','正在生成回覆…','assistant draft-trial-waiting');
       const dots=waiting.querySelector('p'); dots.textContent=''; dots.className='draft-trial-dots'; dots.setAttribute('aria-label','角色正在生成回覆');
       for (let i=0;i<3;i++) { const dot=document.createElement('span'); dot.textContent='●'; dot.setAttribute('aria-hidden','true'); dots.append(dot); }
@@ -478,9 +478,16 @@
       try {
         const response=await fetch(`/api/character-generations/${generationId}/test-interactions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:chatId,revision,model:selectedModel,text,chat_mode:mode.value,is_nsfw:adult})});
         const data=await response.json();
-        if (!response.ok) throw new Error(typeof data.detail==='string' ? data.detail : `測試未完成（HTTP ${response.status}）`);
+        if (!response.ok) {
+          const error=new Error(typeof data.detail==='string' ? data.detail : `測試未完成（HTTP ${response.status}）`);
+          error.notAccepted=[413,429].includes(response.status);throw error;
+        }
         waiting.remove(); appendMessage('角色',data.text,'assistant'); status.textContent='測試對話已保存至伺服器，與正式聊天分開。';
-      } catch(error) { waiting.remove(); status.textContent=`測試失敗：${error.message}。可返回審核，或重新送出訊息。`; input.value=text; }
+      } catch(error) {
+        waiting.remove();if(error.notAccepted)pending.remove();
+        status.textContent=error.notAccepted ? `尚未送出：${error.message}。文字已保留，請稍後再試。` : `測試未完成：${error.message}。請確認已送出訊息，再決定是否重新生成；已開始的請求仍可能計費。`;
+        input.value=text;
+      }
       finally { setBusy(false); }
     });
     const previousHistoryHidden=historyPanel.hidden;

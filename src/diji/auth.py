@@ -96,17 +96,20 @@ class GoogleOAuthClient:
     def __init__(self, transport: httpx.AsyncBaseTransport | None = None) -> None:
         self.transport = transport
 
-    async def exchange(self, code: str, callback_url: str, client_id: str, client_secret: str) -> tuple[str, str, str]:
+    async def exchange(self, code: str, callback_url: str, client_id: str, client_secret: str, code_verifier: str | None = None) -> tuple[str, str, str]:
+        payload = {
+            "code": code,
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "redirect_uri": callback_url,
+            "grant_type": "authorization_code",
+        }
+        if code_verifier is not None:
+            payload["code_verifier"] = code_verifier
         async with httpx.AsyncClient(timeout=20.0, transport=self.transport) as client:
             token_response = await client.post(
                 GOOGLE_TOKEN_URL,
-                data={
-                    "code": code,
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "redirect_uri": callback_url,
-                    "grant_type": "authorization_code",
-                },
+                data=payload,
             )
             token_response.raise_for_status()
             access_token = token_response.json().get("access_token")
@@ -204,6 +207,12 @@ class AccountStore:
                 );
                 """
             )
+            connection.execute("BEGIN IMMEDIATE")
+            columns = {row["name"] for row in connection.execute("PRAGMA table_info(google_oauth_states)")}
+            if "verifier" not in columns:
+                connection.execute("ALTER TABLE google_oauth_states ADD COLUMN verifier TEXT")
+            if "binding_hash" not in columns:
+                connection.execute("ALTER TABLE google_oauth_states ADD COLUMN binding_hash TEXT")
 
     @staticmethod
     def _now() -> datetime:
@@ -247,9 +256,34 @@ class AccountStore:
 
     def consume_google_oauth_state(self, state: str) -> bool:
         with self._connection() as connection:
-            row = connection.execute("SELECT expires_at FROM google_oauth_states WHERE state_hash = ?", (self._hash(state),)).fetchone()
-            connection.execute("DELETE FROM google_oauth_states WHERE state_hash = ?", (self._hash(state),))
+            row = connection.execute("DELETE FROM google_oauth_states WHERE state_hash = ? AND binding_hash IS NULL RETURNING expires_at", (self._hash(state),)).fetchone()
         return bool(row and row["expires_at"] > self._now().isoformat())
+
+    def begin_google_oauth_flow(self) -> tuple[str, str, str]:
+        state = secrets.token_urlsafe(32)
+        verifier = secrets.token_urlsafe(64)
+        binding = secrets.token_urlsafe(32)
+        challenge = urlsafe_b64encode(sha256(verifier.encode("ascii")).digest()).rstrip(b"=").decode("ascii")
+        expires_at = (self._now() + timedelta(minutes=OAUTH_STATE_MINUTES)).isoformat()
+        with self._connection() as connection:
+            connection.execute("DELETE FROM google_oauth_states WHERE expires_at <= ?", (self._now().isoformat(),))
+            connection.execute(
+                "INSERT INTO google_oauth_states(state_hash, expires_at, verifier, binding_hash) VALUES (?, ?, ?, ?)",
+                (self._hash(state), expires_at, verifier, self._hash(binding)),
+            )
+        return state, challenge, binding
+
+    def consume_google_oauth_flow(self, state: str, binding: str | None) -> str | None:
+        if not state or not binding:
+            return None
+        with self._connection() as connection:
+            row = connection.execute(
+                """DELETE FROM google_oauth_states
+                   WHERE state_hash = ? AND binding_hash = ? AND expires_at > ? AND verifier IS NOT NULL
+                   RETURNING verifier""",
+                (self._hash(state), self._hash(binding), self._now().isoformat()),
+            ).fetchone()
+        return str(row["verifier"]) if row else None
 
     def upsert_openrouter_user(self, openrouter_user_id: str, openrouter_key: str) -> AuthenticatedUser:
         if not self.cipher:
@@ -409,5 +443,8 @@ def authorization_url(callback_url: str, state: str, challenge: str) -> str:
     return f"{OPENROUTER_AUTHORIZE_URL}?{urlencode({'callback_url': callback_url, 'state': state, 'code_challenge': challenge, 'code_challenge_method': 'S256'})}"
 
 
-def google_authorization_url(callback_url: str, state: str, client_id: str) -> str:
-    return f"{GOOGLE_AUTHORIZE_URL}?{urlencode({'client_id': client_id, 'redirect_uri': callback_url, 'response_type': 'code', 'scope': 'openid email profile', 'state': state, 'access_type': 'online', 'prompt': 'select_account'})}"
+def google_authorization_url(callback_url: str, state: str, client_id: str, challenge: str | None = None) -> str:
+    params = {'client_id': client_id, 'redirect_uri': callback_url, 'response_type': 'code', 'scope': 'openid email profile', 'state': state, 'access_type': 'online', 'prompt': 'select_account'}
+    if challenge is not None:
+        params.update({'code_challenge': challenge, 'code_challenge_method': 'S256'})
+    return f"{GOOGLE_AUTHORIZE_URL}?{urlencode(params)}"

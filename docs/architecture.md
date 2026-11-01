@@ -53,17 +53,27 @@ AI 修改指令的編輯使用草稿版本機制：`base_revision` 指向原指�
 
 ## API 邊界
 
+### 公開請求安全邊界
+
+公開模式的模型輸入以 `public_models.py` 驗證，只能使用當前帳號已連接的 OpenRouter／BazaarLink 憑證，拒絕自訂 URL 與 DIGI、ORPO、Skylark 等舊伺服器路由。聊天、編輯重新生成、角色生成、草稿修改與試聊都在呼叫模型前驗證；固定模型的記憶／好感度仍使用同一帳號路由。本機模式保留原模型 adapter 與 prompt 組裝。
+
+Google 登入新增 S256 PKCE 與 10 分鐘瀏覽器綁定 Cookie。伺服器以 state／binding 的雜湊與一次性 verifier 驗證回呼，另一瀏覽器不能完成該登入，舊 session 不需重新建立。這只處理 Google 登入流程的綁定，不代表其他寫入 API 已具有完整 Origin／CSRF 防護。
+
+`work_limits.py` 在單程序限制同時生成工作數、每帳號頻率、工作逾時及 API 寫入體積。生成工作涵蓋原本的回覆、記憶及關係處理，也涵蓋角色流程各階段；讀取資料與查看頁面不佔生成名額。逾時透過同一 ASGI 執行鏈取消，釋放名額及 chat 回合鎖；已開始的供應商請求可能仍已計費，沒有自動跨供應商重試。多程序或多台主機須另設共享限流狀態，不能直接把每個程序的上限當成全站上限。
+
+共用 FlowSpec 作預設，帳號 flow 及私人角色保存於同一份帳號 catalog。流程讀寫、bootstrap 與 preview 都依帳號解析，私人 catalog 保存採鎖與原子替換。記憶抽取錯誤只保存通用診斷代碼；舊記憶的例外文字及 traceback 在讀取時遮蔽，原私有檔案不被批次刪改。
+
 ### 多人並行與個人越獄
 
 登入結果、解密後模型憑證、store 與 activity 在同一請求內重用，請求結束即清除。模型的 HTTP client 依該請求的供應商／憑證重用連線，完成或失敗後關閉；不在玩家之間共用憑證、client 或事件記憶。帳號 SQLite 連線明確提交／回滾並關閉。聊天的 prompt 讀取、快照與逐字／事件記憶保存移至執行緒；LLM 及原有記憶／關係處理順序不變。
 
-同一帳號的同一 chat_id 以非阻塞檔案鎖保護整個回合，重複請求回 409，避免交錯寫成「玩家、玩家、角色、角色」及額外模型費用。不同玩家仍可並行。這只適用於目前單機共享磁碟部署，不是全站容量限制、工作佇列或可保證完成的背景工作。角色目錄與關係／profile 的其他同步寫入仍有後續優化空間，不把本次改動當成所有儲存層都已支援多程序交易。
+同一帳號的同一 chat_id 以非阻塞檔案鎖保護整個回合，重複請求回 409，避免交錯寫成「玩家、玩家、角色、角色」及額外模型費用。不同玩家仍可並行。這只適用於目前單機共享磁碟部署，不是工作佇列或可保證完成的背景工作；全站工作限制另由 work_limits 處理。角色目錄已加入共用寫入鎖與原子替換，關係／profile 的跨對話同步寫入仍有後續優化空間，不把本次改動當成所有儲存層都已支援多程序交易。
 
 2026-11-01 的相同模擬模型／20 帳號測試：登入查詢從 80 次減為 20 次，憑證載入從 40 次減為 20 次；同時進入模型的測試請求為 20。此為隔離 ASGI 測試，不代表約 1GB 生產主機的真實模型容量保證，也不以單次耗時差異推算效能提升百分比。
 
 公開模式以共用越獄作預設，個人修改存於 `runtime/users/<account>/jailbreaks.json`，列表按 ID 合併。沒有修改的項目隨預設更新，已修改的項目持續使用個人版本。個人 experiment 亦隔離保存。刪除個人覆寫後回到預設；共用預設只可由部署維護，玩家 API 不改寫。帳號覆寫的 JSON 使用檔案鎖與原子替換；聊天、角色生成、AI 修改及試聊皆使用同一帳號的有效越獄。
 
-`POST /api/prompt-preview` 僅檢查 prompt，不呼叫模型。`POST /api/characters/generate`、`POST /api/interactions`、`POST /api/memories/{chat_id}/extract`、`POST /api/memories/{chat_id}/backfill` 是唯一可能發送模型請求的路由；它們都需要使用者自行配置 provider 金鑰。
+`POST /api/prompt-preview` 僅檢查 prompt，不呼叫模型。模型請求入口包括 `POST /api/characters/generate`、`POST /api/interactions`、`POST /api/conversations/{chat_id}/edit`、`POST /api/character-generations/{id}/revise`、`POST /api/character-generations/{id}/test-interactions` 及其 `/edit`，還有 `POST /api/memories/{chat_id}/extract` 與 `/backfill`；它們都需要使用者自己的 provider 憑證，並受公開生成工作限制。登入與額度查詢會聯絡供應商，但不生成模型內容，也不佔生成名額。
 
 ## 公開 Web App 外殼
 

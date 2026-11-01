@@ -21,7 +21,8 @@ class FakeOAuthClient:
 
 
 class FakeGoogleOAuthClient:
-    async def exchange(self, code: str, callback_url: str, client_id: str, client_secret: str) -> tuple[str, str, str]:
+    async def exchange(self, code: str, callback_url: str, client_id: str, client_secret: str, code_verifier: str | None = None) -> tuple[str, str, str]:
+        assert code_verifier
         assert code == "google-code"
         assert callback_url == "https://diji.example/api/auth/google/callback"
         assert client_id == "google-client-id"

@@ -84,7 +84,7 @@ def test_reading_legacy_memory_repairs_missing_fields_like_ai_server(tmp_path) -
 
     records = LocalMemoryStore(path.parent).recent("test-chat")
 
-    assert [(record.type, record.summary) for record in records] == [("標記", "錯誤：failed"), ("事件", "明天見")]
+    assert [(record.type, record.summary) for record in records] == [("標記", "記憶整理暫時失敗"), ("事件", "明天見")]
 
 
 def test_request_can_disable_memory_injection_without_changing_persisted_data() -> None:

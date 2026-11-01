@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Literal
+from contextlib import contextmanager
+import fcntl
 import json
+import os
+import tempfile
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -69,11 +73,14 @@ DEFAULT_CATALOG = CatalogSnapshot(
 class LocalCatalog:
     """Hide JSON persistence behind a small list/get/save interface."""
 
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, empty_initial: bool = False) -> None:
         self.path = path
+        self.empty_initial = empty_initial
 
     def snapshot(self) -> CatalogSnapshot:
         if not self.path.exists():
+            if self.empty_initial:
+                return CatalogSnapshot(characters=[], flows=[])
             return DEFAULT_CATALOG.model_copy(deep=True)
         return CatalogSnapshot.model_validate_json(self.path.read_text(encoding="utf-8"))
 
@@ -84,15 +91,17 @@ class LocalCatalog:
         return next(item for item in self.snapshot().flows if item.id == flow_id)
 
     def save_character(self, character: CharacterSpec) -> CharacterSpec:
-        snapshot = self.snapshot()
-        snapshot.characters = self._replace(snapshot.characters, character)
-        self._write(snapshot)
+        with self._lock():
+            snapshot = self.snapshot()
+            snapshot.characters = self._replace(snapshot.characters, character)
+            self._write(snapshot)
         return character
 
     def save_flow(self, flow: FlowSpec) -> FlowSpec:
-        snapshot = self.snapshot()
-        snapshot.flows = self._replace(snapshot.flows, flow)
-        self._write(snapshot)
+        with self._lock():
+            snapshot = self.snapshot()
+            snapshot.flows = self._replace(snapshot.flows, flow)
+            self._write(snapshot)
         return flow
 
     @staticmethod
@@ -101,6 +110,29 @@ class LocalCatalog:
             [] if any(existing.id == item.id for existing in items) else [item]
         )
 
+    @contextmanager
+    def _lock(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if self.empty_initial:
+            self.path.parent.chmod(0o700)
+        lock_path = self.path.with_name(self.path.name + ".lock")
+        fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+        with os.fdopen(fd, "r+") as lock:
+            os.fchmod(lock.fileno(), 0o600)
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock, fcntl.LOCK_UN)
+
     def _write(self, snapshot: CatalogSnapshot) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(snapshot.model_dump(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        fd, name = tempfile.mkstemp(dir=self.path.parent, prefix=".catalog-")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as output:
+                json.dump(snapshot.model_dump(), output, ensure_ascii=False, indent=2)
+                output.write("\n")
+                output.flush()
+                os.fsync(output.fileno())
+            os.replace(name, self.path)
+        finally:
+            Path(name).unlink(missing_ok=True)

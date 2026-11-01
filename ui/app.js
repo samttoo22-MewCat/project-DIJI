@@ -167,6 +167,7 @@ function message(role, text, timestamp = Date.now(), index = state.history.lengt
   meta.append(author, time); article.append(meta, copy); conversations.append(article);
   if(role==='user') window.dijiAttachMessageEditor(article,{text,isBusy:()=>document.querySelector('#chat-form').getAttribute('aria-busy')==='true',onSave:value=>editSentMessage(index,text,value)});
   conversations.scrollTop = conversations.scrollHeight;
+  return article;
 }
 function showTypingIndicator() {
   const article = document.createElement("article");
@@ -629,18 +630,30 @@ document.querySelector("#chat-form").addEventListener("submit", async (event) =>
   if (!await refreshChatProviderState()) { showToast("請先設定模型商連線，再傳送訊息。"); showScreen("connections"); return; }
   const payload = interactionPayload(text);
   if (!state.liveSession) { conversations.innerHTML = '<div class="date-divider"><span>本機互動</span></div>'; state.liveSession = true; }
-  const timestamp = Date.now(); message("user", text, timestamp); state.history.push({ sender_type: 1, text, timestamp }); input.value = ""; setComposerBusy(true);
+  const sendingUser=authenticatedUser?.id;
+  const timestamp = Date.now(), pending=message("user", text, timestamp), historyEntry={ sender_type: 1, text, timestamp };
+  state.history.push(historyEntry); input.value = ""; setComposerBusy(true);
   const typingIndicator = showTypingIndicator();
   try {
     const response = await fetch("/api/interactions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const body = await response.text();
     let data = {};
     try { data = body ? JSON.parse(body) : {}; } catch { data = { detail: body }; }
-    if (!response.ok) throw new Error(data.detail || `互動請求失敗（HTTP ${response.status}）`);
+    if (!response.ok) {
+      const error=new Error(data.detail || `互動請求失敗（HTTP ${response.status}）`);
+      error.notAccepted=[413,429].includes(response.status);throw error;
+    }
     typingIndicator.remove();
     const replyTimestamp = Date.now(); message("assistant", data.text, replyTimestamp); state.history.push({ sender_type: 2, text: data.text, timestamp: replyTimestamp });
     loadChatMemories();
-  } catch (error) { typingIndicator.remove(); showToast(`模型回覆未完成：${error.message}；你的訊息已保存在本機。`); } finally { setComposerBusy(false); loadConversations(); }
+  } catch (error) {
+    typingIndicator.remove();
+    if(error.notAccepted && state.chatId===payload.chat_id && authenticatedUser?.id===sendingUser) {
+      const index=state.history.indexOf(historyEntry);if(index>=0)state.history.splice(index,1);
+      pending.remove();if(!input.value)input.value=text;
+    }
+    showToast(error.notAccepted ? `尚未送出：${error.message}；文字已保留在輸入框。` : `模型回覆未完成：${error.message}；請確認對話狀態後再決定是否重新生成。`);
+  } finally { setComposerBusy(false); loadConversations(); }
 });
 document.querySelector("#chat-input").addEventListener("keydown", (event) => {
   // IME confirmation belongs to the input method, including Safari's 229 event.

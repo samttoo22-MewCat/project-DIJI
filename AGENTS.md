@@ -6,6 +6,15 @@
 
 ## 架構原則
 
+- 使用者本輪已明確要求「有問題自己去修正」：可定位的實作／測試錯誤自行修正並驗證，不因一般測試失敗反覆詢問；新權限、未授權的付費服務或破壞性資料操作仍依原授權範圍處理。
+- 本輪安全更新由三個 GPT-6.1 Terra 子代理分工並整合：本地及 AWS 均 196 項 pytest 通過，四組 DOM 測試通過。已備份正式帳號庫；Edge 真實 Google 登入返回工作區，既有 session 保留，公開 API 匿名請求回 401。真實模型隔離驗證改後 prompt 確實送出、舊訊息未混入、新分支與記憶保存、原對話未變；不要以模型是否逐字複述某個詞作唯一判準。生成並發與拒絕／取消測試為隔離假模型，不宣稱完成長時間真實負載測試。
+- 公開模型選擇須經 `public_models.validate_public_model`，驗證在模型呼叫與內容寫入前；有既存資源的端點先驗證帳號歸屬，維持跨帳號 404。公開模式拒絕任何 `llm.url` 及舊內網／全站憑證路由，僅接受帳號 ProviderCredentials；本機模式保留 ai-server 路由。不可為了讓測試通過改收一般字串 key 或一般 list 當公開憑證。
+- Google 登入使用 `begin_google_oauth_flow`／`consume_google_oauth_flow` 綁定發起瀏覽器，S256 PKCE verifier 僅在伺服器暫存，成功後原子消耗。HTTPS 的 `__Host-diji_google_flow` Cookie 為 HttpOnly、Secure、SameSite=Lax、Path=/、600 秒；成功或交換失敗清除，錯誤綁定不消耗合法流程。舊帳號／session 保留，部署前以 SQLite backup 備份帳號庫，不輸出 Cookie、state、verifier 或憑證。
+- 生成工作保護位於純 ASGI `work_limits.ModelWorkMiddleware`，不要用 BaseHTTPMiddleware 的 call_next 外層 timeout 取代，以免工作仍在背景執行卻提早釋放名額。單程序預設全站 8、帳號 2、帳號每分鐘 20 次，工作 180 秒；API 寫入上限 1 MiB，包含無 Content-Length 的分塊上傳。429 帶 Retry-After，504 取消工作並釋放回合鎖；不自動重試已可能計費的請求。
+- 正式聊天／試聊收到 429 或 413 時，保留原輸入並移除未被伺服器接受的樂觀泡泡與 history；504 則保留已送出訊息，提示確認狀態，不自動重送。`tests/model-limits-ui.test.cjs` 驗證這三種回應，並保留訊息編輯與 IME 回歸。
+- 舊 OpenRouter 相容登入也以獨立的短效 Host Cookie 綁定 state，在消耗 PKCE verifier 前檢查瀏覽器，成功／交換失敗後清除。登入 UI 仍只顯示 Google，模型商連結仍綁定既有帳號；不要為了保留舊 session 而保留未綁定的新登入回呼。
+- 流程也採共用預設＋帳號覆寫，公開模式 GET／PUT flows、bootstrap 與 prompt-preview 都用帳號有效 catalog；共用檔只讀。私人角色與流程共存同一 catalog，`LocalCatalog` 保存使用同一檔案鎖與原子替換，初始私人 catalog 為空，不複製內建角色。
+- 模型失敗僅回傳通用訊息與 error_id；`errors.report_error` 日誌只記 operation、error_id、例外類型，不記例外字串、traceback 或請求內容。既有記憶 error 記錄在讀取／回傳時遮蔽診斷欄位與摘要，保留原始私有檔案，不把診斷文字注入 prompt。這是經使用者核准的安全修正，其他記憶格式與查詢行為保持不變。
 - 多人請求：同一 HTTP 請求只查一次 session 與帳號模型憑證，stores／activity 使用 ContextVar 的請求內快取，請求結束即釋放；不得改成跨帳號或跨請求的憑證快取。模型 client 在請求內重用並於完成、失敗／取消時關閉，維持額度順序與 402 才切換。聊天的同步 prompt／快照／對話／記憶寫入移到執行緒，避免堵住其他玩家的 event loop。
 - 同一帳號、同一正式或試聊 chat_id 以 `.turn.lock` 非阻塞 flock 保護整個生成回合，重疊請求回 409、不再呼叫模型；不同帳號與不同對話可並行。不是全站限流／持久工作佇列，不能宣稱支援多台主機或斷線後自動恢復生成。`tests/test_concurrent_usage.py` 驗證並行、隔離、重複回合、慢磁碟不堵住 session 及 client／SQLite 關閉。
 - 公開模式越獄採帳號覆寫：共用 `runtime/jailbreaks.json` 只作預設；第一次儲存才產生 `runtime/users/<account>/jailbreaks.json`，以 ID 覆寫預設。刪除個人覆寫恢復預設，純自訂項目則移除；預設不能由玩家刪除。內部 experiment 指標與設定也使用帳號的 `experiments.json`，避免個人越獄名稱／選擇寫回共用檔。聊天、建立角色、AI 修改與草稿試聊均解析同一帳號的有效越獄。個人 JSON 採 flock＋原子替換、0600，目錄 0700，API no-store。舊共用檔缺少作者資訊，不可擅自推測歷史修改者或搬成個人資料。

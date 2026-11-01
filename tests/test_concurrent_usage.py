@@ -15,6 +15,7 @@ from diji.auth import AccountStore, AuthSettings, SESSION_COOKIE
 from diji.local_catalog import LocalCatalog, CharacterSpec
 from diji.provider_routing import provider_client, provider_session
 from diji.experiments import ExperimentStore, JailbreakStore
+from diji.work_limits import WorkLimits
 
 
 @pytest.fixture
@@ -53,7 +54,7 @@ def concurrent_app(tmp_path, monkeypatch):
             return json.dumps({'summary':'隔離的測試記憶','type':'事件'})
     monkeypatch.setattr(module,'AiServerCompatibleAdapter',lambda key=None:Adapter())
     monkeypatch.setattr(module,'OpenRouterExtractionClient',lambda key=None:Extraction())
-    app=module.create_app(catalog=catalog,account_store=accounts,auth_settings=settings,jailbreak_store=JailbreakStore(tmp_path/'presets.json'),experiment_store=ExperimentStore(tmp_path/'experiments.json'))
+    app=module.create_app(catalog=catalog,account_store=accounts,auth_settings=settings,jailbreak_store=JailbreakStore(tmp_path/'presets.json'),experiment_store=ExperimentStore(tmp_path/'experiments.json'),work_limits=WorkLimits(global_limit=32))
     payload={'chat_id':'same-chat-id','llm':{'model':'test/model'},'character':{'id':'qa-role','name':'多人測試','description':'測試背景'},'user':{'id':'local-user','persona':{'name':'玩家','chat_mode':'dialog'}},'message':{'sender_id':'local-user','text':'測試'},'enable_favorability':False}
     return app,accounts,players,payload,calls,tmp_path
 

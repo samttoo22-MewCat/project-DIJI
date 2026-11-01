@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 import os
 import uuid
+from hashlib import sha256
+from hmac import compare_digest
 from contextvars import ContextVar
 from typing import Literal
 
@@ -28,6 +30,11 @@ from .prompt_assembly import PromptBundle, PromptPreviewRequest, assemble_prompt
 from .domain import InteractionRequest, InteractionResponse
 from .experiments import ExperimentStore, JailbreakPreset, JailbreakStore, PromptExperiment
 from .experiments.account_store import AccountPresetStore
+from .account_catalog import AccountCatalog
+from .domain import ModelConfiguration
+from .public_models import PublicModelError, validate_public_model
+from .errors import report_error
+from .work_limits import ModelWorkMiddleware, RequestBodyLimitMiddleware, WorkLimits
 from .interaction import InteractionService
 from .model_adapter import AiServerCompatibleAdapter
 from .relationship import RelationshipStore, RelationshipState
@@ -159,6 +166,7 @@ def create_app(
     auth_settings: AuthSettings | None = None,
     oauth_client: OpenRouterOAuthClient | None = None,
     google_oauth_client: GoogleOAuthClient | None = None,
+    work_limits: WorkLimits | None = None,
 ) -> FastAPI:
     """Create the local app without sending any provider request during startup."""
 
@@ -180,7 +188,12 @@ def create_app(
     accounts = account_store or AccountStore(DEFAULT_ACCOUNT_DATABASE_PATH, auth.encryption_key)
     oauth = oauth_client or OpenRouterOAuthClient()
     google_oauth = google_oauth_client or GoogleOAuthClient()
+    google_flow_cookie='__Host-diji_google_flow' if auth.secure_cookie else 'diji_google_flow'
+    router_flow_cookie='__Host-diji_router_flow' if auth.secure_cookie else 'diji_router_flow'
     app = FastAPI(title="DIJI Local Workbench", docs_url=None, redoc_url=None)
+    limits=work_limits or WorkLimits.from_environment()
+    app.add_middleware(ModelWorkMiddleware,limits=limits,required=auth.required)
+    app.add_middleware(RequestBodyLimitMiddleware,max_bytes=limits.body_bytes)
     request_cache = ContextVar('diji_request_cache', default=None)
 
     def cached(key, factory):
@@ -208,7 +221,12 @@ def create_app(
                 if auth.required and path not in public_auth and not request.state.diji_user:
                     return JSONResponse({"detail": "請先使用 Google 登入 DIJI"}, status_code=401, headers={"Cache-Control": "no-store"})
             async with provider_session():
-                return await call_next(request)
+                try:
+                    return await call_next(request)
+                except Exception as error:
+                    if not auth.required:raise
+                    error_id=report_error(error,'api_request')
+                    return JSONResponse({'detail':'暫時無法完成請求，請稍後再試','error_id':error_id},status_code=502,headers={'Cache-Control':'no-store'})
         finally:
             request_cache.reset(token)
 
@@ -222,6 +240,14 @@ def create_app(
         if auth.required and not user:
             raise HTTPException(status_code=401, detail="請先登入 DIJI")
         return user or AuthenticatedUser(id="local-user", login_provider="local", display_name="本機使用者", openrouter_user_id="local-user")
+
+    def check_model(user,model,url=None):
+        if auth.required and not credentials_for(user.id):
+            raise HTTPException(status_code=409,detail='此帳號尚未設定模型連線')
+        try:
+            validate_public_model(ModelConfiguration(model=model,url=url),required=auth.required,credentials=credentials_for(user.id) if auth.required else None)
+        except PublicModelError as error:
+            raise HTTPException(status_code=400,detail=str(error)) from error
 
     def activity_for(user: AuthenticatedUser) -> PlayerActivity:
         root = _user_directory(user.id) if auth.required else local_catalog.path.parent
@@ -284,24 +310,30 @@ def create_app(
     def start_google_login() -> RedirectResponse:
         if not auth.google_login_available:
             raise HTTPException(status_code=503, detail="Google 登入尚未設定 DIJI_GOOGLE_CLIENT_ID、DIJI_GOOGLE_CLIENT_SECRET 與 DIJI_GOOGLE_OAUTH_CALLBACK_URL")
-        state = accounts.begin_google_oauth()
-        response = RedirectResponse(google_authorization_url(auth.google_callback_url or "", state, auth.google_client_id or ""), status_code=303)
+        state,challenge,binding = accounts.begin_google_oauth_flow()
+        response = RedirectResponse(google_authorization_url(auth.google_callback_url or "", state, auth.google_client_id or "",challenge), status_code=303)
         response.headers["Cache-Control"] = "no-store"
+        response.set_cookie(google_flow_cookie,binding,max_age=600,httponly=True,secure=auth.secure_cookie,samesite='lax',path='/')
         return response
 
     @app.get("/api/auth/google/callback")
-    async def finish_google_login(code: str, state: str) -> RedirectResponse:
+    async def finish_google_login(http_request: Request, code: str, state: str):
         if not auth.google_login_available:
             raise HTTPException(status_code=503, detail="Google 登入尚未設定")
-        if not accounts.consume_google_oauth_state(state):
+        verifier=accounts.consume_google_oauth_flow(state,http_request.cookies.get(google_flow_cookie))
+        if not verifier:
             raise HTTPException(status_code=400, detail="登入連線已過期，請重新開始")
         try:
-            subject, display_name, email = await google_oauth.exchange(code, auth.google_callback_url or "", auth.google_client_id or "", auth.google_client_secret or "")
+            subject, display_name, email = await google_oauth.exchange(code, auth.google_callback_url or "", auth.google_client_id or "", auth.google_client_secret or "",code_verifier=verifier)
             user = accounts.upsert_google_user(subject, display_name, email)
         except (httpx.HTTPError, ValueError) as error:
-            raise HTTPException(status_code=400, detail=f"Google 登入未完成：{error}") from error
+            error_id=report_error(error,'google_login')
+            response=JSONResponse({'detail':'Google 登入未完成，請重新登入','error_id':error_id},status_code=400,headers={'Cache-Control':'no-store'})
+            response.delete_cookie(google_flow_cookie,path='/',secure=auth.secure_cookie,httponly=True,samesite='lax')
+            return response
         response = RedirectResponse("/", status_code=303)
         response.headers["Cache-Control"] = "no-store"
+        response.delete_cookie(google_flow_cookie,path='/',secure=auth.secure_cookie,httponly=True,samesite='lax')
         response.set_cookie(
             SESSION_COOKIE,
             accounts.create_google_session(user.id),
@@ -320,10 +352,14 @@ def create_app(
         state, _verifier, challenge = accounts.begin_oauth()
         response = RedirectResponse(authorization_url(auth.callback_url, state, challenge), status_code=303)
         response.headers["Cache-Control"] = "no-store"
+        response.set_cookie(router_flow_cookie,sha256(state.encode()).hexdigest(),max_age=600,httponly=True,secure=auth.secure_cookie,samesite='lax',path='/')
         return response
 
     @app.get("/api/auth/openrouter/callback")
-    async def finish_openrouter_login(code: str, state: str) -> RedirectResponse:
+    async def finish_openrouter_login(http_request: Request, code: str, state: str):
+        binding=http_request.cookies.get(router_flow_cookie,'')
+        if not compare_digest(binding.encode(),sha256(state.encode()).hexdigest().encode()):
+            raise HTTPException(status_code=400,detail='登入連線已過期，請重新開始')
         verifier = accounts.consume_oauth_verifier(state)
         if not verifier:
             raise HTTPException(status_code=400, detail="登入連線已過期，請重新開始")
@@ -331,9 +367,13 @@ def create_app(
             openrouter_user_id, key = await oauth.exchange(code, verifier)
             user = accounts.upsert_openrouter_user(openrouter_user_id, key)
         except (httpx.HTTPError, ValueError, RuntimeError) as error:
-            raise HTTPException(status_code=400, detail=f"OpenRouter 登入未完成：{error}") from error
+            error_id=report_error(error,'legacy_openrouter_login')
+            response=JSONResponse({'detail':'OpenRouter 登入未完成，請重新開始','error_id':error_id},status_code=400,headers={'Cache-Control':'no-store'})
+            response.delete_cookie(router_flow_cookie,path='/',secure=auth.secure_cookie,httponly=True,samesite='lax')
+            return response
         response = RedirectResponse("/", status_code=303)
         response.headers["Cache-Control"] = "no-store"
+        response.delete_cookie(router_flow_cookie,path='/',secure=auth.secure_cookie,httponly=True,samesite='lax')
         response.set_cookie(
             SESSION_COOKIE,
             accounts.create_session(user.id),
@@ -456,22 +496,16 @@ def create_app(
             raise HTTPException(status_code=400, detail=str(error)) from error
 
     def private_catalog(request: Request) -> LocalCatalog:
-        user = current_user(request)
         if not auth.required:
             return local_catalog
-        path = _user_directory(user.id) / "catalog.json"
-        if not path.exists():
-            path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-            path.write_text(CatalogSnapshot(characters=[], flows=[]).model_dump_json())
-            path.chmod(0o600)
-        return LocalCatalog(path)
+        user=current_user(request)
+        return cached(('catalog',user.id),lambda: AccountCatalog(local_catalog,_user_directory(user.id)/'catalog.json')).private
 
     def visible_catalog(request: Request) -> CatalogSnapshot:
-        snapshot = local_catalog.snapshot()
         user = session_user(request)
         if auth.required and user:
-            snapshot.characters += private_catalog(request).snapshot().characters
-        return snapshot
+            return AccountCatalog(local_catalog,_user_directory(user.id)/'catalog.json').snapshot()
+        return local_catalog.snapshot()
 
     def visible_character(request: Request, character_id: str) -> CharacterSpec:
         character = next((item for item in visible_catalog(request).characters if item.id == character_id), None)
@@ -539,21 +573,22 @@ def create_app(
         return result
 
     @app.get("/api/flows", response_model=list[FlowSpec])
-    def list_flows() -> list[FlowSpec]:
-        return local_catalog.snapshot().flows
+    def list_flows(http_request: Request, response: Response) -> list[FlowSpec]:
+        response.headers['Cache-Control']='private, no-store'
+        return visible_catalog(http_request).flows
 
     @app.put("/api/flows/{flow_id}", response_model=FlowSpec)
-    def save_flow(flow_id: str, flow: FlowSpec) -> FlowSpec:
+    def save_flow(flow_id: str, flow: FlowSpec, http_request: Request) -> FlowSpec:
         if flow_id != flow.id:
             raise HTTPException(status_code=400, detail="Flow id must match the URL")
-        return local_catalog.save_flow(flow)
+        return private_catalog(http_request).save_flow(flow)
 
     @app.post("/api/prompt-preview", response_model=PromptBundle)
     def prompt_preview(request: PromptPreviewRequest, http_request: Request) -> PromptBundle:
         user_memories, _conversations, _relationships, _profiles, _interactions, _generator = stores_for(current_user(http_request))
         try:
             character = visible_character(http_request, request.character_id)
-            flow = local_catalog.flow(request.flow_id)
+            flow = next(item for item in visible_catalog(http_request).flows if item.id==request.flow_id)
         except StopIteration as error:
             raise HTTPException(status_code=404, detail="Character or flow not found") from error
         return assemble_prompt(character, flow, request, user_memories.recent(request.chat_id))
@@ -650,6 +685,7 @@ def create_app(
         _,chats,*_=stores_for(user)
         try:source=chats.get(chat_id)
         except StopIteration as error:raise HTTPException(status_code=404,detail='對話不存在') from error
+        check_model(user,request.interaction.llm.model,request.interaction.llm.url)
         if request.interaction.chat_id!=chat_id or request.interaction.character.id!=source.character_id:
             raise HTTPException(status_code=400,detail='對話與角色不符')
         if auth.required:
@@ -772,6 +808,7 @@ def create_app(
     @app.post("/api/characters/generate", response_model=CharacterGenerationResult)
     async def generate_character(request: CharacterGenerationRequest, http_request: Request) -> CharacterGenerationResult:
         user = current_user(http_request)
+        check_model(user,request.model)
         if auth.required and not credentials_for(user.id):
             raise HTTPException(status_code=409, detail="此帳號尚未設定模型連線")
         _memories, _conversations, _relationships, _profiles, _interactions, user_generator = stores_for(user)
@@ -849,6 +886,7 @@ def create_app(
             run = activity.get(run_id)
         except LookupError as error:
             raise HTTPException(status_code=404, detail='草稿不存在') from error
+        check_model(user,request.model)
         if run['kind'] != 'generation' or run['status'] != 'completed' or run['data'].get('saved_character_id') or run['revision'] != request.revision:
             raise HTTPException(status_code=409, detail='草稿已變更或已儲存為角色，請重新讀取')
         if auth.required and not credentials_for(user.id):
@@ -913,6 +951,7 @@ def create_app(
             run = activity_for(user).get(run_id)
         except LookupError as error:
             raise HTTPException(status_code=404, detail='草稿不存在') from error
+        check_model(user,trial.model)
         if run['kind'] != 'generation' or run['status'] != 'completed' or run['data'].get('saved_character_id'):
             raise HTTPException(status_code=409, detail='請使用尚未加入角色庫的完整草稿試聊')
         if run['revision'] != trial.revision:
@@ -963,6 +1002,7 @@ def create_app(
 
     async def execute_interaction(request: InteractionRequest, http_request: Request, trial_data: dict | None = None) -> InteractionResponse:
         user=current_user(http_request)
+        check_model(user,request.llm.model,request.llm.url)
         _,chats,*_=stores_for(user,trial=trial_data is not None)
         try:
             with chats.turn(request.chat_id):
@@ -1040,6 +1080,9 @@ def create_app(
             return response
         except ValueError as error:
             if 'turn_id' in locals(): activity.finish(turn_id,'failed',{'error_type':type(error).__name__})
+            if auth.required:
+                error_id=report_error(error,'conversation_turn')
+                raise HTTPException(status_code=502,detail=f'生成未完成，請稍後再試（錯誤代碼：{error_id}）') from error
             raise HTTPException(status_code=400, detail=str(error)) from error
         except BaseException as error:
             if 'turn_id' in locals(): activity.finish(turn_id,'failed',{'error_type':type(error).__name__})

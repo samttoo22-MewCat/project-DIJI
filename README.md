@@ -63,6 +63,18 @@ cp .env.example .env
 
 不得提交 `.env`、`runtime/` 或 provider key。
 
+公開模式只接受帳號已連接的 OpenRouter／BazaarLink 路由，自訂模型網址與 DIGI／ORPO／Skylark 等伺服器路由限本機模式。Google 登入使用瀏覽器綁定的短效 Cookie 與 S256 PKCE；既有帳號及 session 保留。
+
+| 公開部署資源設定 | 預設值 |
+| --- | --- |
+| `DIJI_MAX_GENERATIONS` | 同時 8 個生成工作 |
+| `DIJI_MAX_GENERATIONS_PER_USER` | 每帳號同時 2 個 |
+| `DIJI_GENERATIONS_PER_MINUTE` | 每帳號每分鐘 20 次生成請求 |
+| `DIJI_GENERATION_TIMEOUT` | 每次生成工作 180 秒 |
+| `DIJI_MAX_API_BODY_BYTES` | API 寫入上限 1 MiB，本機模式亦適用 |
+
+超額回 `429`，逾時回 `504`，資料過大回 `413`。限額涵蓋聊天、重新生成、角色生成、草稿修改／試聊與記憶抽取／回填；一次工作包含原有各階段，沒有新增跨供應商自動重試。這是單程序保護，未提供跨主機的分散式限流或工作佇列，瀏覽人數也不等於可同時生成的工作數。
+
 ## 本機執行
 
 ```bash

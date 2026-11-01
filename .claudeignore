@@ -23,4 +23,5 @@ coverage/
 .draft-version-checks/
 .message-edit-checks/
 .concurrency-checks/
+.security-checks/
 *.sqlite3*

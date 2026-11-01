@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import traceback
 from datetime import datetime, timedelta, timezone
 from typing import Protocol
 
@@ -13,6 +12,7 @@ from openai import AsyncOpenAI
 from .provider_routing import provider_client
 
 from .memory_store import MemoryRecord
+from .errors import report_error
 
 
 TZ_TAIPEI = timezone(timedelta(hours=8))
@@ -87,11 +87,12 @@ class MemoryExtractor:
                 event["keywords"] = {}
             return [MemoryRecord.model_validate(event)]
         except Exception as error:
+            error_id=report_error(error,'memory_extraction')
             return [MemoryRecord.model_validate({
                 "timestamp": datetime.now(TZ_TAIPEI).strftime("%Y-%m-%d %H:%M"),
                 "type": "標記",
                 "summary": "錯誤：LLM提取事件失敗",
                 "error": True,
-                "error_message": f"LLM提取關鍵事件時出錯：{error}",
-                "traceback": traceback.format_exc(),
+                "error_message": "記憶整理暫時失敗，請稍後再試",
+                "error_id": error_id,
             })]

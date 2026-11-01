@@ -168,6 +168,11 @@ class LocalMemoryStore:
     def _validate_and_fix(memory: dict) -> MemoryRecord:
         """Mirror ai-server's tolerant reader for legacy/incomplete memory JSON."""
         record = dict(memory)
+        if record.get('error'):
+            record.pop('traceback',None)
+            record.pop('error_type',None)
+            record['error_message']='記憶整理暫時失敗，請稍後再試'
+            record['summary']='記憶整理暫時失敗'
         if "timestamp" not in record:
             record["timestamp"] = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M")
         if "type" not in record:
@@ -178,7 +183,7 @@ class LocalMemoryStore:
             elif record.get("user_message"):
                 record["summary"] = record["user_message"]
             elif record.get("error_message"):
-                record["summary"] = f"錯誤：{record['error_message'][:50]}"
+                record["summary"] = "記憶整理暫時失敗"
             else:
                 record["summary"] = "記憶摘要"
         record["summary"] = str(record["summary"])[:60]
