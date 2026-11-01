@@ -77,6 +77,10 @@ Google 登入新增 S256 PKCE 與 10 分鐘瀏覽器綁定 Cookie。伺服器以
 
 ## 公開 Web App 外殼
 
+登入視窗先提供隱私條款與使用者規約全文連結，以及對話／生成資料保存、模型商傳輸與自備額度摘要。使用者自行勾選後，以原生 POST 表單前往 Google；不以 fetch 跟隨跨來源 OAuth。GET 舊登入入口只回到確認畫面。後端檢查 Origin 與目前文件版本，將同意版本連到 OAuth state，登入成功後才存入帳號同意紀錄。版本為兩份部署文件全文的 SHA-256，日期相同但內容變動仍會改版；流程中若版本改變需重新確認，既有 session 不會被偽造同意紀錄。
+
+`/legal/privacy`、`/legal/terms` 公開呈現同一份 repository 文件，表格使用 Python-Markdown 渲染，並以僅限這兩個固定來源的查表路由發布；不提供任意檔案瀏覽或使用者 Markdown 輸入。條款頁不執行腳本，使用同源樣式；登入版本 metadata 不快取。Service Worker 不將條款頁覆寫成離線首頁。
+
 公開帳號識別與模型供應商連線必須是兩個獨立層。首頁不強制要求登入；使用者點擊右上角「登入」，或嘗試建立／開啟／發送對話時，才開啟只含 Google 的登入視窗。Google OAuth 以 `DIJI_GOOGLE_CLIENT_ID`、`DIJI_GOOGLE_CLIENT_SECRET` 與 `DIJI_GOOGLE_OAUTH_CALLBACK_URL` 在伺服器端交換 OIDC code；帳號與雜湊 session 分別存於 `google_users`、`google_sessions`，使用者資料仍隔離在 `runtime/users/<user-id>/`。Google 登入可建立並保存對話；沒有模型連線設定時，會在任何模型請求前回覆 `409`，絕不暗中使用全站金鑰。現有 OpenRouter PKCE 資料僅為舊帳號相容與未來供應商綁定保留，不能出現在目前登入 UI。
 
 `ui/manifest.webmanifest`、`ui/icons/` 與 `ui/service-worker.js` 由同一個 FastAPI 靜態根路由提供，讓公開 HTTPS 入口能安裝為 PWA。Service Worker 的範圍只限靜態介面外殼：安裝時預取首頁、manifest 與圖示，使用時才快取同源的樣式、腳本、字型與圖片。`/api/`、帳號 session、OAuth、對話、角色、記憶與模型請求均維持 network-only，絕不放入 Cache Storage；因此離線只能重開既有的介面，不能登入或互動。

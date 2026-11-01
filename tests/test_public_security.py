@@ -1,3 +1,4 @@
+from legal_helpers import start_with_test_consent
 import asyncio
 from contextlib import ExitStack
 import json
@@ -191,7 +192,7 @@ def test_google_flow_bound_to_browser_and_cookie_cleared(tmp_path):
     accounts=AccountStore(tmp_path/'accounts.sqlite3',settings.encryption_key)
     app=module.create_app(catalog=LocalCatalog(tmp_path/'catalog.json'),account_store=accounts,auth_settings=settings,google_oauth_client=Google())
     owner,other=TestClient(app,base_url='https://testserver'),TestClient(app,base_url='https://testserver')
-    start=owner.get('/api/auth/google/start',follow_redirects=False)
+    start=start_with_test_consent(owner)
     params=parse_qs(urlparse(start.headers['location']).query)
     assert params['code_challenge_method']==['S256']
     cookie=start.headers['set-cookie'];assert '__Host-diji_google_flow=' in cookie and all(x in cookie.lower() for x in ['httponly','secure','samesite=lax','path=/','max-age=600'])
@@ -209,7 +210,7 @@ def test_legacy_openrouter_flow_also_requires_same_browser(tmp_path):
     settings=AuthSettings(required=True,callback_url='https://testserver/api/auth/openrouter/callback',encryption_key=Fernet.generate_key().decode())
     app=module.create_app(catalog=LocalCatalog(tmp_path/'catalog.json'),account_store=AccountStore(tmp_path/'accounts.sqlite3',settings.encryption_key),auth_settings=settings,oauth_client=Router())
     owner,other=TestClient(app,base_url='https://testserver'),TestClient(app,base_url='https://testserver')
-    start=owner.get('/api/auth/openrouter/start',follow_redirects=False)
+    start=start_with_test_consent(owner,'openrouter')
     state=parse_qs(urlparse(start.headers['location']).query)['state'][0]
     url='/api/auth/openrouter/callback?code=fake-code&state='+state
     assert other.get(url,follow_redirects=False).status_code==400

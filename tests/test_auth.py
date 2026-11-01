@@ -1,3 +1,4 @@
+from legal_helpers import start_with_test_consent
 import asyncio
 import json
 from pathlib import Path
@@ -24,7 +25,7 @@ class FakeGoogleOAuthClient:
     async def exchange(self, code: str, callback_url: str, client_id: str, client_secret: str, code_verifier: str | None = None) -> tuple[str, str, str]:
         assert code_verifier
         assert code == "google-code"
-        assert callback_url == "https://diji.example/api/auth/google/callback"
+        assert callback_url == "https://testserver/api/auth/google/callback"
         assert client_id == "google-client-id"
         assert client_secret == "google-client-secret"
         return "google-subject-123", "玩家", "player@example.com"
@@ -78,7 +79,7 @@ def test_openrouter_login_creates_a_session_and_isolates_conversations(tmp_path:
     client = TestClient(app)
 
     assert client.get("/api/conversations").status_code == 401
-    start = client.get("/api/auth/openrouter/start", follow_redirects=False)
+    start = start_with_test_consent(client,"openrouter")
     assert start.status_code == 303
     assert "code_challenge=" in start.headers["location"]
     state = start.headers["location"].split("state=", 1)[1].split("&", 1)[0]
@@ -97,7 +98,7 @@ def test_openrouter_login_creates_a_session_and_isolates_conversations(tmp_path:
     assert (tmp_path / "accounts.sqlite3").stat().st_mode & 0o777 == 0o600
 
     second_client = TestClient(app)
-    second_start = second_client.get("/api/auth/openrouter/start", follow_redirects=False)
+    second_start = start_with_test_consent(second_client,"openrouter")
     second_state = second_start.headers["location"].split("state=", 1)[1].split("&", 1)[0]
     assert second_client.get(f"/api/auth/openrouter/callback?code=second-code&state={second_state}", follow_redirects=False).status_code == 303
     assert second_client.get("/api/conversations").json() == []
@@ -106,7 +107,7 @@ def test_openrouter_login_creates_a_session_and_isolates_conversations(tmp_path:
 def test_openrouter_callback_rejects_a_replayed_state(tmp_path: Path) -> None:
     settings = AuthSettings(required=True, callback_url="http://testserver/api/auth/openrouter/callback", encryption_key=Fernet.generate_key().decode())
     client = TestClient(create_app(LocalCatalog(tmp_path / "catalog.json"), account_store=AccountStore(tmp_path / "accounts.sqlite3", settings.encryption_key), auth_settings=settings, oauth_client=FakeOAuthClient()))
-    start = client.get("/api/auth/openrouter/start", follow_redirects=False)
+    start = start_with_test_consent(client,"openrouter")
     state = start.headers["location"].split("state=", 1)[1].split("&", 1)[0]
 
     assert client.get(f"/api/auth/openrouter/callback?code=returned-code&state={state}", follow_redirects=False).status_code == 303
@@ -118,7 +119,7 @@ def test_google_login_creates_a_diji_account_without_an_openrouter_key(tmp_path:
         required=True,
         callback_url="http://testserver/api/auth/openrouter/callback",
         encryption_key=Fernet.generate_key().decode(),
-        google_callback_url="https://diji.example/api/auth/google/callback",
+        google_callback_url="https://testserver/api/auth/google/callback",
         google_client_id="google-client-id",
         google_client_secret="google-client-secret",
     )
@@ -131,7 +132,7 @@ def test_google_login_creates_a_diji_account_without_an_openrouter_key(tmp_path:
     )
     client = TestClient(app, base_url="https://testserver")
 
-    start = client.get("/api/auth/google/start", follow_redirects=False)
+    start = start_with_test_consent(client)
     assert start.status_code == 303
     assert "accounts.google.com" in start.headers["location"]
     state = start.headers["location"].split("state=", 1)[1].split("&", 1)[0]
@@ -163,7 +164,7 @@ def test_google_callback_rejects_a_replayed_state(tmp_path: Path) -> None:
         required=True,
         callback_url="http://testserver/api/auth/openrouter/callback",
         encryption_key=Fernet.generate_key().decode(),
-        google_callback_url="https://diji.example/api/auth/google/callback",
+        google_callback_url="https://testserver/api/auth/google/callback",
         google_client_id="google-client-id",
         google_client_secret="google-client-secret",
     )
@@ -176,7 +177,7 @@ def test_google_callback_rejects_a_replayed_state(tmp_path: Path) -> None:
         ),
         base_url="https://testserver",
     )
-    start = client.get("/api/auth/google/start", follow_redirects=False)
+    start = start_with_test_consent(client)
     state = start.headers["location"].split("state=", 1)[1].split("&", 1)[0]
 
     assert client.get(f"/api/auth/google/callback?code=google-code&state={state}", follow_redirects=False).status_code == 303

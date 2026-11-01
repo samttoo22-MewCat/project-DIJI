@@ -205,6 +205,14 @@ class AccountStore:
                     state_hash TEXT PRIMARY KEY,
                     user_id TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS oauth_policy_consents (
+                    state_hash TEXT PRIMARY KEY, version TEXT NOT NULL,
+                    accepted_at TEXT NOT NULL, expires_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS legal_acceptances (
+                    user_id TEXT NOT NULL, version TEXT NOT NULL, accepted_at TEXT NOT NULL,
+                    PRIMARY KEY(user_id, version)
+                );
                 """
             )
             connection.execute("BEGIN IMMEDIATE")
@@ -272,6 +280,25 @@ class AccountStore:
                 (self._hash(state), expires_at, verifier, self._hash(binding)),
             )
         return state, challenge, binding
+
+    def remember_policy_consent(self,state,version):
+        stamp=self._now()
+        with self._connection() as db:
+            db.execute('DELETE FROM oauth_policy_consents WHERE expires_at<=?',(stamp.isoformat(),))
+            db.execute('INSERT INTO oauth_policy_consents VALUES (?,?,?,?)',
+                (self._hash(state),version,stamp.isoformat(),(stamp+timedelta(minutes=OAUTH_STATE_MINUTES)).isoformat()))
+
+    def pending_policy_consent(self,state,version):
+        with self._connection() as db:
+            row=db.execute('SELECT * FROM oauth_policy_consents WHERE state_hash=? AND version=? AND expires_at>?',
+                (self._hash(state),version,self._now().isoformat())).fetchone()
+        return dict(row) if row else None
+
+    def record_policy_acceptance(self,user_id,consent):
+        with self._connection() as db:
+            db.execute('INSERT OR IGNORE INTO legal_acceptances VALUES (?,?,?)',
+                (user_id,consent['version'],consent['accepted_at']))
+            db.execute('DELETE FROM oauth_policy_consents WHERE state_hash=?',(consent['state_hash'],))
 
     def consume_google_oauth_flow(self, state: str, binding: str | None) -> str | None:
         if not state or not binding:

@@ -7,12 +7,13 @@ import os
 import uuid
 from hashlib import sha256
 from hmac import compare_digest
+from urllib.parse import parse_qs, urlsplit
 from contextvars import ContextVar
 from typing import Literal
 
 import httpx
 from fastapi import Body, FastAPI, HTTPException, Query, Request, Response
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field, SecretStr
@@ -34,6 +35,7 @@ from .account_catalog import AccountCatalog
 from .domain import ModelConfiguration
 from .public_models import PublicModelError, validate_public_model
 from .errors import report_error
+from .legal import LegalDocuments
 from .work_limits import ModelWorkMiddleware, RequestBodyLimitMiddleware, WorkLimits
 from .interaction import InteractionService
 from .model_adapter import AiServerCompatibleAdapter
@@ -167,6 +169,7 @@ def create_app(
     oauth_client: OpenRouterOAuthClient | None = None,
     google_oauth_client: GoogleOAuthClient | None = None,
     work_limits: WorkLimits | None = None,
+    legal_documents: LegalDocuments | None = None,
 ) -> FastAPI:
     """Create the local app without sending any provider request during startup."""
 
@@ -188,6 +191,7 @@ def create_app(
     accounts = account_store or AccountStore(DEFAULT_ACCOUNT_DATABASE_PATH, auth.encryption_key)
     oauth = oauth_client or OpenRouterOAuthClient()
     google_oauth = google_oauth_client or GoogleOAuthClient()
+    policies=legal_documents or LegalDocuments(PROJECT_ROOT/'docs')
     google_flow_cookie='__Host-diji_google_flow' if auth.secure_cookie else 'diji_google_flow'
     router_flow_cookie='__Host-diji_router_flow' if auth.secure_cookie else 'diji_router_flow'
     app = FastAPI(title="DIJI Local Workbench", docs_url=None, redoc_url=None)
@@ -212,6 +216,7 @@ def create_app(
         public_auth = {
             "/api/auth/session", "/api/auth/google/start", "/api/auth/google/callback",
             "/api/auth/logout", "/api/auth/openrouter/start", "/api/auth/openrouter/callback",
+            "/api/legal",
         }
         path = request.url.path
         token = request_cache.set({})
@@ -306,11 +311,41 @@ def create_app(
             "google_login_available": auth.google_login_available,
         }
 
-    @app.get("/api/auth/google/start")
-    def start_google_login() -> RedirectResponse:
+    @app.get('/api/legal')
+    def legal_metadata(response: Response):
+        response.headers['Cache-Control']='no-store'
+        return policies.metadata()
+
+    @app.get('/legal/{document}',response_class=HTMLResponse)
+    def legal_document(document: str):
+        if document not in policies.documents:raise HTTPException(status_code=404,detail='文件不存在')
+        return HTMLResponse(policies.page(document),headers={'Cache-Control':'no-cache','Content-Security-Policy':"default-src 'self'; script-src 'none'; style-src 'self'; frame-ancestors 'none'; base-uri 'none'",'X-Content-Type-Options':'nosniff'})
+
+    async def confirmed_policy(http_request):
+        callback=urlsplit(auth.google_callback_url or auth.callback_url)
+        expected=f'{callback.scheme}://{callback.netloc}'
+        if http_request.headers.get('origin')!=expected:
+            raise HTTPException(status_code=403,detail='請從 DIJI 登入視窗確認條款')
+        if http_request.headers.get('content-type','').split(';')[0]!='application/x-www-form-urlencoded':
+            raise HTTPException(status_code=400,detail='請先閱讀並同意隱私條款與使用者規約')
+        values=parse_qs((await http_request.body()).decode('utf-8',errors='replace'))
+        if values.get('terms_agreed')!=['yes']:
+            raise HTTPException(status_code=400,detail='請先閱讀並同意隱私條款與使用者規約')
+        return values.get('policy_version')==[policies.version]
+
+    @app.get('/api/auth/google/start')
+    def google_login_review():
+        if not auth.google_login_available:raise HTTPException(status_code=503,detail='Google 登入尚未設定')
+        return RedirectResponse('/?login=required#home',status_code=303,headers={'Cache-Control':'no-store'})
+
+    @app.post("/api/auth/google/start")
+    async def start_google_login(http_request: Request):
         if not auth.google_login_available:
             raise HTTPException(status_code=503, detail="Google 登入尚未設定 DIJI_GOOGLE_CLIENT_ID、DIJI_GOOGLE_CLIENT_SECRET 與 DIJI_GOOGLE_OAUTH_CALLBACK_URL")
+        if not await confirmed_policy(http_request):
+            return RedirectResponse('/?login=required&reason=updated#home',status_code=303,headers={'Cache-Control':'no-store'})
         state,challenge,binding = accounts.begin_google_oauth_flow()
+        accounts.remember_policy_consent(state,policies.version)
         response = RedirectResponse(google_authorization_url(auth.google_callback_url or "", state, auth.google_client_id or "",challenge), status_code=303)
         response.headers["Cache-Control"] = "no-store"
         response.set_cookie(google_flow_cookie,binding,max_age=600,httponly=True,secure=auth.secure_cookie,samesite='lax',path='/')
@@ -320,12 +355,15 @@ def create_app(
     async def finish_google_login(http_request: Request, code: str, state: str):
         if not auth.google_login_available:
             raise HTTPException(status_code=503, detail="Google 登入尚未設定")
+        consent=accounts.pending_policy_consent(state,policies.version)
+        if consent is None:raise HTTPException(status_code=400,detail='請重新閱讀條款並從登入視窗開始')
         verifier=accounts.consume_google_oauth_flow(state,http_request.cookies.get(google_flow_cookie))
         if not verifier:
             raise HTTPException(status_code=400, detail="登入連線已過期，請重新開始")
         try:
             subject, display_name, email = await google_oauth.exchange(code, auth.google_callback_url or "", auth.google_client_id or "", auth.google_client_secret or "",code_verifier=verifier)
             user = accounts.upsert_google_user(subject, display_name, email)
+            accounts.record_policy_acceptance(user.id,consent)
         except (httpx.HTTPError, ValueError) as error:
             error_id=report_error(error,'google_login')
             response=JSONResponse({'detail':'Google 登入未完成，請重新登入','error_id':error_id},status_code=400,headers={'Cache-Control':'no-store'})
@@ -345,11 +383,19 @@ def create_app(
         )
         return response
 
-    @app.get("/api/auth/openrouter/start")
-    def start_openrouter_login() -> RedirectResponse:
+    @app.get('/api/auth/openrouter/start')
+    def router_login_review():
+        if not auth.encryption_key:raise HTTPException(status_code=503,detail='伺服器尚未設定憑證加密')
+        return RedirectResponse('/?login=required#home',status_code=303,headers={'Cache-Control':'no-store'})
+
+    @app.post("/api/auth/openrouter/start")
+    async def start_openrouter_login(http_request: Request):
         if not auth.encryption_key:
             raise HTTPException(status_code=503, detail="伺服器尚未設定 DIJI_CREDENTIAL_ENCRYPTION_KEY")
+        if not await confirmed_policy(http_request):
+            return RedirectResponse('/?login=required&reason=updated#home',status_code=303,headers={'Cache-Control':'no-store'})
         state, _verifier, challenge = accounts.begin_oauth()
+        accounts.remember_policy_consent(state,policies.version)
         response = RedirectResponse(authorization_url(auth.callback_url, state, challenge), status_code=303)
         response.headers["Cache-Control"] = "no-store"
         response.set_cookie(router_flow_cookie,sha256(state.encode()).hexdigest(),max_age=600,httponly=True,secure=auth.secure_cookie,samesite='lax',path='/')
@@ -357,6 +403,8 @@ def create_app(
 
     @app.get("/api/auth/openrouter/callback")
     async def finish_openrouter_login(http_request: Request, code: str, state: str):
+        consent=accounts.pending_policy_consent(state,policies.version)
+        if consent is None:raise HTTPException(status_code=400,detail='請重新閱讀條款並從登入視窗開始')
         binding=http_request.cookies.get(router_flow_cookie,'')
         if not compare_digest(binding.encode(),sha256(state.encode()).hexdigest().encode()):
             raise HTTPException(status_code=400,detail='登入連線已過期，請重新開始')
@@ -366,6 +414,7 @@ def create_app(
         try:
             openrouter_user_id, key = await oauth.exchange(code, verifier)
             user = accounts.upsert_openrouter_user(openrouter_user_id, key)
+            accounts.record_policy_acceptance(user.id,consent)
         except (httpx.HTTPError, ValueError, RuntimeError) as error:
             error_id=report_error(error,'legacy_openrouter_login')
             response=JSONResponse({'detail':'OpenRouter 登入未完成，請重新開始','error_id':error_id},status_code=400,headers={'Cache-Control':'no-store'})

@@ -6,6 +6,10 @@
 
 ## 架構原則
 
+- 登入前條款：`docs/privacy-policy.md` 與 `docs/usage-notice.md` 是唯一內容來源，`LegalDocuments` 以兩份全文計算同一版本雜湊；公開 `/legal/privacy`、`/legal/terms` 與 `/api/legal`，不需登入。頁面只渲染這兩份部署文件，不接受使用者 Markdown。維運者聯絡連結為 `https://mewcat.me/contact`。
+- 登入使用原生 POST 表單送出 `terms_agreed=yes` 與目前 `policy_version`，勾選預設為否；後端檢查 Origin、同意欄位及版本。GET 舊登入入口只回到 `/?login=required` 顯示確認視窗。OAuth state 暫存同意版本，回呼需同時通過目前版本及既有瀏覽器綁定；成功後才在帳號庫 `legal_acceptances` 保存 user_id、version、accepted_at，不收集額外 IP／裝置指紋。Google 與舊 OpenRouter 相容登入都不能繞過；不替既有 session 補填同意。
+- 測試條款流程用隔離 TestClient／虛構帳號；正式瀏覽器只檢查未勾選、閱讀連結及阻擋狀態，不代替使用者接受條款。條款導覽不寫成 PWA 的離線首頁，Service Worker 只把根首頁導覽保存為 app shell，避免閱讀文件後覆蓋工作台。
+- 2026-11-01 登入條款驗證：本地與 AWS 各 204 項 pytest 通過，本地六組 Node DOM／Service Worker 測試通過；Edge 確認 375px 登入畫面、320px 可捲動至登入按鈕且頁面無水平溢出、1394px 桌面確認窗寬 500px。公開隱私文件 320px 無頁面溢出，內文字級 18px。正式登入確認預設未勾且 Google 按鈕停用；同意後 OAuth 與版本變更拒絕使用隔離測試驗證，未替真實帳號提交同意。
 - 使用者本輪已明確要求「有問題自己去修正」：可定位的實作／測試錯誤自行修正並驗證，不因一般測試失敗反覆詢問；新權限、未授權的付費服務或破壞性資料操作仍依原授權範圍處理。
 - 本輪安全更新由三個 GPT-6.1 Terra 子代理分工並整合：本地及 AWS 均 196 項 pytest 通過，四組 DOM 測試通過。已備份正式帳號庫；Edge 真實 Google 登入返回工作區，既有 session 保留，公開 API 匿名請求回 401。真實模型隔離驗證改後 prompt 確實送出、舊訊息未混入、新分支與記憶保存、原對話未變；不要以模型是否逐字複述某個詞作唯一判準。生成並發與拒絕／取消測試為隔離假模型，不宣稱完成長時間真實負載測試。
 - 公開模型選擇須經 `public_models.validate_public_model`，驗證在模型呼叫與內容寫入前；有既存資源的端點先驗證帳號歸屬，維持跨帳號 404。公開模式拒絕任何 `llm.url` 及舊內網／全站憑證路由，僅接受帳號 ProviderCredentials；本機模式保留 ai-server 路由。不可為了讓測試通過改收一般字串 key 或一般 list 當公開憑證。

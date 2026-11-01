@@ -542,6 +542,10 @@ document.querySelector("#search-input").addEventListener("input", (event) => ren
 document.querySelector("#chat-choose-character").addEventListener("click", () => showScreen("characters"));
 const loginDialog = document.querySelector("#google-login-dialog");
 const loginStatus = document.querySelector("#google-login-status");
+const loginAgreement=document.querySelector('#login-terms-agreed');
+const loginVersion=document.querySelector('#login-policy-version');
+const googleLoginButton=document.querySelector('#google-login');
+let legalLoadEpoch=0;
 const accountLogin = document.querySelector("#account-login");
 const accountLoginLabel = document.querySelector("#account-login-label");
 const accountStatus = document.querySelector("#account-status");
@@ -567,7 +571,18 @@ function updateAccountAccess() {
 }
 function openLoginDialog(message = "") {
   loginStatus.textContent = message;
+  loginAgreement.checked=false;loginVersion.value='';googleLoginButton.disabled=true;
   if (!loginDialog.open) loginDialog.showModal();
+  const epoch=++legalLoadEpoch;
+  document.querySelector('#login-legal-version').textContent='正在讀取條款版本…';
+  fetch('/api/legal',{cache:'no-store'}).then(async response=>{
+    if(!response.ok)throw new Error('無法讀取條款');
+    const data=await response.json();if(epoch!==legalLoadEpoch)return;
+    if(!/^[a-f0-9]{64}$/.test(data.version || ''))throw new Error('條款版本無效');
+    loginVersion.value=data.version;
+    document.querySelector('#login-legal-version').textContent=`條款更新：${data.updated}`;
+    googleLoginButton.disabled=!loginAgreement.checked;
+  }).catch(()=>{if(epoch===legalLoadEpoch){googleLoginButton.disabled=true;loginStatus.textContent='暫時無法讀取條款，請關閉後重新開啟登入視窗。';}});
 }
 function requireLogin() {
   if (authenticatedUser) return true;
@@ -600,14 +615,16 @@ async function loadAuthentication() {
 accountLogin.addEventListener("click", () => openLoginDialog());
 document.querySelectorAll("[data-google-login-close]").forEach((button) => button.addEventListener("click", () => loginDialog.close()));
 loginDialog.addEventListener("click", (event) => { if (event.target === loginDialog) loginDialog.close(); });
-document.querySelector("#google-login").addEventListener("click", () => {
+loginAgreement.addEventListener('change',()=>{googleLoginButton.disabled=!loginAgreement.checked || !loginVersion.value;});
+document.querySelector("#google-login-form").addEventListener("submit", event => {
   if (window.location.protocol === "file:") {
+    event.preventDefault();
     loginStatus.textContent = "原始檔預覽不能登入；請改用已部署的 DIJI 網站。";
     return;
   }
+  if(!loginAgreement.checked || !loginVersion.value){event.preventDefault();loginStatus.textContent='請先閱讀並同意隱私條款與使用者規約。';return;}
   loginStatus.textContent = "正在前往 Google…";
   try { sessionStorage.setItem('diji-login-return', '1'); } catch {}
-  window.location.assign("/api/auth/google/start");
 });
 document.querySelectorAll("[data-auth-logout]").forEach((button) => button.addEventListener("click", async () => {
   await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
@@ -667,6 +684,7 @@ document.querySelector("#chat-input").addEventListener("input", (event) => { eve
 document.querySelectorAll("[data-chat-mode]").forEach((button) => button.addEventListener("click", () => saveChatMode(button.dataset.chatMode)));
 setChatProviderLocked(true, '正在確認模型商連接狀態…');
 loadAuthentication().then((signedIn) => {
+  if(new URLSearchParams(window.location.search).get('login')==='required')openLoginDialog(new URLSearchParams(window.location.search).get('reason')==='updated' ? '條款已更新，請重新閱讀並確認同意。' : '登入前，請先閱讀並確認同意以下條款。');
   if (!workspaceAvailable) return;
   refreshChatProviderState();
   loadLocalCatalog();

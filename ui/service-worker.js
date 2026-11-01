@@ -1,4 +1,4 @@
-const CACHE_NAME = "diji-static-v1";
+const CACHE_NAME = "diji-static-v2";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -29,6 +29,8 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate") {
+    // Legal documents must not replace the cached application shell.
+    if (url.pathname !== "/" && url.pathname !== "/index.html") return;
     event.respondWith(
       fetch(request).then((response) => {
         if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put("/index.html", response.clone()));
