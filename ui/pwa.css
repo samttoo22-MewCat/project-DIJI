@@ -23,6 +23,9 @@
 .home-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .home-actions .home-start { margin: 0; }
 .home-install { background: rgba(24, 50, 68, .72); }
+.home-install-section { flex: 0 0 100%; min-width: 0; display: grid; justify-items: start; gap: 10px; padding-top: 18px; border-top: 1px solid #3c5166; }
+.home-install-section[hidden] { display: none; }
+.home-install-section p { max-width: 480px; margin: 0; color: #c4d6e4; font-size: 18px; line-height: 1.8; overflow-wrap: anywhere; }
 .pwa-install-guide { width: min(470px, calc(100vw - 32px)); margin: auto; padding: 0; border: 1px solid #42677c; border-radius: 20px; color: #e5f2fb; background: #101d2c; box-shadow: 0 24px 72px rgba(0, 0, 0, .58); }
 .pwa-install-guide::backdrop { background: rgba(2, 8, 15, .76); backdrop-filter: blur(3px); }
 .pwa-install-guide > section { position: relative; padding: 30px; }

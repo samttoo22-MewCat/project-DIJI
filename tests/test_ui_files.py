@@ -36,7 +36,7 @@ def test_pwa_keeps_install_entry_until_the_browser_confirms_installation() -> No
 const fs = require("fs");
 const vm = require("vm");
 const listeners = {};
-function button() { return { hidden: true, textContent: "", disabled: false, addEventListener(name, callback) { if (name === "click") this.click = callback; } }; }
+function button() { return { section: { hidden: true }, closest() { return this.section; }, hidden: true, textContent: "", disabled: false, addEventListener(name, callback) { if (name === "click") this.click = callback; } }; }
 const buttons = [button(), button()];
 const guide = { open: false, addEventListener() {}, showModal() { this.open = true; }, close() { this.open = false; } };
 const guideTitle = { textContent: "" };
@@ -73,6 +73,9 @@ listeners.beforeinstallprompt({ preventDefault() {}, prompt: async () => {}, use
   if (buttons.some((item) => item.hidden)) throw new Error("install entry disappeared before appinstalled");
   if (buttons.some((item) => item.textContent !== "Web App 安裝中…" || !item.disabled)) throw new Error("installing state is not visible");
   if (guide.open) throw new Error("fallback instructions opened before installation had time to finish");
+  if (buttons.some(item => item.section.hidden)) throw new Error("installation explanation is hidden");
+  listeners.appinstalled();
+  if (buttons.some(item => !item.section.hidden)) throw new Error("installation explanation remained after install");
 })().catch((error) => { console.error(error.message); process.exit(1); });
 '''
     result = subprocess.run(["node", "-e", harness], cwd=ROOT, text=True, capture_output=True)

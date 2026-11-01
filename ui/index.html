@@ -31,7 +31,7 @@
     <link rel="stylesheet" href="character-creator.css?type=20261101-draft-versions-1" />
     <link rel="stylesheet" href="message-editor.css?v=20261101-1" />
     <link rel="stylesheet" href="responsive.css?v=20261030-openrouter-1&amp;type=20261101-larger-1" />
-    <link rel="stylesheet" href="pwa.css?v=20261021-pwa-2&amp;type=20261101-larger-1" />
+    <link rel="stylesheet" href="pwa.css?v=20261101-install-explanation-1&amp;type=20261101-larger-1" />
     <link rel="stylesheet" href="account-access.css?v=20261101-login-consent-1&amp;type=20261101-larger-1" />
     <link rel="stylesheet" href="age-confirmation.css?v=20261028-age-gate-1&amp;type=20261101-larger-1" />
     <link rel="stylesheet" href="connection-layout.css?v=20261101-disconnect-1&amp;type=20261101-larger-1" />
@@ -188,7 +188,10 @@
               <p class="home-summary">遇見一個角色，或親手創造一個。<br />從一句話開始，延續你們的故事。</p>
               <div class="home-actions">
                 <button class="home-start" id="home-start" type="button"><span class="home-start-label">使用 Google 登入</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 5l7 7-7 7" /></svg></button>
-                <button class="pwa-install home-install" data-pwa-install type="button" hidden>安裝至裝置</button>
+                <div class="home-install-section" data-pwa-install-section hidden>
+                  <button class="pwa-install home-install" data-pwa-install type="button" aria-describedby="home-install-description" hidden>安裝 DIJI</button>
+                  <p id="home-install-description">把 DIJI 加到手機主畫面或電腦的應用程式中，之後可像 App 一樣開啟，不必每次輸入網址。仍需連網，對話與記憶保存在伺服器。</p>
+                </div>
               </div>
               <p class="home-note">Google 登入後開啟工作區，再連接自己的模型額度。</p>
               <ol id="home-journey" class="home-journey" aria-label="開始使用步驟"><li>1 Google 登入</li><li>2 連接模型商</li><li>3 玩家個人設定</li><li>4 選角開始對話</li></ol>
@@ -640,6 +643,7 @@
         </button>
         <p class="eyebrow">安裝 DIJI</p>
         <h2 id="pwa-install-guide-title" data-pwa-guide-title>加入 iPhone 或 iPad 主畫面</h2>
+        <p>安裝會在裝置上加入 DIJI 的應用程式圖示，方便下次直接開啟網站。</p>
         <p data-pwa-guide-intro>Safari 目前不會顯示自動安裝視窗；依下列步驟加入後，DIJI 會以獨立 App 方式開啟。</p>
         <ol data-pwa-guide-ios>
           <li>在 Safari 點選底部的「分享」按鈕。</li>
@@ -685,7 +689,7 @@
     <script src="player-personas.js?v=20261101-delete-1"></script>
     <script src="jailbreak-studio.js?v=20261101-personal-1"></script>
     <script src="character-creator.js?v=20261101-player-delete-1"></script>
-    <script src="pwa.js?v=20261021-pwa-3"></script>
+    <script src="pwa.js?v=20261101-install-explanation-1"></script>
     <script src="openrouter-connection.js?v=20261101-polish-1"></script>
     <script src="ui-polish.js?v=20261101-player-personas-1"></script>
     <script src="memory-workspace.js?v=20261101-edit-2"></script>

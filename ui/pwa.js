@@ -14,6 +14,8 @@
   function setInstallButtons(label, visible, disabled = false) {
     installButtons.forEach((button) => {
       button.hidden = !visible;
+      const section = button.closest('[data-pwa-install-section]');
+      if (section) section.hidden = !visible;
       button.textContent = label;
       button.disabled = disabled;
     });
