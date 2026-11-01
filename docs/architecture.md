@@ -18,6 +18,8 @@ DIJI 是把既有 ai-server 的可開源核心拆成可檢查模組，而不是�
 
 `player_activity.py` 是旁路持久化層，使用每帳號 SQLite 保存角色生成四階段的實際輸入／輸出、草稿、保存角色快照與對話回合。此層不改 prompt、記憶抽取或關係判決。草稿修訂以 revision 防止覆寫，完成後的草稿能從建立角色頁恢復；歷史未記錄的階段不可補造。對話 JSON 的修改以檔案鎖與原子替換保護，與事件記憶分開。
 
+`player_personas.py` 保存玩家自行建立的虛構身分，帳號獨立 `player_personas.sqlite3`；不是好感度判決抽取的 `user_profile`。`/api/player-personas` 提供列表、新增與更新，建立對話時解析該帳號的 ID，將 `UserPersona` 快照寫入逐字稿。正式互動使用伺服器保存的快照，名稱與描述仍注入原有使用者資訊區塊，選填性別／年齡併入該區塊描述。聊天選用另一份設定會建立全新 chat_id，沒有舊歷史／記憶／關係；編輯分支保留原 persona 快照。設定修改只影響之後新開的對話；舊資料缺少快照時，首次互動才固定既有 request persona，不補造未知的歷史人設。自訂玩家人設的自動偏好保存於該對話的 `branch_profiles/<chat-id>/`，避免不同玩家身分互相混入；預設與舊對話保留既有跨會話 profile 行為。
+
 草稿的 `test-interactions` 端點驗證帳號與 revision，從伺服器草稿重建角色，經同一個 `execute_interaction` 與 `InteractionService` 組裝長／短對話 prompt、模型對應越獄與記憶。資料寫入帳號的 `creator_trials/` 子目錄，與正式角色庫及聊天隔離；預設不啟用好感度。試聊不是保存角色，修改後再次開啟使用新 chat_id，原試聊仍保存在伺服器，並以玩家紀錄的 `purpose=draft_trial` 連結生成紀錄與版本。
 
 ## 不可改變的行為

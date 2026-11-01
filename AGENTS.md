@@ -6,6 +6,9 @@
 
 ## 架構原則
 
+- 玩家個人設定：`player_personas.py` 的帳號 SQLite 與 AI 抽取偏好 `user_profile.py` 分開，沿用 `UserPersona` 的 name／sex／age／description。左側角色下方的獨立頁可新增與編輯；聊天右側選用時以新 chat_id 建立空白對話，保留原逐字稿、記憶與關係。對話保存 persona ID＋快照，後端使用快照而非前端傳來的人設；編輯訊息分支也保留快照。新自訂 persona 的自動偏好限該對話，預設／舊對話沿用原 profile 行為。修改設定不改既有對話，重新選用才使用新版本。
+- 2026-11-01 玩家設定驗證：本地與 AWS 各 208 項 pytest 通過，七組 Node DOM／Service Worker 測試通過。隔離帳號驗證儲存重開、權限／跨帳號 404、prompt 使用人設快照、年齡性別不重複注入、新對話空白記憶／關係、原對話保留、訊息編輯分支保留人設；DOM 驗證切換產生新 chat_id 並清空前文、生成中禁止切換。Edge 正式站 375／768／1024／1440px 無水平溢出，手機表單底部可捲動操作、內文 18px、主控台無錯誤。正式帳號只打開與取消空白表單，未留下測試人設，未發送付費模型請求。
+- 使用者已明確要求「自己修正並繼續，測試通過後部署、重啟服務和推送，不要再因為這種問題問我」：一般實作、測試與診斷錯誤自行排除後繼續，不再因連續終端失敗要求確認；權限與破壞性操作仍遵守授權範圍。
 - 登入前條款：`docs/privacy-policy.md` 與 `docs/usage-notice.md` 是唯一內容來源，`LegalDocuments` 以兩份全文計算同一版本雜湊；公開 `/legal/privacy`、`/legal/terms` 與 `/api/legal`，不需登入。頁面只渲染這兩份部署文件，不接受使用者 Markdown。維運者聯絡連結為 `https://mewcat.me/contact`。
 - 登入使用原生 POST 表單送出 `terms_agreed=yes` 與目前 `policy_version`，勾選預設為否；後端檢查 Origin、同意欄位及版本。GET 舊登入入口只回到 `/?login=required` 顯示確認視窗。OAuth state 暫存同意版本，回呼需同時通過目前版本及既有瀏覽器綁定；成功後才在帳號庫 `legal_acceptances` 保存 user_id、version、accepted_at，不收集額外 IP／裝置指紋。Google 與舊 OpenRouter 相容登入都不能繞過；不替既有 session 補填同意。
 - 測試條款流程用隔離 TestClient／虛構帳號；正式瀏覽器只檢查未勾選、閱讀連結及阻擋狀態，不代替使用者接受條款。條款導覽不寫成 PWA 的離線首頁，Service Worker 只把根首頁導覽保存為 app shell，避免閱讀文件後覆蓋工作台。

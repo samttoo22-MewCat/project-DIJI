@@ -32,7 +32,7 @@ from .domain import InteractionRequest, InteractionResponse
 from .experiments import ExperimentStore, JailbreakPreset, JailbreakStore, PromptExperiment
 from .experiments.account_store import AccountPresetStore
 from .account_catalog import AccountCatalog
-from .domain import ModelConfiguration
+from .domain import ModelConfiguration, UserPersona
 from .public_models import PublicModelError, validate_public_model
 from .errors import report_error
 from .legal import LegalDocuments
@@ -41,6 +41,7 @@ from .interaction import InteractionService
 from .model_adapter import AiServerCompatibleAdapter
 from .relationship import RelationshipStore, RelationshipState
 from .user_profile import UserProfileStore
+from .player_personas import PlayerPersonaInput, PlayerPersonaStore
 from .favorability_judge import OpenRouterFavorabilityJudge
 from .character_generation import (
     CharacterGenerationRequest,
@@ -87,6 +88,7 @@ class ConversationStart(BaseModel):
     character_id: str = Field(min_length=1, max_length=64)
     character_name: str = Field(min_length=1, max_length=80)
     chat_mode: Literal["story", "dialog"] = "story"
+    player_persona_id: str | None = Field(default=None, max_length=64)
 
 
 class ConversationModeUpdate(BaseModel):
@@ -257,6 +259,25 @@ def create_app(
     def activity_for(user: AuthenticatedUser) -> PlayerActivity:
         root = _user_directory(user.id) if auth.required else local_catalog.path.parent
         return cached(('activity', user.id), lambda: PlayerActivity(root / 'player_activity.sqlite3'))
+
+    def personas_for(user):
+        root = _user_directory(user.id) if auth.required else local_catalog.path.parent
+        return cached(('personas', user.id), lambda: PlayerPersonaStore(root / 'player_personas.sqlite3'))
+
+    @app.get('/api/player-personas')
+    def list_player_personas(http_request: Request):
+        return personas_for(current_user(http_request)).list()
+
+    @app.post('/api/player-personas')
+    def create_player_persona(value: PlayerPersonaInput, http_request: Request):
+        return personas_for(current_user(http_request)).save(value)
+
+    @app.put('/api/player-personas/{persona_id}')
+    def update_player_persona(persona_id: str, value: PlayerPersonaInput, http_request: Request):
+        try:
+            return personas_for(current_user(http_request)).save(value, persona_id)
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail='玩家設定不存在') from error
 
     def jailbreaks_for(user):
         if not auth.required:return jailbreaks
@@ -688,7 +709,18 @@ def create_app(
             visible_character(http_request, request.character_id)
         _memories, user_conversations, _relationships, _profiles, _interactions, _generator = stores_for(current_user(http_request))
         try:
-            return user_conversations.start(request.chat_id, request.character_id, request.character_name, request.chat_mode)
+            selected = personas_for(current_user(http_request)).get(request.player_persona_id) if request.player_persona_id else None
+        except LookupError as error:
+            raise HTTPException(status_code=404, detail='玩家設定不存在') from error
+        try:
+            existing = user_conversations.get(request.chat_id)
+        except StopIteration:
+            existing = None
+        if existing is not None and (existing.character_id != request.character_id or existing.player_persona_id != request.player_persona_id):
+            raise HTTPException(status_code=409, detail='切換角色或玩家設定請開啟新對話')
+        try:
+            return user_conversations.start(request.chat_id, request.character_id, request.character_name, request.chat_mode,
+                player_persona_id=selected.id if selected else None, player_persona=selected.persona() if selected else UserPersona(name='使用者'))
         except ValueError as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 
@@ -1068,8 +1100,18 @@ def create_app(
         user_memories, user_conversations, user_relationships, _profiles, user_interactions, _generator = stores_for(user, trial=trial_data is not None)
         try:existing=user_conversations.get(request.chat_id)
         except StopIteration:existing=None
-        if existing is not None and existing.parent_chat_id:
+        if existing is not None and (existing.parent_chat_id or existing.player_persona_id is not None):
             user_memories,user_conversations,user_relationships,_profiles,user_interactions,_generator=stores_for(user,trial=trial_data is not None,profile_chat_id=request.chat_id)
+        if existing is not None and existing.character_id != request.character.id:
+            raise HTTPException(status_code=400, detail='對話與角色不符')
+        if existing is not None and existing.player_persona is not None:
+            persona = existing.player_persona.model_copy(update={'chat_mode': request.user.persona.chat_mode})
+            request = request.model_copy(update={'user': request.user.model_copy(update={'persona': persona})})
+        persona_snapshot = request.user.persona.model_copy(deep=True)
+        if request.user.persona.sex or request.user.persona.age:
+            persona = request.user.persona
+            description = '\n'.join(filter(None, [f'性別：{persona.sex}' if persona.sex else '', f'年齡：{persona.age}' if persona.age else '', persona.description]))
+            request = request.model_copy(update={'user': request.user.model_copy(update={'persona': persona.model_copy(update={'description': description})})})
         request = request.model_copy(update={"user": request.user.model_copy(update={"id": user.id}), "message": request.message.model_copy(update={"sender_id": user.id})})
         if request.reset:
             try:
@@ -1109,7 +1151,7 @@ def create_app(
         try:
             activity = activity_for(user)
             def prepare_turn():
-                before=user_conversations.start(request.chat_id,request.character.id,request.character.name,request.user.persona.chat_mode)
+                before=user_conversations.start(request.chat_id,request.character.id,request.character.name,request.user.persona.chat_mode,player_persona=persona_snapshot)
                 activity.checkpoint(request.chat_id,len(before.messages),user_conversations.prefix_fingerprint(before.messages),
                     {'memories':user_memories.snapshot(request.chat_id),'relationship':user_relationships.get(request.chat_id).model_dump(),'profile':_profiles.get(user.id)})
                 turn_id=activity.begin('conversation_turn',{'chat_id':request.chat_id,'character_id':request.character.id,'model':request.llm.model_dump(exclude={'url'}),'message':request.message.text,'history_count':len(request.history),'chat_mode':request.user.persona.chat_mode,'is_nsfw':request.is_nsfw,'enable_favorability':request.enable_favorability})

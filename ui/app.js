@@ -2,6 +2,7 @@ window.dijiState = {
   character: "", characterId: null, avatar: "", flowId: "immersive",
   chatId: "preview", history: [], liveSession: false, jailbreakId: null,
   experimentId: null, chatMode: "story", characters: [], conversations: [],
+  playerPersonaId: null, playerPersona: null,
 };
 const state = window.dijiState;
 let workspaceAvailable = false;
@@ -129,16 +130,20 @@ function resetTranscript(label = "新的本機對話已開始") {
   renderChatMemories([]);
   showToast(label);
 }
-async function startConversation(character) {
+async function startConversation(character, playerPersonaId = state.playerPersonaId) {
   if (!requireLogin()) return false;
   const chatId = `chat-${crypto.randomUUID()}`;
   const response = await fetch("/api/conversations", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, character_id: character.id, character_name: character.name, chat_mode: state.chatMode }),
+    body: JSON.stringify({ chat_id: chatId, character_id: character.id, character_name: character.name, chat_mode: state.chatMode, player_persona_id: playerPersonaId }),
   });
   if (!response.ok) throw new Error("無法建立本機對話");
   state.chatId = chatId;
   resetTranscript(`${character.name} 已設為目前角色`);
+  const record = await response.json();
+  state.playerPersonaId = record.player_persona_id || null;
+  state.playerPersona = record.player_persona || null;
+  window.dispatchEvent(new Event('diji-persona-changed'));
   await loadConversations();
   return true;
 }
@@ -198,6 +203,9 @@ function showTypingIndicator() {
 function renderConversation(record) {
   conversations.innerHTML = '<div class="date-divider"><span>已儲存的對話</span></div>';
   state.chatId = record.chat_id;
+  state.playerPersonaId = record.player_persona_id || null;
+  state.playerPersona = record.player_persona || null;
+  window.dispatchEvent(new Event('diji-persona-changed'));
   state.history = record.messages.map(({ sender_type, text, timestamp }) => ({ sender_type, text, timestamp }));
   state.liveSession = state.history.length > 0;
   setChatMode(record.chat_mode || "story");
@@ -245,7 +253,7 @@ function renderConversationHistory(query = "") {
     row.innerHTML = '<span class="initial avatar-a"></span><span class="row-copy"><strong></strong><small></small></span><time></time>';
     row.querySelector(".initial").textContent = item.character_name.slice(0, 1);
     row.querySelector("strong").textContent = item.character_name;
-    row.querySelector("small").textContent = (item.parent_chat_id ? '編輯後 · ' : '')+item.preview;
+    row.querySelector("small").textContent = (item.player_name && item.player_name !== '使用者' ? `${item.player_name} · ` : '')+(item.parent_chat_id ? '編輯後 · ' : '')+item.preview;
     row.querySelector("time").textContent = new Date(item.updated_at).toLocaleDateString("zh-TW", { month: "numeric", day: "numeric" });
     row.addEventListener("click", () => openConversation(item.chat_id));
     return row;
@@ -288,7 +296,7 @@ function interactionPayload(text) {
       behavioral_boundaries: profile.behavioral_boundaries || null,
       evolution_requirements: profile.evolution_requirements || null,
     },
-    user: { id: "local-user", persona: { name: "使用者", chat_mode: state.chatMode } },
+    user: { id: "local-user", persona: { ...(state.playerPersona || { name: "使用者" }), chat_mode: state.chatMode } },
     message: { sender_id: "local-user", text }, history: state.history,
     style_prompt: character?.style_guide || undefined, experiment_id: state.experimentId,
     is_nsfw: document.querySelector("#chat-adult").checked,
@@ -326,6 +334,7 @@ function setComposerBusy(busy) {
   const send = document.querySelector(".send-button"), input = document.querySelector("#chat-input");
   send.disabled = busy; input.disabled = busy; send.querySelector("span").textContent = busy ? "傳送中…" : "送出";
   conversations.querySelectorAll('.message-edit-button').forEach(button=>button.disabled=busy);
+  window.dispatchEvent(new Event('diji-composer-busy'));
 }
 function renderSidebarCharacters() {
   const library = document.querySelector(".chat-list .character-library");
@@ -634,6 +643,9 @@ document.querySelectorAll("[data-auth-logout]").forEach((button) => button.addEv
   state.characters = [];
   state.conversations = [];
   state.history = [];
+  state.playerPersonaId = null;
+  state.playerPersona = null;
+  window.dispatchEvent(new Event('diji-persona-cleared'));
   conversations.replaceChildren();
   renderConversationHistory();
   setChatReady(false);
@@ -692,7 +704,7 @@ loadAuthentication().then((signedIn) => {
   if (signedIn) loadConversations();
   else renderConversationHistory();
   const destination = window.location.hash.slice(1);
-  if (['home','chat','characters','memory','jailbreak','settings','connections','create-character'].includes(destination)) showScreen(destination);
+  if (['home','chat','characters','player-personas','memory','jailbreak','settings','connections','create-character'].includes(destination)) showScreen(destination);
   try {
     if (signedIn && sessionStorage.getItem('diji-login-return') === '1') {
       sessionStorage.removeItem('diji-login-return');

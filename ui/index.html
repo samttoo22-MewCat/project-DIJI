@@ -39,6 +39,7 @@
     <link rel="stylesheet" href="home.css?v=20261101-source-footer-1&amp;type=20261101-larger-1" />
     <link rel="stylesheet" href="ui-polish.css?v=20261101-2" />
     <link rel="stylesheet" href="memory-workspace.css?v=20261101-edit-1" />
+    <link rel="stylesheet" href="player-personas.css?v=20261101-1" />
   </head>
   <body class="guest-mode">
     <header class="account-access" aria-label="帳號操作">
@@ -76,6 +77,14 @@
               <circle cx="12" cy="8" r="3" />
               <path d="M5.5 19c.7-3 2.9-4.5 6.5-4.5s5.8 1.5 6.5 4.5" />
             </svg>
+          </button>
+          <button
+            class="rail-button"
+            data-view="player-personas"
+            aria-label="玩家個人設定"
+            title="玩家個人設定"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 10-4M17 11v8M13 15h8"/></svg>
           </button>
           <button
             class="rail-button"
@@ -348,6 +357,14 @@
                 </svg>
               </button>
             </section>
+            <section class="chat-player-section" aria-labelledby="chat-player-title">
+              <p class="panel-kicker" id="chat-player-title">我的玩家設定</p>
+              <label for="chat-player-select">這段對話中的你</label>
+              <select id="chat-player-select"><option value="">使用者 · 預設設定</option></select>
+              <p id="chat-player-summary">尚未設定玩家人設。</p>
+              <p class="player-switch-note">切換設定會開啟全新對話，原對話與記憶仍保留。修改設定不會影響已開始的對話。</p>
+              <button class="ghost-button" data-view="player-personas" type="button">管理玩家個人設定</button>
+            </section>
             <section class="chat-mode-section" aria-labelledby="chat-mode-title">
               <div class="chat-mode-heading">
                 <div>
@@ -466,6 +483,24 @@
                 用這個角色開始對話
               </button>
             </aside>
+          </div>
+        </section>
+        <section class="screen studio-screen" data-screen="player-personas" aria-labelledby="player-personas-title">
+          <div class="player-workspace">
+            <header class="player-heading"><div><p class="panel-kicker">你的故事身分</p><h1 id="player-personas-title">玩家個人設定</h1><p>設定你在故事中的名字與人設，讓角色認識你。僅自己的帳號可見。</p></div><button class="primary-button" id="player-new" type="button">新增玩家設定</button></header>
+            <p class="player-info">選擇一份設定，再到角色頁開始聊天。對話中切換會另開新對話；舊對話會保留當時的設定與記憶。</p>
+            <div id="player-persona-list" class="player-grid" aria-label="已儲存的玩家設定"></div>
+            <p id="player-status" role="status" aria-live="polite"></p>
+            <form id="player-persona-form" class="player-form" hidden>
+              <header><h2 id="player-form-title">新增玩家設定</h2><p>這是故事中的虛構身分，不需要填寫真實個資。</p></header>
+              <label>設定名稱<input name="label" maxlength="80" required placeholder="例如：旅行中的調香師" /></label>
+              <label>故事中的名字<input name="name" maxlength="80" required placeholder="角色要怎麼稱呼你？" /></label>
+              <div class="player-fields"><label>性別（選填）<input name="sex" maxlength="80" placeholder="自由填寫" /></label><label>年齡（選填）<input name="age" maxlength="40" placeholder="故事中的年齡" /></label></div>
+              <label>你的人設與背景<textarea name="description" rows="6" maxlength="8000" placeholder="你的個性、外貌、背景，以及與角色的關係。"></textarea></label>
+              <p>儲存修改後，請重新選用此設定開始新對話。已開始的對話仍使用舊版本。</p>
+              <div class="player-actions"><button class="primary-button" type="submit">儲存玩家設定</button><button class="ghost-button" id="player-cancel" type="button">取消</button></div>
+            </form>
+            <button class="ghost-button" data-view="characters" type="button">前往角色頁開始對話 →</button>
           </div>
         </section>
         <section class="screen studio-screen" data-screen="connections" aria-label="模型連線">
@@ -639,12 +674,13 @@
     <div class="toast" id="toast" role="status"></div>
     <script src="age-confirmation.js?v=20261028-age-gate-2"></script>
     <script src="message-editor.js?v=20261101-1"></script>
-    <script src="app.js?v=20261101-login-consent-1"></script>
+    <script src="app.js?v=20261101-player-personas-1"></script>
+    <script src="player-personas.js?v=20261101-1"></script>
     <script src="jailbreak-studio.js?v=20261101-personal-1"></script>
     <script src="character-creator.js?v=20261101-public-security-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>
     <script src="openrouter-connection.js?v=20261101-polish-1"></script>
-    <script src="ui-polish.js?v=20261101-2"></script>
+    <script src="ui-polish.js?v=20261101-player-personas-1"></script>
     <script src="memory-workspace.js?v=20261101-edit-2"></script>
     <script src="memory-editor.js?v=20261101-1"></script>
   </body>

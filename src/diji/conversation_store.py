@@ -13,6 +13,7 @@ import tempfile
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+from .domain import UserPersona
 
 
 def _now() -> int:
@@ -45,6 +46,8 @@ class ConversationRecord(BaseModel):
     edited_message_index: int | None = None
     state_checkpoint_available: bool | None = None
     revision: str = ''
+    player_persona_id: str | None = None
+    player_persona: UserPersona | None = None
 
 
 class ConversationSummary(BaseModel):
@@ -56,6 +59,7 @@ class ConversationSummary(BaseModel):
     message_count: int
     preview: str = ""
     parent_chat_id: str | None = None
+    player_name: str = '使用者'
 
 
 class ConversationStore:
@@ -110,6 +114,7 @@ class ConversationStore:
                 raise ValueError('只能編輯自己已送出的訊息')
             branch = ConversationRecord(chat_id=new_id,character_id=record.character_id,character_name=record.character_name,
                 chat_mode=record.chat_mode,messages=[m.model_copy(deep=True) for m in record.messages[:index]],
+                player_persona_id=record.player_persona_id,player_persona=record.player_persona,
                 parent_chat_id=chat_id,edited_message_index=index,state_checkpoint_available=checkpoint_available)
             with self._lock(new_id):
                 if self._path(new_id).exists():
@@ -117,9 +122,14 @@ class ConversationStore:
                 self._write(branch)
             return branch
 
-    def start(self, chat_id: str, character_id: str, character_name: str, chat_mode: Literal["story", "dialog"] = "story") -> ConversationRecord:
+    def start(self, chat_id: str, character_id: str, character_name: str, chat_mode: Literal["story", "dialog"] = "story", *, player_persona_id=None, player_persona=None) -> ConversationRecord:
         with self._lock(chat_id):
-            return self._start(chat_id, character_id, character_name, chat_mode)
+            record = self._start(chat_id, character_id, character_name, chat_mode)
+            if record.player_persona is None and player_persona is not None:
+                record.player_persona_id = player_persona_id
+                record.player_persona = player_persona.model_copy(deep=True)
+                self._write(record)
+            return record
 
     def _start(self, chat_id, character_id, character_name, chat_mode="story"):
         try:
@@ -190,6 +200,7 @@ class ConversationStore:
             message_count=len(record.messages),
             preview=" ".join(latest.split())[:80],
             parent_chat_id=record.parent_chat_id,
+            player_name=record.player_persona.name if record.player_persona else '使用者',
         )
 
     def _path(self, chat_id: str) -> Path:

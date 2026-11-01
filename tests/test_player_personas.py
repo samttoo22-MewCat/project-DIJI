@@ -1,0 +1,77 @@
+import json
+
+import pytest
+from diji.conversation_store import ConversationStore
+from diji.player_personas import PlayerPersonaInput, PlayerPersonaStore
+from test_draft_trial import trial
+from test_message_edit import normal_chat
+
+
+def persona(name='霧川'):
+    return {'label':'旅行者', 'name':name, 'sex':'女', 'age':'28', 'description':'來自海邊的調香師，喜歡雨天。'}
+
+
+def test_persona_storage_reopens_and_validates(tmp_path):
+    path=tmp_path/'private'/'personas.sqlite3'
+    saved=PlayerPersonaStore(path).save(PlayerPersonaInput(**persona()))
+    assert PlayerPersonaStore(path).get(saved.id)==saved
+    assert path.stat().st_mode & 0o777 == 0o600
+    assert path.parent.stat().st_mode & 0o777 == 0o700
+    with pytest.raises(LookupError):PlayerPersonaStore(path).save(PlayerPersonaInput(**persona()),'another-owner')
+
+
+def test_personas_are_private_and_require_login(trial):
+    owner,other,anonymous,*_=trial
+    assert anonymous.get('/api/player-personas').status_code==401
+    saved=owner.post('/api/player-personas',json=persona()).json()
+    assert saved['id'].startswith('player-')
+    assert len(owner.get('/api/player-personas').json())==1
+    assert other.get('/api/player-personas').json()==[]
+    assert other.put('/api/player-personas/'+saved['id'],json=persona('冒用')).status_code==404
+    for field in ['label','name']:
+        assert owner.post('/api/player-personas',json={**persona(),field:'   '}).status_code==422
+    assert owner.post('/api/player-personas',json={**persona(),'description':'a'*8001}).status_code==422
+
+
+def test_persona_snapshot_in_prompt_stays_fixed_and_switch_is_fresh(trial,monkeypatch):
+    owner,other,_,_,root,payload,calls=normal_chat(trial,monkeypatch)
+    saved=owner.post('/api/player-personas',json=persona()).json()
+    start={'chat_id':'persona-original','character_id':'edit-role','character_name':'編輯測試','player_persona_id':saved['id']}
+    first=owner.post('/api/conversations',json=start)
+    assert first.status_code==200 and first.json()['player_persona']['name']=='霧川'
+    assert other.post('/api/conversations',json={**start,'character_id':'yelan'}).status_code==404
+    turn={**payload,'chat_id':start['chat_id'],'user':{'id':'local-user','persona':{'name':'偽造名稱','description':'偽造背景','chat_mode':'dialog'}}}
+    assert owner.post('/api/interactions',json=turn).status_code==200
+    prompt=json.dumps(calls[-1],ensure_ascii=False)
+    for text in ['霧川','調香師','性別：女','年齡：28']:assert text in prompt
+    assert '偽造名稱' not in prompt and '偽造背景' not in prompt
+    original=owner.get('/api/conversations/persona-original').json()
+    assert original['player_persona']['description']==persona()['description']
+    changed={**persona('清河'),'description':'山城的醫師'}
+    assert owner.put('/api/player-personas/'+saved['id'],json=changed).status_code==200
+    assert owner.post('/api/interactions',json=turn).status_code==200
+    assert '霧川' in json.dumps(calls[-1],ensure_ascii=False) and '清河' not in json.dumps(calls[-1],ensure_ascii=False)
+    assert json.dumps(calls[-1],ensure_ascii=False).count('性別：女')==1
+    second=owner.post('/api/conversations',json={**start,'chat_id':'persona-new'}).json()
+    assert second['player_persona']['name']=='清河' and second['messages']==[]
+    assert owner.get('/api/memories/persona-new').json()==[]
+    assert owner.get('/api/relationships/persona-new').json()['current_score']==0
+    assert owner.post('/api/interactions',json={**turn,'chat_id':'persona-new','history':[]}).status_code==200
+    assert '清河' in json.dumps(calls[-1],ensure_ascii=False) and '霧川' not in json.dumps(calls[-1],ensure_ascii=False)
+    assert ConversationStore(root/'conversations').get('persona-original').player_persona.name=='霧川'
+    assert owner.get('/api/conversations').json()[0]['player_name'] in ['清河','霧川']
+    another=owner.post('/api/player-personas',json=persona('另一人')).json()
+    assert owner.post('/api/conversations',json={**start,'player_persona_id':another['id']}).status_code==409
+
+
+def test_message_edit_branch_retains_persona_snapshot(trial,monkeypatch):
+    owner,_,_,_,_,payload,_=normal_chat(trial,monkeypatch)
+    saved=owner.post('/api/player-personas',json=persona()).json()
+    owner.post('/api/conversations',json={'chat_id':'with-persona','character_id':'edit-role','character_name':'角色','player_persona_id':saved['id']})
+    payload={**payload,'chat_id':'with-persona'}
+    assert owner.post('/api/interactions',json=payload).status_code==200
+    source=owner.get('/api/conversations/with-persona').json()
+    response=owner.post('/api/conversations/with-persona/edit',json={'message_index':0,'expected_revision':source['revision'],'interaction':payload})
+    assert response.status_code==200
+    branch=response.json()['conversation']
+    assert branch['player_persona']==source['player_persona'] and branch['player_persona_id']==saved['id']
