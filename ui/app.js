@@ -138,7 +138,7 @@ function resetTranscript(label = "新的本機對話已開始") {
 }
 async function startConversation(character, playerPersonaId = state.playerPersonaId) {
   if (!requireLogin()) return false;
-  if (!playerPersonaId && window.dijiEnsurePlayerPersona && !await window.dijiEnsurePlayerPersona()) return false;
+  if (window.dijiEnsurePlayerPersona && !await window.dijiEnsurePlayerPersona({personaId:playerPersonaId})) return false;
   if (!await refreshChatProviderState()) { rememberPendingTask('chat'); showScreen('connections'); return false; }
   const chatId = `chat-${crypto.randomUUID()}`;
   const response = await fetch("/api/conversations", {
@@ -668,7 +668,7 @@ document.querySelector("#chat-form").addEventListener("submit", async (event) =>
   const input = document.querySelector("#chat-input"), text = input.value.trim();
   if (!text) return;
   if (!requireLogin()) return;
-  if (window.dijiEnsurePlayerPersona && !await window.dijiEnsurePlayerPersona()) return;
+  if (window.dijiEnsurePlayerPersona && !await window.dijiEnsurePlayerPersona({existing:true})) return;
   if (!await refreshChatProviderState()) { showToast("請先設定模型商連線，再傳送訊息。"); showScreen("connections"); return; }
   const payload = interactionPayload(text);
   if (!state.liveSession) { conversations.innerHTML = '<div class="date-divider"><span>本機互動</span></div>'; state.liveSession = true; }

@@ -99,3 +99,44 @@ def test_chat_and_trial_require_persona_before_model_call(trial):
     original=chats.get('legacy-no-persona')
     assert owner.post('/api/interactions',json={**payload,'chat_id':'legacy-no-persona'}).status_code==409
     assert chats.get('legacy-no-persona')==original and calls==[]
+
+
+def test_delete_persona_is_account_scoped_and_preserves_started_chats_and_trials(trial,monkeypatch):
+    owner,other,anonymous,_,root,payload,calls=normal_chat(trial,monkeypatch)
+    _,_,_,_,_,run_id,trial_payload,_=trial
+    saved=owner.post('/api/player-personas',json=persona()).json()
+    start={'chat_id':'keep-after-delete','character_id':'edit-role','character_name':'角色','player_persona_id':saved['id']}
+    assert owner.post('/api/conversations',json=start).status_code==200
+    turn={**payload,'chat_id':start['chat_id']}
+    assert owner.post('/api/interactions',json=turn).status_code==200
+    trial_payload={**trial_payload,'player_persona_id':saved['id']}
+    trial_url=f'/api/character-generations/{run_id}/test-interactions'
+    assert owner.post(trial_url,json=trial_payload).status_code==200
+    source=owner.get('/api/conversations/'+start['chat_id']).json()
+    memories=owner.get('/api/memories/'+start['chat_id']).json()
+    relationship=owner.get('/api/relationships/'+start['chat_id']).json()
+    trial_record=ConversationStore(root/'creator_trials'/'conversations').get(trial_payload['chat_id'])
+    url='/api/player-personas/'+saved['id']
+    assert anonymous.delete(url).status_code==401
+    assert other.delete(url).status_code==404
+    assert owner.delete(url).status_code==204
+    assert owner.delete(url).status_code==404
+    assert owner.get('/api/conversations/'+start['chat_id']).json()==source
+    assert owner.get('/api/memories/'+start['chat_id']).json()==memories
+    assert owner.get('/api/relationships/'+start['chat_id']).json()==relationship
+    assert ConversationStore(root/'creator_trials'/'conversations').get(trial_payload['chat_id'])==trial_record
+    assert owner.post('/api/conversations',json={**start,'chat_id':'deleted-cannot-start'}).status_code==404
+    for record in owner.get('/api/player-personas').json():
+        assert owner.delete('/api/player-personas/'+record['id']).status_code==204
+    assert owner.get('/api/player-personas').json()==[]
+    assert owner.post('/api/conversations',json={**start,'chat_id':'no-personas','player_persona_id':None}).status_code==409
+    assert owner.post('/api/interactions',json=turn).status_code==200
+    assert '霧川' in json.dumps(calls[-1],ensure_ascii=False)
+    assert owner.post(trial_url,json=trial_payload).status_code==200
+    assert '霧川' in json.dumps(calls[-1],ensure_ascii=False)
+    latest=owner.get('/api/conversations/'+start['chat_id']).json()
+    edited=owner.post('/api/conversations/'+start['chat_id']+'/edit',json={'message_index':0,'expected_revision':latest['revision'],'interaction':turn})
+    assert edited.status_code==200 and edited.json()['conversation']['player_persona']==source['player_persona']
+    trial_record=ConversationStore(root/'creator_trials'/'conversations').get(trial_payload['chat_id'])
+    edited_trial=owner.post(trial_url+'/edit',json={**trial_payload,'message_index':0,'expected_revision':trial_record.revision})
+    assert edited_trial.status_code==200 and edited_trial.json()['conversation']['player_persona']==trial_record.player_persona.model_dump()

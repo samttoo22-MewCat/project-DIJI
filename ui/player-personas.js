@@ -1,6 +1,8 @@
 (() => {
   const list=document.querySelector('#player-persona-list'),form=document.querySelector('#player-persona-form');
   const select=document.querySelector('#chat-player-select'),status=document.querySelector('#player-status');
+  const deleteDialog=document.querySelector('#player-delete-dialog'),deleteConfirm=document.querySelector('#player-delete-confirm');
+  let pendingDelete=null;
   let records=[],editing=null,loading=0,switching=false;
   const busy=()=>switching || document.querySelector('#chat-form').getAttribute('aria-busy')==='true';
   function summary(persona) {
@@ -24,7 +26,12 @@
       const actions=document.createElement('div');actions.className='player-actions';
       const use=document.createElement('button');use.type='button';use.className='primary-button';use.textContent='使用此設定';use.disabled=busy();use.addEventListener('click',()=>choose(record.id));
       const edit=document.createElement('button');edit.type='button';edit.className='ghost-button';edit.textContent='編輯';edit.addEventListener('click',()=>openForm(record));
-      actions.append(use,edit);card.append(heading,scope,copy,actions);list.append(card);
+      const remove=document.createElement('button');remove.type='button';remove.className='ghost-button player-delete-button';remove.textContent='刪除';remove.disabled=busy();remove.addEventListener('click',()=>{
+        pendingDelete=record;deleteConfirm.disabled=false;
+        document.querySelector('#player-delete-name').textContent=record.label;
+        document.querySelector('#player-delete-status').textContent='';deleteDialog.showModal();
+      });
+      actions.append(use,edit,remove);card.append(heading,scope,copy,actions);list.append(card);
     }
     if(!records.length) {const empty=document.createElement('p');empty.textContent='還沒有玩家設定。新增一份人設，決定角色眼中的你。';list.append(empty);}
   }
@@ -38,13 +45,27 @@
     }catch(error){if(epoch===loading)status.textContent=error.message;}
     return false;
   }
-  window.dijiEnsurePlayerPersona=async()=>{
+  window.dijiEnsurePlayerPersona=async({existing=false,personaId=state.playerPersonaId,snapshot=state.playerPersona}={})=>{
     if(!await load()){showScreen('player-personas');return false;}
-    if(state.playerPersonaId && records.length)return true;
+    if(personaId && (records.some(record=>record.id===personaId) || existing && snapshot))return true;
     showScreen('player-personas');
     status.textContent=records.length ? '聊天前請先選擇「使用此設定」。選用後會開啟新對話。' : '聊天前，請先新增至少一份玩家個人設定，並選擇「使用此設定」。';
     showToast('請先建立並選用玩家設定，再開始聊天。');return false;
   };
+  document.querySelector('#player-delete-cancel').addEventListener('click',()=>deleteDialog.close());
+  deleteConfirm.addEventListener('click',async()=>{
+    if(!pendingDelete || deleteConfirm.disabled)return;
+    const record=pendingDelete,owner=authenticatedUser?.id;deleteConfirm.disabled=true;
+    try {
+      const response=await fetch(`/api/player-personas/${encodeURIComponent(record.id)}`,{method:'DELETE'});
+      if(!response.ok)throw new Error('刪除失敗，請重新載入設定後再試。');
+      if(owner!==authenticatedUser?.id || !workspaceAvailable)return;
+      if(editing===record.id){form.hidden=true;form.reset();editing=null;}
+      deleteDialog.close();pendingDelete=null;await load();updateHomeJourney();
+      status.textContent='已刪除玩家設定；已開始的對話、記憶與人設快照完整保留，仍可繼續聊天。';showToast('已刪除設定，既有對話與記憶保留');
+    }catch(error){document.querySelector('#player-delete-status').textContent=error.message;}
+    finally{deleteConfirm.disabled=false;}
+  });
   function openForm(record=null) {
     editing=record?.id || null;form.reset();
     for(const key of ['label','name','sex','age','description'])form.elements.namedItem(key).value=record?.[key] || '';
@@ -88,6 +109,6 @@
   window.addEventListener('diji-workspace-ready',load);
   window.addEventListener('diji-persona-changed',render);
   window.addEventListener('diji-composer-busy',render);
-  window.addEventListener('diji-persona-cleared',()=>{loading++;records=[];form.reset();form.hidden=true;status.textContent='';render();});
+  window.addEventListener('diji-persona-cleared',()=>{loading++;records=[];pendingDelete=null;deleteDialog.close();form.reset();form.hidden=true;status.textContent='';render();});
   window.addEventListener('diji-screen-changed',event=>{if(event.detail.name==='player-personas')load();});
 })();

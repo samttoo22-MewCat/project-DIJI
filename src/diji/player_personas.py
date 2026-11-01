@@ -63,3 +63,9 @@ class PlayerPersonaStore:
             else:
                 db.execute('INSERT INTO personas VALUES (?,?)', (record.id, record.model_dump_json()))
         return record
+
+    def delete(self, persona_id):
+        with self.connect() as db:
+            result = db.execute('DELETE FROM personas WHERE id=?', (persona_id,))
+            if result.rowcount == 0:
+                raise LookupError(persona_id)

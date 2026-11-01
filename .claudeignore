@@ -26,4 +26,5 @@ coverage/
 .security-checks/
 .legal-checks/
 .persona-checks/
+.persona-delete-checks/
 *.sqlite3*

@@ -415,6 +415,7 @@
     const generationId=draft.generation_id, revision=draft.revision, epoch=creatorEpoch;
     let chatId=`trial-${crypto.randomUUID()}`;
     let trialPersonaId=window.dijiState?.playerPersonaId || null;
+    let trialPersona=window.dijiState?.playerPersona || null,hasSavedTrial=false;
     const selectedModel=model.value, adult=panel.querySelector('#creator-adult').checked;
     const header=document.createElement('header'); header.className='draft-trial-header';
     const back=document.createElement('button'); back.type='button'; back.className='primary-button'; back.textContent='返回審核草稿';
@@ -442,7 +443,7 @@
       log.querySelectorAll('.message-edit-button').forEach(button=>button.disabled=value);
     }
     function showRecord(record) {
-      chatId=record.chat_id;trialPersonaId=record.player_persona_id || null;log.replaceChildren();
+      chatId=record.chat_id;trialPersonaId=record.player_persona_id || null;trialPersona=record.player_persona || null;hasSavedTrial=true;log.replaceChildren();
       if(record.parent_chat_id) {
         const notice=document.createElement('div');notice.className='conversation-branch-notice';notice.textContent='已從編輯處重新生成，原試聊仍保留。'+(record.state_checkpoint_available===false?' 舊試聊缺少狀態快照，記憶將重新累積。':'');
         const original=document.createElement('button');original.type='button';original.className='ghost-button';original.textContent='查看編輯前對話';
@@ -470,9 +471,9 @@
     composer.addEventListener('submit',async event=>{
       event.preventDefault();
       const text=input.value.trim(); if (busy || !text) return;
-      if(window.dijiEnsurePlayerPersona && !await window.dijiEnsurePlayerPersona())return;
       const chosen=window.dijiState?.playerPersonaId || null;
-      if(chosen!==trialPersonaId){chatId=`trial-${crypto.randomUUID()}`;trialPersonaId=chosen;log.replaceChildren();}
+      if(window.dijiEnsurePlayerPersona && !await window.dijiEnsurePlayerPersona({existing:hasSavedTrial && chosen===trialPersonaId,personaId:chosen,snapshot:trialPersona}))return;
+      if(chosen!==trialPersonaId){chatId=`trial-${crypto.randomUUID()}`;trialPersonaId=chosen;trialPersona=window.dijiState?.playerPersona || null;hasSavedTrial=false;log.replaceChildren();}
       setBusy(true);
       const pending=appendMessage('你',text,'user'); input.value='';
       const waiting=appendMessage('角色','正在生成回覆…','assistant draft-trial-waiting');
@@ -486,7 +487,7 @@
           const error=new Error(typeof data.detail==='string' ? data.detail : `測試未完成（HTTP ${response.status}）`);
           error.notAccepted=[413,429].includes(response.status);throw error;
         }
-        waiting.remove(); appendMessage('角色',data.text,'assistant'); status.textContent='測試對話已保存至伺服器，與正式聊天分開。';
+        hasSavedTrial=true;waiting.remove(); appendMessage('角色',data.text,'assistant'); status.textContent='測試對話已保存至伺服器，與正式聊天分開。';
       } catch(error) {
         waiting.remove();if(error.notAccepted)pending.remove();
         status.textContent=error.notAccepted ? `尚未送出：${error.message}。文字已保留，請稍後再試。` : `測試未完成：${error.message}。請確認已送出訊息，再決定是否重新生成；已開始的請求仍可能計費。`;

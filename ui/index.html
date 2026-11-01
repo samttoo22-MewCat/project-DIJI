@@ -39,7 +39,7 @@
     <link rel="stylesheet" href="home.css?v=20261101-source-footer-1&amp;type=20261101-larger-1" />
     <link rel="stylesheet" href="ui-polish.css?v=20261101-2" />
     <link rel="stylesheet" href="memory-workspace.css?v=20261101-edit-1" />
-    <link rel="stylesheet" href="player-personas.css?v=20261101-1" />
+    <link rel="stylesheet" href="player-personas.css?v=20261101-delete-1" />
   </head>
   <body class="guest-mode">
     <header class="account-access" aria-label="帳號操作">
@@ -672,12 +672,19 @@
       </section>
     </dialog>
     <div class="toast" id="toast" role="status"></div>
+    <dialog id="player-delete-dialog" aria-labelledby="player-delete-title">
+      <h2 id="player-delete-title">刪除玩家設定？</h2>
+      <p>將刪除「<strong id="player-delete-name"></strong>」。刪除後無法復原，也不能再用這份設定開新對話。</p>
+      <p class="player-delete-retained">已開始的對話、記憶與人設快照會完整保留，仍可繼續聊天。</p>
+      <div class="player-actions"><button class="ghost-button" id="player-delete-cancel" type="button" autofocus>取消</button><button class="ghost-button player-delete-button" id="player-delete-confirm" type="button">確定刪除設定</button></div>
+      <p id="player-delete-status" role="status" aria-live="polite"></p>
+    </dialog>
     <script src="age-confirmation.js?v=20261028-age-gate-2"></script>
     <script src="message-editor.js?v=20261101-1"></script>
-    <script src="app.js?v=20261101-player-personas-3"></script>
-    <script src="player-personas.js?v=20261101-3"></script>
+    <script src="app.js?v=20261101-player-delete-1"></script>
+    <script src="player-personas.js?v=20261101-delete-1"></script>
     <script src="jailbreak-studio.js?v=20261101-personal-1"></script>
-    <script src="character-creator.js?v=20261101-player-required-1"></script>
+    <script src="character-creator.js?v=20261101-player-delete-1"></script>
     <script src="pwa.js?v=20261021-pwa-3"></script>
     <script src="openrouter-connection.js?v=20261101-polish-1"></script>
     <script src="ui-polish.js?v=20261101-player-personas-1"></script>
