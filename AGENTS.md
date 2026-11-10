@@ -54,7 +54,8 @@
 - 2026-11-11 角色複製與編輯驗證：212 項 pytest、8 組 Node DOM／Service Worker 測試通過；另有 UI DOM 流程覆蓋雙擊鎖定、丟失回應後重試、取消不送出 PUT、既有 ID/中繼資料保留及重新載入。
 - 2026-11-11 角色編輯競態防護：編輯讀取、複製及保存回應須綁定登入帳號與介面操作世代；登出或切帳後舊回應不得回填新帳號 UI。尚未保存的編輯以帳號及角色 ID 分別存於 sessionStorage，同帳號切換多個角色可逐一恢復；保存／取消只清除對應角色草稿。回歸案例涵蓋延遲 GET/POST/PUT、登出、帳號切換及兩個角色草稿往返，使用 `NODE_PATH=/tmp/diji-role-copy-edit-test/node_modules node tests/character-copy-edit.test.cjs` 驗證。
 - 2026-11-11 角色詳細頁：角色庫卡片先開詳細頁，GET `/api/characters/{id}` 提供完整 `full_prompt`；舊角色若未存此欄位，服務端以角色 profile 與 style guide 依 `_full_prompt` 組出角色提示詞，複製時保留該完整內容。詳細頁的「複製」「開始跟角色聊天」為明確操作；私人角色另有「編輯」。複製建立新 ID 的帳號私有副本，不修改來源；跨帳號 PUT 必須拒絕。DOM 回歸測試：`NODE_PATH=/tmp/diji-role-copy-edit-test/node_modules node tests/character-details.test.cjs`。
-- 角色頁必須先呈現可搜尋、可選取的角色庫；選取角色會切換目前對話角色並建立新的本機對話。ai-server 匯入資料已寫入 catalog 後才會出現在此清單。
+- 2026-11-11 正式站 Edge 登入態手動驗收：角色卡打開詳情並顯示完整提示詞；共用角色複製後標示「我的角色 · 僅自己可見」，新副本可編輯並保存，來源仍標示共用且內容未變。未保存名稱修改按取消並確認後，角色名稱未變。從詳情明確開始聊天會先要求選用玩家設定；選用既有設定後，聊天頁標題及新對話列都顯示該私有副本。未送出訊息或模型請求。
+- 角色頁必須先呈現可搜尋角色庫；點角色卡只開詳細頁，不直接建立對話。使用者在詳情按「開始跟角色聊天」後才設為目前角色並建立新對話；開始前須完成玩家設定及模型連線要求。ai-server 匯入資料已寫入 catalog 後才會出現在此清單。
 - `local_catalog`：角色與流程的版本化資料模型與 JSON 儲存；UI 只經由 `/api/bootstrap`、角色與流程的保存端點讀寫它。
 - `character_import`：只讀取 `ai-server/api_server/configs/output` 的完整角色 JSON、同名完整 prompt 與風格指南；匯入前必須預覽、排除 `incomplete`／無效 JSON 並以角色名稱去重。不得讀取或搬入 memories、favorability、日誌或角色圖片。
 - `prompt_assembly`：把角色、流程、場景、歷史與記憶組成可檢查的 bundle；不負責呼叫模型。
