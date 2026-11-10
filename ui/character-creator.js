@@ -13,6 +13,16 @@
   const grid = target.querySelector("#character-library-grid");
   const status = target.querySelector("#character-library-status");
   const search = target.querySelector("#character-library-search");
+  const characterDetail = document.createElement('dialog');
+  characterDetail.id='character-detail-dialog';characterDetail.className='character-detail-dialog';
+  characterDetail.innerHTML='<article class="character-detail-sheet"><header><div><p class="eyebrow">角色檔案</p><h2 data-character-detail-name></h2></div><button type="button" class="ghost-button" data-character-detail-close aria-label="關閉角色詳細資料">關閉</button></header><p class="character-detail-premise" data-character-detail-premise></p><p class="character-detail-visibility" data-character-detail-visibility></p><section class="character-detail-prompt"><h3>角色完整提示詞</h3><p>以下是這個角色的人設與對話風格內容，不包含模型服務的隱藏系統指令。</p><pre data-character-detail-prompt tabindex="0"></pre></section><p class="character-detail-status" data-character-detail-status role="status" aria-live="polite"></p><footer><button type="button" class="ghost-button" data-character-detail-copy>複製</button><button type="button" class="primary-button" data-character-detail-chat>開始跟角色聊天</button><button type="button" class="ghost-button" data-character-detail-edit hidden>編輯</button></footer></article>';
+  document.body.append(characterDetail);
+  const detailName=characterDetail.querySelector('[data-character-detail-name]'),detailPremise=characterDetail.querySelector('[data-character-detail-premise]'),detailVisibility=characterDetail.querySelector('[data-character-detail-visibility]'),detailPrompt=characterDetail.querySelector('[data-character-detail-prompt]'),detailStatus=characterDetail.querySelector('[data-character-detail-status]'),detailCopy=characterDetail.querySelector('[data-character-detail-copy]'),detailChat=characterDetail.querySelector('[data-character-detail-chat]'),detailEdit=characterDetail.querySelector('[data-character-detail-edit]');
+  characterDetail.querySelector('[data-character-detail-close]').addEventListener('click',()=>characterDetail.close());
+  characterDetail.addEventListener('click',event=>{if(event.target===characterDetail)characterDetail.close();});
+  detailCopy.addEventListener('click',()=>{if(selectedDetailCharacter)copyCharacter(selectedDetailCharacter,detailCopy);});
+  detailChat.addEventListener('click',()=>{const character=selectedDetailCharacter;if(!character)return;characterDetail.close();window.dijiSelectCharacter(character);});
+  detailEdit.addEventListener('click',()=>{const character=selectedDetailCharacter;if(!character)return;characterDetail.close();openCharacterEditor(character.id);});
   const panel = creationPanel;
   const form = panel.querySelector("#creator-brief");
   const creatorStatus = panel.querySelector("#creator-status");
@@ -23,14 +33,25 @@
   let saving = false;
   let generating = false;
   let savedCharacter = null;
+  let editingCharacter = null;
+  let editLoading = false;
+  const copyRequestKeys = new Map();
   let briefKey = null;
   let syncTimer = null;
   let syncQueue = Promise.resolve();
   let draftDirty = false;
   let editVersion = 0;
   let creatorEpoch = 0;
+  let activeOwnerId = null;
+  let editOperation = 0;
+  let saveOperation = null;
+  let generationOperation = 0;
+  let detailOperation = 0;
+  let selectedDetailCharacter = null;
+  let generationTimer = null;
   let revising = false;
   let restoringVersion = false;
+  const pendingEditSnapshots = new Map();
   const assistantMedia = window.matchMedia?.('(min-width:1100px)');
   let assistantOpen = assistantMedia?.matches || false;
   let assistantDraftId = null;
@@ -43,7 +64,7 @@
   const assistantHistory=document.createElement('details'); assistantHistory.className='creator-ai-history'; assistantHistory.open=assistantMedia?.matches || false;
   const historyTitle=document.createElement('summary'); historyTitle.textContent='本次修改紀錄'; assistantLog.replaceWith(assistantHistory); assistantHistory.append(historyTitle,assistantLog);
   function updateAssistant() {
-    const visible=Boolean(draft?.generation_id && !savedCharacter && !generating && !restoringVersion && workspaceAvailable && creationPage.classList.contains('active') && !creationPage.classList.contains('provider-locked') && result.querySelector('.character-review') && !result.querySelector('.character-review').hidden);
+    const visible=Boolean(draft?.generation_id && !savedCharacter && !editingCharacter && !generating && !restoringVersion && workspaceAvailable && creationPage.classList.contains('active') && !creationPage.classList.contains('provider-locked') && result.querySelector('.character-review') && !result.querySelector('.character-review').hidden);
     assistant.hidden=!visible; assistantPanel.hidden=!assistantOpen; assistantLauncher.hidden=assistantOpen;
     assistantLauncher.setAttribute('aria-expanded',String(assistantOpen));
     creationPage.classList.toggle('creator-ai-visible',visible && assistantOpen);
@@ -64,6 +85,52 @@
   new MutationObserver(updateAssistant).observe(creationPage,{attributes:true,attributeFilter:['class']});
   model.addEventListener('change',updateAssistant);
   assistantForm.addEventListener('submit',event=>{event.preventDefault();reviseAssistant(assistantInput.value.trim()).catch(()=>{});});
+  function currentOwnerId() {
+    return workspaceAvailable ? (typeof authenticatedUser!=='undefined'&&authenticatedUser?.id || 'local-user') : null;
+  }
+  function isCurrentOperation(epoch, ownerId) {
+    return epoch===creatorEpoch && ownerId!==null && ownerId===activeOwnerId && ownerId===currentOwnerId();
+  }
+  function editSnapshotKey(ownerId) { return `diji-character-edit:${ownerId}`; }
+  function persistPendingEdits(ownerId, snapshots) {
+    if (!ownerId) return;
+    const value=Object.fromEntries(snapshots);
+    try {
+      if(snapshots.size)sessionStorage.setItem(editSnapshotKey(ownerId),JSON.stringify(value));
+      else sessionStorage.removeItem(editSnapshotKey(ownerId));
+    } catch {}
+  }
+  function readPendingEdit(ownerId) {
+    if(pendingEditSnapshots.has(ownerId))return pendingEditSnapshots.get(ownerId);
+    try {
+      const value=JSON.parse(sessionStorage.getItem(editSnapshotKey(ownerId))||'null');
+      if(value?.characterId&&value?.draft){const snapshots=new Map([[value.characterId,value]]);pendingEditSnapshots.set(ownerId,snapshots);return snapshots;}
+      if(value&&typeof value==='object'&&!Array.isArray(value)){const snapshots=new Map(Object.entries(value).filter(([id,item])=>item?.characterId===id&&item?.draft));pendingEditSnapshots.set(ownerId,snapshots);return snapshots;}
+    } catch {}
+    const snapshots=new Map();pendingEditSnapshots.set(ownerId,snapshots);return snapshots;
+  }
+  function preservePendingEdit(ownerId=activeOwnerId) {
+    if(!ownerId||!editingCharacter||!draftDirty)return;
+    const snapshot={characterId:editingCharacter.id,draft:JSON.parse(JSON.stringify(draft))};
+    const snapshots=readPendingEdit(ownerId);snapshots.set(editingCharacter.id,snapshot);persistPendingEdits(ownerId,snapshots);
+  }
+  function discardPendingEdit(ownerId=activeOwnerId, characterId=null) {
+    if(!ownerId)return;
+    const snapshots=readPendingEdit(ownerId);
+    if(characterId)snapshots.delete(characterId);else snapshots.clear();
+    if(!snapshots.size)pendingEditSnapshots.delete(ownerId);
+    persistPendingEdits(ownerId,snapshots);
+  }
+  function resetCreatorForIdentityChange() {
+    creatorEpoch++;editOperation++;generationOperation++;detailOperation++;saveOperation=null;saving=false;generating=false;editLoading=false;selectedDetailCharacter=null;characterDetail.close();
+    if(generationTimer!==null){window.clearInterval(generationTimer);generationTimer=null;}
+    copyRequestKeys.clear();clearTimeout(syncTimer);syncTimer=null;draftDirty=false;
+    panel.classList.remove('creator-trial-active');editingCharacter=null;savedCharacter=null;draft=null;draftId=null;
+    historyPanel.hidden=true;historyPanel.replaceChildren();briefKey=null;form.reset();form.hidden=false;result.replaceChildren();result.hidden=true;setStep(0);
+    panel.querySelector('#creator-title').textContent='讓一個靈感，成為角色。';
+    panel.querySelector('header > p:last-child').textContent='先生成草稿，確認人設後，再保存到你的帳號。';
+    window.dijiState.characters=[];window.dijiRenderCharacterLibrary();updateAssistant();
+  }
   async function reviseAssistant(instruction,baseRevision=null) {
     if (!instruction || revising || saving || generating || restoringVersion || !draft?.generation_id) return;
     if (!result.querySelector('.character-review')?.reportValidity()) return;
@@ -203,24 +270,51 @@
     const query = search.value.trim().toLocaleLowerCase();
     return window.dijiState.characters.filter((character) => !query || [character.name, character.premise, character.voice, character.style_guide].join(" ").toLocaleLowerCase().includes(query));
   }
+  function showCharacterDetails(character, notice='') {
+    selectedDetailCharacter=character;
+    detailName.textContent=character.name;
+    detailPremise.textContent=character.premise;
+    const isPrivate=character.source?.visibility==='private';
+    detailVisibility.textContent=isPrivate?'我的角色 · 僅自己可見':'共用角色';
+    detailVisibility.classList.toggle('is-private',isPrivate);
+    detailPrompt.textContent=character.full_prompt||'目前沒有可顯示的角色提示詞。';
+    detailStatus.textContent=notice;
+    detailCopy.disabled=false;detailCopy.textContent='複製';detailChat.disabled=false;
+    detailEdit.hidden=!isPrivate;detailEdit.disabled=false;
+    if(!characterDetail.open)characterDetail.showModal();
+  }
+  async function openCharacterDetails(characterId, button) {
+    const epoch=creatorEpoch,ownerId=activeOwnerId,operation=++detailOperation;
+    if(!isCurrentOperation(epoch,ownerId))return;
+    if(button)button.disabled=true;
+    try {
+      const response=await fetch(`/api/characters/${encodeURIComponent(characterId)}`,{cache:'no-store'});
+      const character=await response.json();
+      if(!isCurrentOperation(epoch,ownerId)||operation!==detailOperation)return;
+      if(!response.ok)throw new Error(character.detail||'無法讀取角色資料');
+      showCharacterDetails(character);
+    } catch(error) {if(isCurrentOperation(epoch,ownerId)&&operation===detailOperation)status.textContent=`角色詳細資料無法載入：${error.message}`;}
+    finally {if(operation===detailOperation&&button?.isConnected)button.disabled=false;}
+  }
   window.dijiRenderCharacterLibrary = () => {
     const characters = filteredCharacters();
     grid.replaceChildren(...characters.map((character) => {
-      const card = document.createElement("button");
-      card.type = "button";
+      const card = document.createElement("article");
       card.dataset.characterId = character.id;
       card.className = "character-library-card";
       if (character.source?.visibility === "private") card.classList.add("personal-character");
-      card.innerHTML = '<span class="character-library-initial"></span><span class="character-library-copy"><strong></strong><small></small></span><span class="character-library-arrow" aria-hidden="true">→</span>';
-      card.querySelector(".character-library-initial").textContent = character.name.slice(0, 1);
-      card.querySelector("strong").textContent = character.name;
-      card.querySelector("small").textContent = character.premise;
+      const select=document.createElement('button');select.type='button';select.className='character-library-select';select.setAttribute('aria-label',`選擇角色：${character.name}`);
+      select.innerHTML='<span class="character-library-initial" aria-hidden="true"></span><span class="character-library-copy"><strong></strong><small></small></span><span class="character-library-arrow" aria-hidden="true">→</span>';
+      select.querySelector('.character-library-initial').textContent=character.name.slice(0,1);
+      select.querySelector('strong').textContent=character.name;
+      select.querySelector('small').textContent=character.premise;
+      select.addEventListener('click',()=>openCharacterDetails(character.id,select));
       if (character.source?.visibility === "private") {
         const badge = document.createElement("em");
         badge.textContent = "我的角色 · 僅自己可見";
-        card.querySelector(".character-library-copy").append(badge);
+        select.querySelector(".character-library-copy").append(badge);
       }
-      card.addEventListener("click", () => window.dijiSelectCharacter(character));
+      card.append(select);
       return card;
     }));
     grid.append(createCard);
@@ -228,26 +322,93 @@
   };
   search.addEventListener("input", window.dijiRenderCharacterLibrary);
   createCard.addEventListener("click", () => {
+    if(saving){creatorStatus.textContent='角色正在儲存，請完成後再切換頁面。';return;}
+    if(editingCharacter&&draftDirty){if(!window.confirm('保留目前未儲存的角色修改，並建立新角色嗎？'))return;preservePendingEdit();}
+    editingCharacter=null;savedCharacter=null;draft=null;draftId=null;draftDirty=false;result.replaceChildren();result.hidden=true;form.reset();form.hidden=false;historyPanel.hidden=true;setStep(0);
+    panel.querySelector('#creator-title').textContent='讓一個靈感，成為角色。';
+    panel.querySelector('header > p:last-child').textContent='先生成草稿，確認人設後，再保存到你的帳號。';
     document.querySelector('[data-view="create-character"]').click();
     panel.querySelector("#creator-keywords").focus();
   });
 
+  async function openCharacterEditor(characterId, button) {
+    if(saving){creatorStatus.textContent='角色正在儲存，請完成後再開啟其他角色。';return;}
+    if(editLoading)return;
+    if(editingCharacter?.id===characterId)return;
+    if(editingCharacter&&draftDirty){if(!window.confirm(`保留「${editingCharacter.name}」尚未儲存的修改，再開啟其他角色嗎？`))return;preservePendingEdit();}
+    const epoch=creatorEpoch,ownerId=activeOwnerId,operation=++editOperation;
+    if(!isCurrentOperation(epoch,ownerId))return;
+    editLoading=true;if(button)button.disabled=true;
+    try {
+      const response=await fetch(`/api/characters/${encodeURIComponent(characterId)}`,{cache:'no-store'});
+      const character=await response.json();if(!response.ok)throw new Error(character.detail||'無法載入角色');
+      if(!isCurrentOperation(epoch,ownerId)||operation!==editOperation)return;
+      if(character.source?.visibility!=='private')throw new Error('預設角色請先複製，才可編輯。');
+      editingCharacter=character;savedCharacter=null;draftDirty=false;draftId=character.id;
+      const profile=JSON.parse(JSON.stringify(character.profile||{}));profile.character_name=character.name;
+      draft={character:profile,description_for_app:character.premise,brief_description:character.generation_metadata?.brief_description||'',category:character.generation_metadata?.category||'',hobbies:character.generation_metadata?.hobbies||'',style_guide:character.style_guide||character.voice};
+      const pending=readPendingEdit(ownerId).get(character.id);
+      if(pending){
+        if(window.confirm(`找到「${character.name}」尚未儲存的修改，要恢復嗎？`)){draft=JSON.parse(JSON.stringify(pending.draft));draftDirty=true;creatorStatus.textContent='已恢復先前未儲存的修改，儲存前不會更新角色。';}
+        else discardPendingEdit(ownerId,character.id);
+        if(draftDirty)discardPendingEdit(ownerId,character.id);
+      }
+      form.hidden=true;historyPanel.hidden=true;result.hidden=false;setStep(1);
+      panel.querySelector('#creator-title').textContent=`編輯角色：${character.name}`;
+      panel.querySelector('header > p:last-child').textContent='修改完成後明確儲存；未儲存的編輯可以取消。';
+      renderDraft();document.querySelector('[data-view="create-character"]').click();result.scrollIntoView({block:'start'});
+    } catch(error) {if(isCurrentOperation(epoch,ownerId)&&operation===editOperation)status.textContent=`無法開啟角色編輯：${error.message}`;}
+    finally {if(operation===editOperation){editLoading=false;if(button?.isConnected)button.disabled=false;}}
+  }
+  function cancelEdit() {
+    if(!editingCharacter||saving)return;
+    if(draftDirty&&!window.confirm('放棄尚未儲存的修改嗎？已保存角色不會改變。'))return;
+    discardPendingEdit(activeOwnerId,editingCharacter.id);
+    editingCharacter=null;savedCharacter=null;draft=null;draftId=null;draftDirty=false;form.reset();form.hidden=false;result.replaceChildren();result.hidden=true;setStep(0);
+    panel.querySelector('#creator-title').textContent='讓一個靈感，成為角色。';
+    panel.querySelector('header > p:last-child').textContent='先生成草稿，確認人設後，再保存到你的帳號。';
+    creatorStatus.textContent='已取消編輯；角色資料未變更。';
+    document.querySelector('[data-view="characters"]').click();
+  }
+  async function copyCharacter(character, button) {
+    if(button.disabled||saving)return;
+    const epoch=creatorEpoch,ownerId=activeOwnerId;
+    if(!isCurrentOperation(epoch,ownerId))return;
+    const key=copyRequestKeys.get(character.id)||crypto.randomUUID();copyRequestKeys.set(character.id,key);
+    button.disabled=true;button.textContent='正在複製…';
+    try {
+      const response=await fetch(`/api/characters/${encodeURIComponent(character.id)}/copy`,{method:'POST',headers:{'Idempotency-Key':key},cache:'no-store'});
+      const copied=await response.json();if(!isCurrentOperation(epoch,ownerId))return;
+      if(!response.ok){if(response.status===409)copyRequestKeys.delete(character.id);throw new Error(copied.detail||'複製失敗');}
+      copyRequestKeys.delete(character.id);
+      window.dijiState.characters=window.dijiState.characters.filter(item=>item.id!==copied.id).concat(copied);
+      window.dijiRenderCharacterLibrary();if(typeof renderSidebarCharacters==='function')renderSidebarCharacters();
+      showCharacterDetails(copied,'已複製到你的角色庫，現在只有你的帳號看得到；原角色不會改動。你可以編輯這份副本。');
+    } catch(error) {if(isCurrentOperation(epoch,ownerId))status.textContent=`無法複製角色：${error.message}。可再次嘗試。`;}
+    finally {if(isCurrentOperation(epoch,ownerId)&&button.isConnected){button.disabled=false;button.textContent='複製';}}
+  }
+
   async function loadModels() {
     if (!workspaceAvailable) return;
+    const epoch=creatorEpoch,ownerId=activeOwnerId;
     try {
       const response = await fetch("/api/jailbreaks");
+      if(!isCurrentOperation(epoch,ownerId))return;
       if (!response.ok) throw new Error("jailbreak unavailable");
       const available = (await response.json()).filter((item) => item.review_status === "approved" && item.prompt).sort((a, b) => b.last_updated.localeCompare(a.last_updated));
+      if(!isCurrentOperation(epoch,ownerId))return;
       model.replaceChildren(...available.flatMap((item) => item.openrouter_models.map((id) => new Option(`${id} · 越獄：${item.name} · ${item.last_updated}`, id))));
       model.disabled = !model.options.length;
       if ([...model.options].some(option => option.value === 'deepseek/deepseek-v4.1-flash')) model.value = 'deepseek/deepseek-v4.1-flash';
       if (restoredBrief?.model && [...model.options].some(option => option.value === restoredBrief.model)) model.value = restoredBrief.model;
       creatorStatus.textContent = model.options.length ? `已載入 ${model.options.length} 個有已核准越獄的模型；最新項目優先。` : "尚無已核准的越獄，請先到越獄工作台完成編輯與核准。";
-    } catch { creatorStatus.textContent = "無法讀取可用模型。"; }
+    } catch { if(isCurrentOperation(epoch,ownerId))creatorStatus.textContent = "無法讀取可用模型。"; }
   }
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (generating || revising || restoringVersion) return;
+    const epoch=creatorEpoch,ownerId=activeOwnerId,operation=++generationOperation;
+    if(!isCurrentOperation(epoch,ownerId))return;
     const button = form.querySelector("button");
     const keywords = panel.querySelector("#creator-keywords").value.trim();
     if (!keywords || model.disabled) return;
@@ -256,12 +417,14 @@
     updateAssistant();
     button.disabled = true; button.textContent = "生成中…";
     await syncDraft();
+    if(!isCurrentOperation(epoch,ownerId)||operation!==generationOperation)return;
     form.setAttribute('aria-busy', 'true');
     creatorStatus.textContent = `正以 ${model.value} 與對應越獄生成草稿…`;
     const started = Date.now();
-    const waiting = window.setInterval(() => { creatorStatus.textContent = `正在生成完整人設、說話風格與介紹，已等待 ${Math.floor((Date.now()-started)/1000)} 秒。完成草稿會先保存伺服器，確認後才加入角色庫。`; },1000);
+    generationTimer = window.setInterval(() => { if(isCurrentOperation(epoch,ownerId))creatorStatus.textContent = `正在生成完整人設、說話風格與介紹，已等待 ${Math.floor((Date.now()-started)/1000)} 秒。完成草稿會先保存伺服器，確認後才加入角色庫。`; },1000);
     try {
       const response = await fetch("/api/characters/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keywords, model: model.value, enable_search: panel.querySelector("#creator-search").checked, is_nsfw: panel.querySelector("#creator-adult").checked }) });
+      if(!isCurrentOperation(epoch,ownerId)||operation!==generationOperation)return;
       if (!response.ok) {
         let errorBody; try { errorBody = await response.json(); } catch {}
         throw new Error(typeof errorBody?.detail === 'string' ? errorBody.detail : `角色生成未完成（HTTP ${response.status}）。請稍後再試。`);
@@ -273,16 +436,16 @@
       loadDraftHistory();
       renderDraft(); setStep(1); creatorStatus.textContent = "草稿已完成。你可以修改人設與說話風格，再儲存。";
       result.scrollIntoView({block:'start', behavior:'auto'});
-    } catch (error) { creatorStatus.textContent = `生成失敗：${error.message}`; }
-    finally { window.clearInterval(waiting); generating = false; button.disabled = false; button.textContent = "生成角色草稿"; form.setAttribute('aria-busy', 'false'); updateAssistant(); }
+    } catch (error) { if(isCurrentOperation(epoch,ownerId))creatorStatus.textContent = `生成失敗：${error.message}`; }
+    finally { if(generationTimer!==null){window.clearInterval(generationTimer);generationTimer=null;} if(operation===generationOperation&&isCurrentOperation(epoch,ownerId)){generating = false; button.disabled = false; button.textContent = "生成角色草稿"; form.setAttribute('aria-busy', 'false'); updateAssistant();} }
   });
   function renderDraft() {
     panel.classList.remove('creator-trial-active');
     result.hidden = false; result.replaceChildren();
-    const title = document.createElement('h2'); title.textContent = savedCharacter ? '已儲存角色的草稿紀錄' : '審核你的角色';
-    const draftWarning = document.createElement('p'); draftWarning.className = 'creator-draft-warning'; draftWarning.setAttribute('role','status'); draftWarning.textContent = savedCharacter ? '這份角色已保存。查看舊版本並還原時，會建立新草稿，不會修改已保存的角色。' : draft.generation_id ? `目前版本 ${draft.revision+1}。修改成功同步後會另存一版，可從下方版本歷史還原；按下儲存角色才會加入角色庫。` : '草稿尚未儲存，請先審核並儲存。';
+    const title = document.createElement('h2'); title.textContent = editingCharacter ? '編輯我的角色' : savedCharacter ? '已儲存角色的草稿紀錄' : '審核你的角色';
+    const draftWarning = document.createElement('p'); draftWarning.className = 'creator-draft-warning'; draftWarning.setAttribute('role','status'); draftWarning.textContent = editingCharacter ? '儲存會更新這位角色，並保留角色 ID 與既有對話、記憶及關係。尚未儲存的修改可按「取消編輯」放棄。' : savedCharacter ? '這份角色已保存。查看舊版本並還原時，會建立新草稿，不會修改已保存的角色。' : draft.generation_id ? `目前版本 ${draft.revision+1}。修改成功同步後會另存一版，可從下方版本歷史還原；按下儲存角色才會加入角色庫。` : '草稿尚未儲存，請先審核並儲存。';
     const review = document.createElement('form'); review.className = 'character-review';
-    review.addEventListener('input',()=>{draftDirty=true;editVersion++;storageStatus('正在同步修改至伺服器…');clearTimeout(syncTimer);syncTimer=setTimeout(syncDraft,700);});
+    review.addEventListener('input',()=>{draftDirty=true;editVersion++;storageStatus(editingCharacter ? '修改尚未儲存；儲存後才會更新角色。' : '正在同步修改至伺服器…');if(editingCharacter)preservePendingEdit();clearTimeout(syncTimer);if(!editingCharacter)syncTimer=setTimeout(syncDraft,700);});
     const labels = {character_name:'角色名稱',basic_info:'基本資料',age:'年齡',gender:'性別',occupation:'職業',personality:'個性',backstory:'背景故事',language_style:'說話方式',appearance:'外貌',motivations:'動機與目標',relationships:'人際關係',core_theme:'角色主題',abilities:'能力',weaknesses:'弱點',interaction_context:'互動情境',cultural_details:'文化背景',psychological_evolution:'關係發展',behavioral_boundaries:'互動界線',evolution_requirements:'發展條件',core_traits:'核心特質'};
     function field(label, value, update, name = '') {
       const wrapper = document.createElement('label'); wrapper.textContent = label;
@@ -314,9 +477,12 @@
     const advanced = document.createElement('details'); const heading = document.createElement('summary'); heading.textContent = '進階檢視：完整角色 JSON';
     const json = document.createElement('pre'); json.textContent = JSON.stringify(draft.character,null,2);
     advanced.addEventListener('toggle', () => { json.textContent = JSON.stringify(draft.character,null,2); }); advanced.append(heading,json);
-    const save = document.createElement('button'); save.type = 'submit'; save.className = 'primary-button'; save.textContent = '儲存角色 · 僅自己可見';
+    const save = document.createElement('button'); save.type = 'submit'; save.className = 'primary-button'; save.textContent = editingCharacter ? '儲存角色變更' : '儲存角色 · 僅自己可見';
     const test = document.createElement('button'); test.type='button'; test.className='ghost-button creator-test-button'; test.textContent='測試對話';
-    const actions = document.createElement('div'); actions.className='creator-review-actions'; actions.append(test,save);
+    test.hidden=!draft.generation_id;
+    const actions = document.createElement('div'); actions.className='creator-review-actions';
+    if(editingCharacter){const cancel=document.createElement('button');cancel.type='button';cancel.className='ghost-button creator-cancel-edit';cancel.textContent='取消編輯';cancel.addEventListener('click',cancelEdit);actions.append(cancel);}
+    actions.append(test,save);
     test.addEventListener('click', async () => {
       if (saving || generating || revising || restoringVersion || test.disabled || !review.reportValidity()) return;
       test.disabled=true; test.textContent='準備測試對話…';
@@ -510,29 +676,38 @@
   }
   async function saveDraft(button) {
     if (saving || revising || restoringVersion) return;
+    const epoch=creatorEpoch,ownerId=activeOwnerId,operation=Symbol('character-save'),original=editingCharacter,originalDraft=draft;
+    if(!isCurrentOperation(epoch,ownerId)||!originalDraft)return;
+    const reviewControls=[...button.closest('.character-review').querySelectorAll('input,textarea,button')].filter(item=>item!==button);
+    saveOperation=operation;
     saving = true; button.disabled = true; button.textContent = '正在儲存…';
+    reviewControls.forEach(item=>item.disabled=true);
     await syncDraft();
-    const id = draftId;
-    const character = { id, name: draft.character.character_name, premise: draft.description_for_app || draft.brief_description || '', voice: (draft.style_guide || '依角色設定互動。').slice(0,2000), profile: draft.character, style_guide: draft.style_guide || '', generation_metadata: {brief_description:draft.brief_description || '',category:draft.category || '',hobbies:draft.hobbies || ''}, full_prompt: '', source: { generated_file: 'DIJI character creator', ...(draft.generation_id ? {generation_id:draft.generation_id} : {}) } };
+    if(!isCurrentOperation(epoch,ownerId)||saveOperation!==operation||draft!==originalDraft||editingCharacter!==original)return;
+    const updatingExisting=Boolean(original);
+    const id = updatingExisting ? original.id : draftId;
+    const character = { id, name: originalDraft.character.character_name, premise: originalDraft.description_for_app || originalDraft.brief_description || '', voice: (originalDraft.style_guide || '依角色設定互動。').slice(0,2000), profile: originalDraft.character, style_guide: originalDraft.style_guide || '', relationship_start: original?.relationship_start || 'new', generation_metadata: {...(original?.generation_metadata||{}),brief_description:originalDraft.brief_description || '',category:originalDraft.category || '',hobbies:originalDraft.hobbies || ''}, full_prompt: original?.full_prompt || '', source: original?.source || { generated_file: 'DIJI character creator', ...(originalDraft.generation_id ? {generation_id:originalDraft.generation_id} : {}) } };
     try {
       const response = await fetch(`/api/characters/${id}`, {method:'PUT', headers:{'Content-Type':'application/json'},body:JSON.stringify(character)});
       const saved = await response.json();
+      if(!isCurrentOperation(epoch,ownerId)||saveOperation!==operation||draft!==originalDraft||editingCharacter!==original)return;
       if (!response.ok) throw new Error(typeof saved.detail === 'string' ? saved.detail : '請檢查人設欄位內容後重試');
       savedCharacter = saved;
+      editingCharacter=null;
       updateAssistant();
-      draftDirty=false; loadDraftHistory();
+      draftDirty=false;if(original)discardPendingEdit(ownerId,original.id);loadDraftHistory();
       window.dijiState.characters = window.dijiState.characters.filter(item => item.id !== saved.id).concat(saved);
       window.dijiRenderCharacterLibrary(); setStep(2);
       if (typeof renderSidebarCharacters === 'function') renderSidebarCharacters();
       form.hidden = true;
       try { sessionStorage.removeItem(briefKey); } catch {}
       result.replaceChildren();
-      const title = document.createElement('h2'); title.textContent = '角色已儲存';
-      const note = document.createElement('p'); note.textContent = `「${saved.name}」已保存到你的帳號，僅自己可見。`;
+      const title = document.createElement('h2'); title.textContent = updatingExisting ? '角色已更新' : '角色已儲存';
+      const note = document.createElement('p'); note.textContent = updatingExisting ? `「${saved.name}」已更新；角色識別與既有對話、記憶及關係保持不變。` : `「${saved.name}」已保存到你的帳號，僅自己可見。`;
       const chat = document.createElement('button'); chat.className = 'primary-button'; chat.textContent = '開始聊天'; chat.addEventListener('click', () => window.dijiSelectCharacter(saved));
       const library = document.createElement('button'); library.className = 'ghost-button'; library.textContent = '回到角色庫'; library.addEventListener('click', () => {search.value='';window.dijiRenderCharacterLibrary();document.querySelector('.rail-button[data-view="characters"]').click();grid.querySelector(`[data-character-id="${saved.id}"]`)?.scrollIntoView({block:'nearest'});});
-      const another = document.createElement('button'); another.className='ghost-button'; another.textContent='建立另一位角色'; another.addEventListener('click',()=>{const selectedModel=model.value;savedCharacter=null;draft=null;draftId=null;form.reset();model.value=selectedModel;form.hidden=false;result.hidden=true;result.replaceChildren();setStep(0);creatorStatus.textContent='描述新的角色概念，再開始生成。';persistBrief();panel.querySelector('#creator-keywords').focus();});
-      result.append(title,note,chat,library,another); creatorStatus.textContent = '儲存完成。';
+      const another = document.createElement('button'); another.className='ghost-button'; another.textContent='建立另一位角色'; another.addEventListener('click',()=>{const selectedModel=model.value;savedCharacter=null;editingCharacter=null;draft=null;draftId=null;form.reset();model.value=selectedModel;form.hidden=false;result.hidden=true;result.replaceChildren();setStep(0);creatorStatus.textContent='描述新的角色概念，再開始生成。';persistBrief();panel.querySelector('#creator-keywords').focus();});
+      result.append(title,note,chat,library,another); creatorStatus.textContent = updatingExisting ? '更新完成。' : '儲存完成。';
       if (draft.generation_id) {
         const history=document.createElement('button');history.className='ghost-button';history.textContent='查看草稿版本';
         history.addEventListener('click',async()=>{
@@ -543,22 +718,31 @@
         });result.append(history);
       }
       result.scrollIntoView({block:'start'});
-    } catch (error) { creatorStatus.textContent = `儲存失敗：${error.message}。修改內容仍保留，可再次儲存。`; }
-    finally { saving = false; button.disabled = false; button.textContent = '儲存角色 · 僅自己可見'; }
+    } catch (error) { if(isCurrentOperation(epoch,ownerId)&&saveOperation===operation)creatorStatus.textContent = `儲存失敗：${error.message}。修改內容仍保留，可再次儲存。`; }
+    finally { if(saveOperation===operation){saveOperation=null;saving=false;button.disabled=false;reviewControls.forEach(item=>item.disabled=false);button.textContent=editingCharacter?'儲存角色變更':'儲存角色 · 僅自己可見';} }
   }
   async function refreshCharacterLibrary() {
     if (!workspaceAvailable) return;
+    const epoch=creatorEpoch,ownerId=activeOwnerId;
     try {
       const response = await fetch("/api/characters");
+      if(!isCurrentOperation(epoch,ownerId))return;
       if (!response.ok) throw new Error("catalog unavailable");
-      window.dijiState.characters = await response.json();
+      const characters=await response.json();if(!isCurrentOperation(epoch,ownerId))return;
+      window.dijiState.characters = characters;
       window.dijiRenderCharacterLibrary();
     } catch (error) {
-      status.textContent = `角色庫無法載入：${error.message}`;
+      if(isCurrentOperation(epoch,ownerId))status.textContent = `角色庫無法載入：${error.message}`;
     }
   }
-  function initializeCreator() { creatorEpoch++; restoreBrief(); loadModels(); refreshCharacterLibrary(); loadDraftHistory(); }
+  function initializeCreator() {
+    const nextOwnerId=currentOwnerId();if(!nextOwnerId)return;
+    if(activeOwnerId&&activeOwnerId!==nextOwnerId){preservePendingEdit(activeOwnerId);resetCreatorForIdentityChange();}
+    activeOwnerId=nextOwnerId;creatorEpoch++;restoreBrief();
+    if(readPendingEdit(activeOwnerId).size)creatorStatus.textContent='找到尚未保存的角色修改；開啟該角色可選擇恢復。';
+    loadModels();refreshCharacterLibrary();loadDraftHistory();
+  }
   window.addEventListener('diji-workspace-ready', initializeCreator);
   if (workspaceAvailable) initializeCreator();
-  document.querySelectorAll('[data-auth-logout]').forEach(button=>button.addEventListener('click',()=>{creatorEpoch++;panel.classList.remove('creator-trial-active');clearTimeout(syncTimer);draftDirty=false;historyPanel.hidden=true;historyPanel.replaceChildren();briefKey=null;draft=null;savedCharacter=null;form.reset();form.hidden=false;result.replaceChildren();result.hidden=true;setStep(0);updateAssistant();}));
+  document.querySelectorAll('[data-auth-logout]').forEach(button=>button.addEventListener('click',()=>{preservePendingEdit(activeOwnerId);resetCreatorForIdentityChange();activeOwnerId=null;}));
 })();

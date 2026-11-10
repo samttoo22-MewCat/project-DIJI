@@ -50,6 +50,10 @@
 - 工作台的刪除動作必須先顯示越獄名稱並要求使用者確認；刪除只影響本機 JSON 項目，重新匯入能恢復來源中繼資料。
 - `ui`：純 HTML、CSS、JavaScript 的本機工作台。預設畫面是對話；角色庫（含角色創建）、越獄工作台與記憶檢視各自是獨立頁面。互動組裝順序固定在後端，不提供流程實驗 UI。
 - 角色創建 UI 固定使用「創作簡報 → 審核草稿 → 明確儲存」三步；生成結果不可自動寫入角色庫。成人虛構角色生成同樣只可使用所選模型對應的已核准越獄。
+- 共用角色複製透過帳號私有 catalog 建立新 ID，POST `/api/characters/{id}/copy` 必須用 `Idempotency-Key` 去重；不能複製已標記為私人可見的角色。私人角色的「編輯」沿用同一角色審核表單；編輯保存維持 ID 與既有資料關聯，取消不寫回未保存修改。
+- 2026-11-11 角色複製與編輯驗證：212 項 pytest、8 組 Node DOM／Service Worker 測試通過；另有 UI DOM 流程覆蓋雙擊鎖定、丟失回應後重試、取消不送出 PUT、既有 ID/中繼資料保留及重新載入。
+- 2026-11-11 角色編輯競態防護：編輯讀取、複製及保存回應須綁定登入帳號與介面操作世代；登出或切帳後舊回應不得回填新帳號 UI。尚未保存的編輯以帳號及角色 ID 分別存於 sessionStorage，同帳號切換多個角色可逐一恢復；保存／取消只清除對應角色草稿。回歸案例涵蓋延遲 GET/POST/PUT、登出、帳號切換及兩個角色草稿往返，使用 `NODE_PATH=/tmp/diji-role-copy-edit-test/node_modules node tests/character-copy-edit.test.cjs` 驗證。
+- 2026-11-11 角色詳細頁：角色庫卡片先開詳細頁，GET `/api/characters/{id}` 提供完整 `full_prompt`；舊角色若未存此欄位，服務端以角色 profile 與 style guide 依 `_full_prompt` 組出角色提示詞，複製時保留該完整內容。詳細頁的「複製」「開始跟角色聊天」為明確操作；私人角色另有「編輯」。複製建立新 ID 的帳號私有副本，不修改來源；跨帳號 PUT 必須拒絕。DOM 回歸測試：`NODE_PATH=/tmp/diji-role-copy-edit-test/node_modules node tests/character-details.test.cjs`。
 - 角色頁必須先呈現可搜尋、可選取的角色庫；選取角色會切換目前對話角色並建立新的本機對話。ai-server 匯入資料已寫入 catalog 後才會出現在此清單。
 - `local_catalog`：角色與流程的版本化資料模型與 JSON 儲存；UI 只經由 `/api/bootstrap`、角色與流程的保存端點讀寫它。
 - `character_import`：只讀取 `ai-server/api_server/configs/output` 的完整角色 JSON、同名完整 prompt 與風格指南；匯入前必須預覽、排除 `incomplete`／無效 JSON 並以角色名稱去重。不得讀取或搬入 memories、favorability、日誌或角色圖片。

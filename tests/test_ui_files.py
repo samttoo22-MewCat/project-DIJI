@@ -92,6 +92,23 @@ def test_ui_is_explicitly_local_only() -> None:
     assert "openai" not in source.lower()
 
 
+def test_character_details_show_full_prompt_and_explicit_actions() -> None:
+    markup = (ROOT / "ui/index.html").read_text()
+    script = (ROOT / "ui/character-creator.js").read_text()
+    style = (ROOT / "ui/ui-polish.css").read_text()
+
+    assert 'character-creator.js?v=20261111-character-details-1' in markup
+    assert 'ui-polish.css?v=20261111-character-details-1' in markup
+    assert 'data-character-detail-prompt' in script
+    assert "detailPrompt.textContent=character.full_prompt" in script
+    assert 'data-character-detail-copy' in script
+    assert 'data-character-detail-chat' in script
+    assert '開始跟角色聊天' in script
+    assert 'data-character-detail-edit' in script
+    assert 'white-space: pre-wrap' in style
+    assert 'overflow-wrap: anywhere' in style
+
+
 def test_age_confirmation_uses_an_optional_secure_cookie_and_requires_acceptance() -> None:
     markup = (ROOT / "ui/index.html").read_text()
     stylesheet = (ROOT / "ui/age-confirmation.css").read_text()
@@ -393,7 +410,25 @@ def test_character_cards_do_not_expose_ai_server_import_labels() -> None:
     assert 'character.source?.generated_file ? "ai-server 匯入" : "本機角色"' not in library
     assert '<em></em>' not in library
     assert "app.js?v=20261101-player-delete-1" in markup
-    assert "character-creator.js?v=20261101-player-delete-1" in markup
+    assert "character-creator.js?v=20261111-character-details-1" in markup
+
+
+def test_character_library_supports_private_copy_edit_and_details() -> None:
+    markup = (ROOT / "ui/index.html").read_text()
+    library = (ROOT / "ui/character-creator.js").read_text()
+    styles = (ROOT / "ui/ui-polish.css").read_text()
+
+    assert "character-detail-dialog" in library
+    assert "開始跟角色聊天" in library and "data-character-detail-copy" in library
+    assert "data-character-detail-edit" in library and "選擇角色：${character.name}" in library
+    assert "showCharacterDetails(copied" in library
+    assert 'method:\'POST\',headers:{\'Idempotency-Key\':key}' in library
+    assert "function cancelEdit()" in library and "已保存角色不會改變" in library
+    assert "const id = updatingExisting ? original.id : draftId" in library
+    assert "relationship_start: original?.relationship_start || 'new'" in library
+    assert "source: original?.source" in library
+    assert "article.character-library-card" in styles and ".character-library-select:focus-visible" in styles
+    assert "ui-polish.css?v=20261111-character-details-1" in markup
 
 
 def test_chat_starts_with_role_selection_before_opening_a_conversation() -> None:

@@ -591,6 +591,20 @@ def create_app(
         user=current_user(request)
         return cached(('catalog',user.id),lambda: AccountCatalog(local_catalog,_user_directory(user.id)/'catalog.json')).private
 
+    def character_owned_by_another_account(character_id: str, user_id: str) -> bool:
+        if not auth.required or not DEFAULT_USER_DIRECTORY.exists():
+            return False
+        for path in DEFAULT_USER_DIRECTORY.glob('*/catalog.json'):
+            if path.parent.name == user_id:
+                continue
+            try:
+                snapshot = CatalogSnapshot.model_validate_json(path.read_text(encoding='utf-8'))
+            except (OSError, ValueError):
+                continue
+            if any(item.id == character_id for item in snapshot.characters):
+                return True
+        return False
+
     def visible_catalog(request: Request) -> CatalogSnapshot:
         user = session_user(request)
         if auth.required and user:
@@ -602,6 +616,15 @@ def create_app(
         if character is None:
             raise HTTPException(status_code=404, detail="Character not found")
         return character
+
+    def character_with_prompt(character: CharacterSpec) -> CharacterSpec:
+        if character.full_prompt.strip():
+            return character
+        profile = {**character.profile, "character_name": character.name}
+        prompt = CharacterGenerationService._full_prompt(
+            GeneratedCharacter.model_validate(profile), character.style_guide or character.voice
+        )
+        return character.model_copy(update={"full_prompt": prompt})
 
     @app.get("/api/bootstrap", response_model=CatalogSnapshot)
     def bootstrap(http_request: Request, response: Response) -> CatalogSnapshot:
@@ -616,7 +639,7 @@ def create_app(
     @app.get("/api/characters/{character_id}", response_model=CharacterSpec)
     def get_character(character_id: str, http_request: Request, response: Response) -> CharacterSpec:
         response.headers["Cache-Control"] = "private, no-store"
-        return visible_character(http_request, character_id)
+        return character_with_prompt(visible_character(http_request, character_id))
 
     @app.put("/api/characters/{character_id}", response_model=CharacterSpec)
     def save_character(character_id: str, character: CharacterSpec, http_request: Request) -> CharacterSpec:
@@ -629,6 +652,8 @@ def create_app(
         if auth.required:
             if any(item.id == character_id for item in local_catalog.snapshot().characters):
                 raise HTTPException(status_code=409, detail="請使用新的角色識別碼建立個人角色")
+            if not any(item.id == character_id for item in target.snapshot().characters) and character_owned_by_another_account(character_id, current_user(http_request).id):
+                raise HTTPException(status_code=404, detail="角色不存在")
             character = character.model_copy(update={"source": {**character.source, "visibility": "private"}})
         activity = activity_for(current_user(http_request))
         if character.source.get('generation_id'):
@@ -647,6 +672,39 @@ def create_app(
         except BaseException as error:
             activity.finish(save_id, 'failed', {'error_type':type(error).__name__})
             raise
+        return saved
+
+    @app.post("/api/characters/{character_id}/copy", response_model=CharacterSpec, status_code=201)
+    def copy_character(character_id: str, http_request: Request, response: Response) -> CharacterSpec:
+        user = current_user(http_request)
+        original = character_with_prompt(visible_character(http_request, character_id))
+        if original.source.get("visibility") != "private" and not any(item.id == character_id for item in local_catalog.snapshot().characters):
+            raise HTTPException(status_code=404, detail="角色目前無法複製")
+        request_key = http_request.headers.get("Idempotency-Key", "")
+        try:
+            request_key = str(uuid.UUID(request_key))
+        except (ValueError, AttributeError):
+            raise HTTPException(status_code=400, detail="複製要求識別碼無效")
+        copy_id = f"copy-{character_id[:32]}-{sha256(f'{character_id}:{request_key}'.encode()).hexdigest()[:24]}"
+        target = private_catalog(http_request)
+        existing = next((item for item in target.snapshot().characters if item.id == copy_id), None)
+        if existing and existing.source.get("copy_request_id") == request_key:
+            response.headers["Cache-Control"] = "private, no-store"
+            return existing
+        if existing:
+            raise HTTPException(status_code=409, detail="角色複製識別碼已使用，請重新操作")
+        copied = original.model_copy(update={
+            "id": copy_id,
+            "source": {"visibility": "private", "copied_from": character_id, "copy_request_id": request_key},
+        })
+        save_id = activity_for(user).begin("character_copy", {"source_character_id": character_id, "character": copied.model_dump()})
+        try:
+            saved = target.save_character(copied)
+            activity_for(user).finish(save_id, "completed", {"character": saved.model_dump()})
+        except BaseException as error:
+            activity_for(user).finish(save_id, "failed", {"error_type": type(error).__name__})
+            raise
+        response.headers["Cache-Control"] = "private, no-store"
         return saved
 
     @app.get("/api/character-imports/preview", response_model=CharacterImportPreview)
