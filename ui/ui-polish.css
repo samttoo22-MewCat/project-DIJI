@@ -60,6 +60,8 @@ article.character-library-card { display: grid; grid-template-columns: minmax(0,
 .character-library-select { display: grid; grid-template-columns: 42px minmax(0,1fr) 28px; align-items: start; gap: 12px; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
 .character-library-select:focus-visible { outline: 3px solid #b3e1e3; outline-offset: 5px; border-radius: 8px; }
 .character-library-select:hover .character-library-arrow { transform: translateX(3px); }
+.character-library-action { align-self: end; justify-self: end; min-height: 44px; }
+.editing-existing-character .creation-connection-hint { display: none; }
 .character-library-initial { border-radius: 15px; width: 42px; height: 46px; background: linear-gradient(135deg, #355967, #203c4b); border-color: #769ca4; color: #ddf1ed; }
 .character-library-copy strong { font-size: 18px; line-height: 1.65; color: #f0f5f7; }
 .character-library-copy small { margin-top: 10px; color: #b9cbd8; line-height: 1.8; }

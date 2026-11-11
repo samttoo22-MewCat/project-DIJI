@@ -66,7 +66,8 @@ function setChatProviderLocked(locked, title = '尚未連接模型商', personaM
     const screen = document.querySelector(`[data-screen="${name}"]`);
     const gate = screen.querySelector('.chat-provider-gate');
     const needsPersona = name === 'chat' && personaMissing;
-    const screenLocked = (locked || needsPersona) && !(name === 'chat' && screen.classList.contains('awaiting-character'));
+    const canEditWithoutModel = name === 'create-character' && screen.classList.contains('editing-existing-character');
+    const screenLocked = (locked || needsPersona) && !canEditWithoutModel && !(name === 'chat' && screen.classList.contains('awaiting-character'));
     screen.classList.toggle('provider-locked', screenLocked);
     gate.hidden = !screenLocked;
     gate.querySelector('h2').textContent = needsPersona ? '請先設定你的玩家身分' : title;

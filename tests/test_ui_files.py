@@ -97,8 +97,8 @@ def test_character_details_show_full_prompt_and_explicit_actions() -> None:
     script = (ROOT / "ui/character-creator.js").read_text()
     style = (ROOT / "ui/ui-polish.css").read_text()
 
-    assert 'character-creator.js?v=20261111-character-prompt-source-1' in markup
-    assert 'ui-polish.css?v=20261111-character-details-1' in markup
+    assert 'character-creator.js?v=20261111-role-actions-1' in markup
+    assert 'ui-polish.css?v=20261111-role-actions-1' in markup
     assert 'data-character-detail-prompt' in script
     assert "detailPrompt.textContent=character.full_prompt" in script
     assert 'data-character-detail-copy' in script
@@ -203,7 +203,7 @@ def test_compact_layout_has_an_accessible_left_list_drawer_and_readable_copy() -
     assert "flex-direction: column" in responsive
     assert "mobileNavBackdrop.addEventListener" in script
     assert "responsive.css?v=20261030-openrouter-1" in markup
-    assert "app.js?v=20261111-persona-preference-1" in markup
+    assert "app.js?v=20261111-role-actions-1" in markup
     assert ".app.chat-list-visible" in responsive
     assert 'name !== "chat"' in script
     assert 'app.classList.toggle("chat-list-visible"' in script
@@ -218,7 +218,7 @@ def test_conversation_settings_labels_are_large_and_the_logo_returns_home() -> N
 
     assert ".live-switch { min-height: 44px; gap: 12px; font-size: 20px;" in responsive
     assert ".live-switch input { width: 20px; height: 20px; }" in responsive
-    assert "app.js?v=20261111-persona-preference-1" in markup
+    assert "app.js?v=20261111-role-actions-1" in markup
 
 
 def test_studio_subpage_secondary_copy_is_readable() -> None:
@@ -338,7 +338,7 @@ def test_ui_uses_a_user_requested_google_login_without_browser_key_storage() -> 
     assert 'id="google-login-dialog"' in markup
     assert 'id="google-login"' in markup
     assert "OpenRouter 登入" not in markup
-    assert "app.js?v=20261111-persona-preference-1" in markup
+    assert "app.js?v=20261111-role-actions-1" in markup
     assert 'fetch("/api/auth/session", { cache: "no-store" })' in script
     assert 'window.location.protocol === "file:"' in script
     assert 'id="google-login-form" method="post" action="/api/auth/google/start"' in markup
@@ -409,8 +409,8 @@ def test_character_cards_do_not_expose_ai_server_import_labels() -> None:
     assert "ai-server 匯入角色" not in app
     assert 'character.source?.generated_file ? "ai-server 匯入" : "本機角色"' not in library
     assert '<em></em>' not in library
-    assert "app.js?v=20261111-persona-preference-1" in markup
-    assert "character-creator.js?v=20261111-character-prompt-source-1" in markup
+    assert "app.js?v=20261111-role-actions-1" in markup
+    assert "character-creator.js?v=20261111-role-actions-1" in markup
 
 
 def test_character_library_supports_private_copy_edit_and_details() -> None:
@@ -428,7 +428,7 @@ def test_character_library_supports_private_copy_edit_and_details() -> None:
     assert "relationship_start: original?.relationship_start || 'new'" in library
     assert "source: original?.source" in library
     assert "article.character-library-card" in styles and ".character-library-select:focus-visible" in styles
-    assert "ui-polish.css?v=20261111-character-details-1" in markup
+    assert "ui-polish.css?v=20261111-role-actions-1" in markup
 
 
 def test_chat_starts_with_role_selection_before_opening_a_conversation() -> None:

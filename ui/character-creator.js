@@ -36,6 +36,7 @@
   let editingCharacter = null;
   let editLoading = false;
   const copyRequestKeys = new Map();
+  const activeCopies = new Map();
   let briefKey = null;
   let syncTimer = null;
   let syncQueue = Promise.resolve();
@@ -124,7 +125,8 @@
   function resetCreatorForIdentityChange() {
     creatorEpoch++;editOperation++;generationOperation++;detailOperation++;saveOperation=null;saving=false;generating=false;editLoading=false;selectedDetailCharacter=null;characterDetail.close();
     if(generationTimer!==null){window.clearInterval(generationTimer);generationTimer=null;}
-    copyRequestKeys.clear();clearTimeout(syncTimer);syncTimer=null;draftDirty=false;
+    copyRequestKeys.clear();activeCopies.clear();clearTimeout(syncTimer);syncTimer=null;draftDirty=false;
+    creationPage.classList.remove('editing-existing-character');
     panel.classList.remove('creator-trial-active');editingCharacter=null;savedCharacter=null;draft=null;draftId=null;
     historyPanel.hidden=true;historyPanel.replaceChildren();briefKey=null;form.reset();form.hidden=false;result.replaceChildren();result.hidden=true;setStep(0);
     panel.querySelector('#creator-title').textContent='讓一個靈感，成為角色。';
@@ -305,19 +307,29 @@
       const card = document.createElement("article");
       card.dataset.characterId = character.id;
       card.className = "character-library-card";
-      if (character.source?.visibility === "private") card.classList.add("personal-character");
+      const isPrivate = character.source?.visibility === "private";
+      if (isPrivate) card.classList.add("personal-character");
       const select=document.createElement('button');select.type='button';select.className='character-library-select';select.setAttribute('aria-label',`選擇角色：${character.name}`);
       select.innerHTML='<span class="character-library-initial" aria-hidden="true"></span><span class="character-library-copy"><strong></strong><small></small></span><span class="character-library-arrow" aria-hidden="true">→</span>';
       select.querySelector('.character-library-initial').textContent=character.name.slice(0,1);
       select.querySelector('strong').textContent=character.name;
       select.querySelector('small').textContent=character.premise;
       select.addEventListener('click',()=>openCharacterDetails(character.id,select));
-      if (character.source?.visibility === "private") {
+      if (isPrivate) {
         const badge = document.createElement("em");
         badge.textContent = "我的角色 · 僅自己可見";
         select.querySelector(".character-library-copy").append(badge);
       }
-      card.append(select);
+      const action = document.createElement('button');
+      action.type = 'button';
+      action.className = 'ghost-button character-library-action';
+      action.textContent = isPrivate ? '編輯' : '複製';
+      action.setAttribute('aria-label', `${action.textContent}角色：${character.name}`);
+      action.addEventListener('click', () => {
+        if (isPrivate) openCharacterEditor(character.id, action);
+        else copyCharacter(character, action);
+      });
+      card.append(select, action);
       return card;
     }));
     grid.append(createCard);
@@ -327,6 +339,7 @@
   createCard.addEventListener("click", () => {
     if(saving){creatorStatus.textContent='角色正在儲存，請完成後再切換頁面。';return;}
     if(editingCharacter&&draftDirty){if(!window.confirm('保留目前未儲存的角色修改，並建立新角色嗎？'))return;preservePendingEdit();}
+    creationPage.classList.remove('editing-existing-character');
     editingCharacter=null;savedCharacter=null;draft=null;draftId=null;draftDirty=false;result.replaceChildren();result.hidden=true;form.reset();form.hidden=false;historyPanel.hidden=true;setStep(0);
     panel.querySelector('#creator-title').textContent='讓一個靈感，成為角色。';
     panel.querySelector('header > p:last-child').textContent='先生成草稿，確認人設後，再保存到你的帳號。';
@@ -337,7 +350,10 @@
   async function openCharacterEditor(characterId, button) {
     if(saving){creatorStatus.textContent='角色正在儲存，請完成後再開啟其他角色。';return;}
     if(editLoading)return;
-    if(editingCharacter?.id===characterId)return;
+    if(editingCharacter?.id===characterId){
+      document.querySelector('[data-view="create-character"]').click();
+      return;
+    }
     if(editingCharacter&&draftDirty){if(!window.confirm(`保留「${editingCharacter.name}」尚未儲存的修改，再開啟其他角色嗎？`))return;preservePendingEdit();}
     const epoch=creatorEpoch,ownerId=activeOwnerId,operation=++editOperation;
     if(!isCurrentOperation(epoch,ownerId))return;
@@ -357,6 +373,7 @@
         if(draftDirty)discardPendingEdit(ownerId,character.id);
       }
       form.hidden=true;historyPanel.hidden=true;result.hidden=false;setStep(1);
+      creationPage.classList.add('editing-existing-character');
       panel.querySelector('#creator-title').textContent=`編輯角色：${character.name}`;
       panel.querySelector('header > p:last-child').textContent='修改完成後明確儲存；未儲存的編輯可以取消。';
       renderDraft();document.querySelector('[data-view="create-character"]').click();result.scrollIntoView({block:'start'});
@@ -367,6 +384,7 @@
     if(!editingCharacter||saving)return;
     if(draftDirty&&!window.confirm('放棄尚未儲存的修改嗎？已保存角色不會改變。'))return;
     discardPendingEdit(activeOwnerId,editingCharacter.id);
+    creationPage.classList.remove('editing-existing-character');
     editingCharacter=null;savedCharacter=null;draft=null;draftId=null;draftDirty=false;form.reset();form.hidden=false;result.replaceChildren();result.hidden=true;setStep(0);
     panel.querySelector('#creator-title').textContent='讓一個靈感，成為角色。';
     panel.querySelector('header > p:last-child').textContent='先生成草稿，確認人設後，再保存到你的帳號。';
@@ -374,10 +392,12 @@
     document.querySelector('[data-view="characters"]').click();
   }
   async function copyCharacter(character, button) {
-    if(button.disabled||saving)return;
+    if(button.disabled||saving||activeCopies.has(character.id))return;
     const epoch=creatorEpoch,ownerId=activeOwnerId;
     if(!isCurrentOperation(epoch,ownerId))return;
     const key=copyRequestKeys.get(character.id)||crypto.randomUUID();copyRequestKeys.set(character.id,key);
+    const operation = Symbol('copy');
+    activeCopies.set(character.id, operation);
     button.disabled=true;button.textContent='正在複製…';
     try {
       const response=await fetch(`/api/characters/${encodeURIComponent(character.id)}/copy`,{method:'POST',headers:{'Idempotency-Key':key},cache:'no-store'});
@@ -388,7 +408,10 @@
       window.dijiRenderCharacterLibrary();if(typeof renderSidebarCharacters==='function')renderSidebarCharacters();
       showCharacterDetails(copied,'已複製到你的角色庫，現在只有你的帳號看得到；原角色不會改動。你可以編輯這份副本。');
     } catch(error) {if(isCurrentOperation(epoch,ownerId))status.textContent=`無法複製角色：${error.message}。可再次嘗試。`;}
-    finally {if(isCurrentOperation(epoch,ownerId)&&button.isConnected){button.disabled=false;button.textContent='複製';}}
+    finally {
+      if (activeCopies.get(character.id) === operation) activeCopies.delete(character.id);
+      if(isCurrentOperation(epoch,ownerId)&&button.isConnected){button.disabled=false;button.textContent='複製';}
+    }
   }
 
   async function loadModels() {
