@@ -310,7 +310,11 @@ def test_ai_server_character_import_previews_and_imports_only_complete_valid_out
     )
     (characters / "測試者_20261010_120001_incomplete.json").write_text("{}", encoding="utf-8")
     (characters / "壞掉_20261010_120002.json").write_text("{", encoding="utf-8")
-    (prompts / "測試者_20261010_120000_完整prompt.md").write_text("完整 prompt", encoding="utf-8")
+    (characters / "測試短名_20261010_120100.json").write_text(
+        __import__("json").dumps({**profile, "character_name": "測試短名"}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    (prompts / "測試短名_20261010_120100_完整prompt.md").write_text("完整 prompt", encoding="utf-8")
     (styles / "測試者_20261010_120000_style.txt").write_text("風格指南", encoding="utf-8")
     catalog = LocalCatalog(tmp_path / "catalog.json")
     client = TestClient(create_app(catalog, character_importer=CharacterImporter(output)))
@@ -320,7 +324,7 @@ def test_ai_server_character_import_previews_and_imports_only_complete_valid_out
     assert preview.status_code == 200
     candidate = preview.json()["candidates"][0]
     assert candidate["name"] == "測試者"
-    assert len(preview.json()["skipped"]) == 2
+    assert len(preview.json()["skipped"]) == 3
 
     imported = client.post("/api/character-imports", json={"ids": [candidate["id"]]})
 

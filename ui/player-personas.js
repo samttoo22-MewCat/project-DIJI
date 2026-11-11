@@ -4,6 +4,21 @@
   const deleteDialog=document.querySelector('#player-delete-dialog'),deleteConfirm=document.querySelector('#player-delete-confirm');
   let pendingDelete=null;
   let records=[],editing=null,loading=0,switching=false;
+  const ownerId=()=>authenticatedUser?.id || 'local-user';
+  const preferenceKey=owner=>`diji-selected-player-persona:${owner}`;
+  window.dijiPreferredPlayerPersonaId=()=>{
+    try { return localStorage.getItem(preferenceKey(ownerId())); } catch { return null; }
+  };
+  function rememberSelection(owner,id) {
+    try {
+      if(id)localStorage.setItem(preferenceKey(owner),id);
+      else localStorage.removeItem(preferenceKey(owner));
+    } catch {}
+  }
+  function selectForPreview(record) {
+    state.playerPersonaId=record?.id || null;
+    state.playerPersona=record ? {name:record.name,sex:record.sex,age:record.age,description:record.description,chat_mode:state.chatMode} : null;
+  }
   const busy=()=>switching || document.querySelector('#chat-form').getAttribute('aria-busy')==='true';
   function summary(persona) {
     return persona ? [persona.name,persona.sex,persona.age ? `${persona.age} 歲` : '',persona.description].filter(Boolean).join(' · ') : '尚未設定玩家人設。';
@@ -36,11 +51,15 @@
     if(!records.length) {const empty=document.createElement('p');empty.textContent='還沒有玩家設定。新增一份人設，決定角色眼中的你。';list.append(empty);}
   }
   async function load() {
-    const epoch=++loading;
+    const epoch=++loading, owner=ownerId();
     try {
       const response=await fetch('/api/player-personas',{cache:'no-store'});
       if(!response.ok)throw new Error('無法載入玩家設定，請稍後重試。');
-      const data=await response.json();if(epoch!==loading)return;
+      const data=await response.json();if(epoch!==loading || owner!==ownerId() || !workspaceAvailable)return;
+      const preferredId=window.dijiPreferredPlayerPersonaId();
+      const preferred=data.find(record=>record.id===preferredId);
+      if(preferredId && !preferred)rememberSelection(owner,null);
+      if(state.chatId==='preview')selectForPreview(preferred);
       records=data;status.textContent='';render();return true;
     }catch(error){if(epoch===loading)status.textContent=error.message;}
     return false;
@@ -60,6 +79,7 @@
       const response=await fetch(`/api/player-personas/${encodeURIComponent(record.id)}`,{method:'DELETE'});
       if(!response.ok)throw new Error('刪除失敗，請重新載入設定後再試。');
       if(owner!==authenticatedUser?.id || !workspaceAvailable)return;
+      if(window.dijiPreferredPlayerPersonaId()===record.id)rememberSelection(ownerId(),null);
       if(editing===record.id){form.hidden=true;form.reset();editing=null;}
       deleteDialog.close();pendingDelete=null;await load();updateHomeJourney();
       status.textContent='已刪除玩家設定；已開始的對話、記憶與人設快照完整保留，仍可繼續聊天。';showToast('已刪除設定，既有對話與記憶保留');
@@ -75,16 +95,20 @@
   async function choose(id) {
     if(busy()){render();showToast('請等候這一回合完成後再切換玩家設定。');return;}
     const selected=records.find(record=>record.id===id);
+    if(!selected)return;
+    const owner=ownerId();
     switching=true;setComposerBusy(true);render();
     try {
       const character=selectedCharacter();
       if(character) {
         if(!await startConversation(character,id || null))return;
+        if(owner!==ownerId() || !workspaceAvailable)return;
+        rememberSelection(owner,id);
         setChatReady(true);showScreen('chat');
         showToast('已使用選擇的玩家設定開啟新對話，原對話仍保留。');
       } else {
-        state.playerPersonaId=id || null;
-        state.playerPersona=selected ? {name:selected.name,sex:selected.sex,age:selected.age,description:selected.description,chat_mode:state.chatMode} : null;
+        rememberSelection(owner,id);
+        selectForPreview(selected);
         showToast('已選用玩家設定，請選擇角色開始聊天。');
       }
     }catch(error){showToast(`設定未切換：${error.message}`);}

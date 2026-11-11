@@ -120,7 +120,7 @@ class CharacterImporter:
     def _build(self, path: Path, profile: dict[str, Any], generated_at: str) -> _ScannedCharacter:
         name = str(profile["character_name"]).strip()
         source_key = self._artifact_key(path.stem)
-        prompt = self._companion_text("generated_prompts", source_key, "完整prompt")
+        prompt = self._matching_prompt(profile) or self._companion_text("generated_prompts", source_key, "完整prompt")
         style = self._companion_text("generated_styles", source_key, "_style")
         if not style:
             style = self._companion_text("generated_styles", source_key, "風格指南")
@@ -158,6 +158,24 @@ class CharacterImporter:
 
     def _characters_directory(self) -> Path:
         return self.source_directory / "generated_characters"
+
+    def _matching_prompt(self, profile: dict[str, Any]) -> tuple[str, str] | None:
+        # The exporter renames the role and writes its prompt and a flat JSON with the same stem.
+        fields = {key: value for key, value in profile.items() if key != "character_name"}
+        if not fields:
+            return None
+        matches = []
+        for prompt in (self.source_directory / "generated_prompts").glob("*_完整prompt.md"):
+            companion = self._characters_directory() / (prompt.name.removesuffix("_完整prompt.md") + ".json")
+            try:
+                data = json.loads(companion.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if isinstance(data, dict) and {key: value for key, value in data.items() if key != "character_name"} == fields:
+                matches.append(prompt)
+        if len(matches) == 1:
+            return matches[0].read_text(encoding="utf-8"), matches[0].name
+        return None
 
     def _companion_text(self, directory: str, key: str, marker: str) -> tuple[str, str]:
         folder = self.source_directory / directory

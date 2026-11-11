@@ -136,19 +136,22 @@ function resetTranscript(label = "新的本機對話已開始") {
   renderChatMemories([]);
   showToast(label);
 }
-async function startConversation(character, playerPersonaId = state.playerPersonaId) {
+async function startConversation(character, playerPersonaId = window.dijiPreferredPlayerPersonaId?.() || state.playerPersonaId) {
   if (!requireLogin()) return false;
+  const owner = authenticatedUser?.id;
   if (window.dijiEnsurePlayerPersona && !await window.dijiEnsurePlayerPersona({personaId:playerPersonaId})) return false;
   if (!await refreshChatProviderState()) { rememberPendingTask('chat'); showScreen('connections'); return false; }
+  if (!workspaceAvailable || owner !== authenticatedUser?.id) return false;
   const chatId = `chat-${crypto.randomUUID()}`;
   const response = await fetch("/api/conversations", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ chat_id: chatId, character_id: character.id, character_name: character.name, chat_mode: state.chatMode, player_persona_id: playerPersonaId }),
   });
   if (!response.ok) throw new Error("無法建立本機對話");
+  const record = await response.json();
+  if (!workspaceAvailable || owner !== authenticatedUser?.id) return false;
   state.chatId = chatId;
   resetTranscript(`${character.name} 已設為目前角色`);
-  const record = await response.json();
   state.playerPersonaId = record.player_persona_id || null;
   state.playerPersona = record.player_persona || null;
   window.dispatchEvent(new Event('diji-persona-changed'));
@@ -655,6 +658,7 @@ document.querySelectorAll("[data-auth-logout]").forEach((button) => button.addEv
   state.characters = [];
   state.conversations = [];
   state.history = [];
+  state.chatId = "preview";
   state.playerPersonaId = null;
   state.playerPersona = null;
   window.dispatchEvent(new Event('diji-persona-cleared'));

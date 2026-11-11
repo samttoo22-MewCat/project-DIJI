@@ -54,7 +54,7 @@ def test_default_character_copy_is_private_idempotent_and_editable(tmp_path, mon
     assert copied_response.status_code == 201
     copied = copied_response.json()
     assert copied["id"] != source_before["id"]
-    assert copied["source"] == {"visibility": "private", "copied_from": "yelan", "copy_request_id": key}
+    assert copied["source"] == {"visibility": "private", "copied_from": "yelan", "copy_request_id": key, "prompt_origin": "assembled"}
     assert copied["profile"] == source_before["profile"]
     assert copied["relationship_start"] == source_before["relationship_start"]
     assert copied["full_prompt"] == source_before["full_prompt"]

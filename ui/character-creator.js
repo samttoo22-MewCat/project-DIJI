@@ -278,6 +278,9 @@
     detailVisibility.textContent=isPrivate?'我的角色 · 僅自己可見':'共用角色';
     detailVisibility.classList.toggle('is-private',isPrivate);
     detailPrompt.textContent=character.full_prompt||'目前沒有可顯示的角色提示詞。';
+    detailPrompt.previousElementSibling.textContent=character.source?.prompt_origin==='assembled'
+      ? '這份提示詞依現有角色設定與對話風格組成。'
+      : '以下是這個角色的人設與對話風格內容，不包含模型服務的隱藏系統指令。';
     detailStatus.textContent=notice;
     detailCopy.disabled=false;detailCopy.textContent='複製';detailChat.disabled=false;
     detailEdit.hidden=!isPrivate;detailEdit.disabled=false;

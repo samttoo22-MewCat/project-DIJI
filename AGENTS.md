@@ -53,11 +53,12 @@
 - 共用角色複製透過帳號私有 catalog 建立新 ID，POST `/api/characters/{id}/copy` 必須用 `Idempotency-Key` 去重；不能複製已標記為私人可見的角色。私人角色的「編輯」沿用同一角色審核表單；編輯保存維持 ID 與既有資料關聯，取消不寫回未保存修改。
 - 2026-11-11 角色複製與編輯驗證：212 項 pytest、8 組 Node DOM／Service Worker 測試通過；另有 UI DOM 流程覆蓋雙擊鎖定、丟失回應後重試、取消不送出 PUT、既有 ID/中繼資料保留及重新載入。
 - 2026-11-11 角色編輯競態防護：編輯讀取、複製及保存回應須綁定登入帳號與介面操作世代；登出或切帳後舊回應不得回填新帳號 UI。尚未保存的編輯以帳號及角色 ID 分別存於 sessionStorage，同帳號切換多個角色可逐一恢復；保存／取消只清除對應角色草稿。回歸案例涵蓋延遲 GET/POST/PUT、登出、帳號切換及兩個角色草稿往返，使用 `NODE_PATH=/tmp/diji-role-copy-edit-test/node_modules node tests/character-copy-edit.test.cjs` 驗證。
-- 2026-11-11 角色詳細頁：角色庫卡片先開詳細頁，GET `/api/characters/{id}` 提供完整 `full_prompt`；舊角色若未存此欄位，服務端以角色 profile 與 style guide 依 `_full_prompt` 組出角色提示詞，複製時保留該完整內容。詳細頁的「複製」「開始跟角色聊天」為明確操作；私人角色另有「編輯」。複製建立新 ID 的帳號私有副本，不修改來源；跨帳號 PUT 必須拒絕。DOM 回歸測試：`NODE_PATH=/tmp/diji-role-copy-edit-test/node_modules node tests/character-details.test.cjs`。
+- 2026-11-11 角色詳細頁：角色庫卡片先開詳細頁，GET `/api/characters/{id}` 提供完整 `full_prompt`；有原檔時逐字讀取已存提示詞。缺少原檔時依角色設定及風格組成，詳情顯示來源，複製保留提示詞與來源標記。詳細頁的「複製」「開始跟角色聊天」為明確操作；私人角色另有「編輯」。複製建立新 ID 的帳號私有副本，不修改來源；跨帳號 PUT 必須拒絕。DOM 回歸測試：`NODE_PATH=/tmp/diji-role-copy-edit-test/node_modules node tests/character-details.test.cjs`。
 - 2026-11-11 正式站 Edge 登入態手動驗收：角色卡打開詳情並顯示完整提示詞；共用角色複製後標示「我的角色 · 僅自己可見」，新副本可編輯並保存，來源仍標示共用且內容未變。未保存名稱修改按取消並確認後，角色名稱未變。從詳情明確開始聊天會先要求選用玩家設定；選用既有設定後，聊天頁標題及新對話列都顯示該私有副本。未送出訊息或模型請求。
 - 角色頁必須先呈現可搜尋角色庫；點角色卡只開詳細頁，不直接建立對話。使用者在詳情按「開始跟角色聊天」後才設為目前角色並建立新對話；開始前須完成玩家設定及模型連線要求。ai-server 匯入資料已寫入 catalog 後才會出現在此清單。
 - `local_catalog`：角色與流程的版本化資料模型與 JSON 儲存；UI 只經由 `/api/bootstrap`、角色與流程的保存端點讀寫它。
-- `character_import`：只讀取 `ai-server/api_server/configs/output` 的完整角色 JSON、同名完整 prompt 與風格指南；匯入前必須預覽、排除 `incomplete`／無效 JSON 並以角色名稱去重。不得讀取或搬入 memories、favorability、日誌或角色圖片。
+- `character_import`：只讀取 `ai-server/api_server/configs/output` 的角色 JSON、完整 prompt 與風格指南。匯出時名稱可能縮短，先比對提示詞同檔名 JSON 的完整人設欄位，再用舊版同名配對。匯入前必須預覽、排除 `incomplete`／無效 JSON 並以角色名稱去重。不得讀取或搬入 memories、favorability、日誌或角色圖片。
+- 2026-11-11 玩家目前選用的設定以帳號 ID 為瀏覽器儲存範圍，只保存設定 ID。重新整理時從該帳號 API 重新驗證並讀取最新人設，已刪除的選用會清除；開啟既有對話仍使用其人設快照。
 - `prompt_assembly`：把角色、流程、場景、歷史與記憶組成可檢查的 bundle；不負責呼叫模型。
 - `memory_store`：以 `runtime/memories/{chat_id}.json` 保存 ai-server 相容事件記憶，包含同樣的近期讀取、關鍵字文字搜尋與分類搜尋（分類命中後仍以時間排序）；互動時另以目前訊息的 `keywords` 值形成 `<RELEVANT_MEM>`。
 - `conversation_store`：以 `runtime/conversations/{chat_id}.json` 保存完整逐字對話與角色識別；它只負責恢復聊天畫面與歷史訊息，絕不能取代、濃縮或改寫 `memory_store` 的 ai-server 事件記憶。

@@ -621,10 +621,14 @@ def create_app(
         if character.full_prompt.strip():
             return character
         profile = {**character.profile, "character_name": character.name}
+        profile.setdefault("backstory", character.premise)
         prompt = CharacterGenerationService._full_prompt(
             GeneratedCharacter.model_validate(profile), character.style_guide or character.voice
         )
-        return character.model_copy(update={"full_prompt": prompt})
+        return character.model_copy(update={
+            "full_prompt": prompt,
+            "source": {**character.source, "prompt_origin": "assembled"},
+        })
 
     @app.get("/api/bootstrap", response_model=CatalogSnapshot)
     def bootstrap(http_request: Request, response: Response) -> CatalogSnapshot:
@@ -695,7 +699,10 @@ def create_app(
             raise HTTPException(status_code=409, detail="角色複製識別碼已使用，請重新操作")
         copied = original.model_copy(update={
             "id": copy_id,
-            "source": {"visibility": "private", "copied_from": character_id, "copy_request_id": request_key},
+            "source": {
+                "visibility": "private", "copied_from": character_id, "copy_request_id": request_key,
+                **{key: original.source[key] for key in ("prompt_origin", "prompt_file") if original.source.get(key)},
+            },
         })
         save_id = activity_for(user).begin("character_copy", {"source_character_id": character_id, "character": copied.model_dump()})
         try:
