@@ -59,6 +59,7 @@
 - `local_catalog`：角色與流程的版本化資料模型與 JSON 儲存；UI 只經由 `/api/bootstrap`、角色與流程的保存端點讀寫它。
 - `character_import`：只讀取 `ai-server/api_server/configs/output` 的角色 JSON、完整 prompt 與風格指南。匯出時名稱可能縮短，先比對提示詞同檔名 JSON 的完整人設欄位，再用舊版同名配對。匯入前必須預覽、排除 `incomplete`／無效 JSON 並以角色名稱去重。不得讀取或搬入 memories、favorability、日誌或角色圖片。
 - 2026-11-11 玩家目前選用的設定以帳號 ID 為瀏覽器儲存範圍，只保存設定 ID。重新整理時從該帳號 API 重新驗證並讀取最新人設，已刪除的選用會清除；開啟既有對話仍使用其人設快照。
+- 2026-11-11 正式站提示詞查驗：Edge 登入態逐一開啟 20 位共用、3 位私人角色，23 位都有提示詞。17 位匯入角色顯示逐字核對的原檔；夜魅以同版本 JSON 與風格指南組成，兩位內建示範角色以現有資料組成。舊夜蘭副本的提示詞等於舊版自動短版，備份後僅更新提示詞與來源標記，逐欄比對確認保留副本改名及其他資料。兩位私人自建角色的提示詞與各自儲存的人設及風格一致。
 - `prompt_assembly`：把角色、流程、場景、歷史與記憶組成可檢查的 bundle；不負責呼叫模型。
 - `memory_store`：以 `runtime/memories/{chat_id}.json` 保存 ai-server 相容事件記憶，包含同樣的近期讀取、關鍵字文字搜尋與分類搜尋（分類命中後仍以時間排序）；互動時另以目前訊息的 `keywords` 值形成 `<RELEVANT_MEM>`。
 - `conversation_store`：以 `runtime/conversations/{chat_id}.json` 保存完整逐字對話與角色識別；它只負責恢復聊天畫面與歷史訊息，絕不能取代、濃縮或改寫 `memory_store` 的 ai-server 事件記憶。
